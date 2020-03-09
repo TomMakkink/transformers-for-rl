@@ -2,21 +2,22 @@
 
 The architecture consists of an encoder and decoder layer, which both use stacked 
 self-attention and point-wise, fully connected layers. This transformer architecture 
-achieved excellent results on NLP tasks, and was shown to be more parallelisable 
-than Recurrent Neural Networks. 
+achieved excellent results on NLP tasks such as machine translation, and was demonstrated 
+be more parallelisable than Recurrent Neural Networks. 
 
 The original paper can be found here: https://arxiv.org/abs/1706.03762. 
-The pytorch tutorial on which this implemention is based on can be 
+The pytorch tutorial on which this implemention is currently based can be 
 found here: https://pytorch.org/tutorials/beginner/transformer_tutorial.html
 """
+import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn import TransformerEncoder, TransformerEncoderLayer
 
 class TransformerModel(nn.Module):
     def __init__(self, ntoken, ninp, nhead, nhid, nlayers, dropout=0.5):
         super(TransformerModel, self).__init__()
-        from torch.nn import TransformerEncoder, TransformerEncoderLayer
         self.model_type = 'Transformer'
         self.src_mask = None
         self.pos_encoder = PositionalEncoding(ninp, dropout)

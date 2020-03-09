@@ -1,9 +1,9 @@
 import torch
 import torchtext
 from torchtext.data.utils import get_tokenizer
+import torch.nn as nn
+from transformers.transformer import TransformerModel
 import time
-from models.transformer import TransformerModel
-
 # =====================================
 # Load and Batch Data 
 # =====================================
@@ -132,7 +132,3 @@ print('=' * 89)
 print('| End of training | test loss {:5.2f} | test ppl {:8.2f}'.format(
     test_loss, math.exp(test_loss)))
 print('=' * 89)
-
-if __name__ == '__main__':
-    print("Hello")
-
