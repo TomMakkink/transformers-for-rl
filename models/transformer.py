@@ -6,7 +6,7 @@ achieved excellent results on NLP tasks, and was shown to be more parallelisable
 than Recurrent Neural Networks. 
 
 The original paper can be found here: https://arxiv.org/abs/1706.03762. 
-The pytorch tutorial on which this implemention is based can be 
+The pytorch tutorial on which this implemention is based on can be 
 found here: https://pytorch.org/tutorials/beginner/transformer_tutorial.html
 """
 import torch
