@@ -24,6 +24,8 @@ import torch.optim as optim
 from torch.distributions import Categorical
 from transformers.transformer import TransformerModel
 
+
+
 # =====================================
 # Parse command-line arguments
 # =====================================
@@ -50,22 +52,43 @@ env.seed(args.seed)
 torch.manual_seed(args.seed)
 
 # =====================================
-# Initialise a Transformer Instance
+# Visualise Gradients 
 # =====================================
 
-d_model = 4 # the size of observation space 
-nhid = 200 # the dimension of the feedforward network model in nn.TransformerEncoder
-nlayers = 2 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
-nhead = 2 # the number of heads in the multiheadattention models
-dropout = 0.2 # the dropout value
+def plot_grad_flow(named_parameters):
+    ave_grads = []
+    layers = []
+    for n, p in named_parameters:
+        if(p.requires_grad) and ("bias" not in n):
+            layers.append(n)
+            ave_grads.append(p.grad.abs().mean())
+    # plt.plot(ave_grads, alpha=0.3, color="b")
+    # plt.hlines(0, 0, len(ave_grads)+1, linewidth=1, color="k" )
+    # plt.xticks(range(0,len(ave_grads), 1), layers, rotation="vertical")
+    # plt.xlim(xmin=0, xmax=len(ave_grads))
+    # plt.xlabel("Layers")
+    # plt.ylabel("average gradient")
+    # plt.title("Gradient flow")
+    # plt.grid(True)
 
+# =====================================
+# Policy Class
+# =====================================
 
 class Policy(nn.Module):
-    def __init__(self):
+    def __init__(self, config):
         super(Policy, self).__init__()
         if args.transformer is not None:
             print("Using Transformer...")
-            self.transformer = TransformerModel(d_model, nhead, nhid, nlayers, dropout)
+            self.transformer = TransformerModel(
+                d_model=config["d_model"], 
+                nhead=config["nhead"], 
+                num_encoder_layers=config["num_encoder_layers"],
+                num_decoder_layers=config["num_decoder_layers"], 
+                dim_feedforward=config["dim_feedforward"], 
+                dropout=config["dropout"],
+            )
+        
         self.affine1 = nn.Linear(4, 128)
         self.dropout = nn.Dropout(p=0.6)
         self.affine2 = nn.Linear(128, 2)
@@ -76,19 +99,15 @@ class Policy(nn.Module):
     def forward(self, x):
         if args.transformer is not None:
             x = self.transformer(x)
-        x = self.affine1(x)
+        
+        x = self.affine1(x.view(1,4))
         x = self.dropout(x)
         x = F.relu(x)
         action_scores = self.affine2(x)
         return F.softmax(action_scores, dim=1)
 
 
-policy = Policy()
-optimizer = optim.Adam(policy.parameters(), lr=1e-2)
-eps = np.finfo(np.float32).eps.item()
-
-
-def select_action(state):
+def select_action(policy, state):
     state = torch.from_numpy(state).float().unsqueeze(0)
     probs = policy(state)
     m = Categorical(probs)
@@ -97,7 +116,7 @@ def select_action(state):
     return action.item()
 
 
-def finish_episode():
+def finish_episode(policy, optimizer, eps):
     R = 0
     policy_loss = []
     returns = []
@@ -115,13 +134,15 @@ def finish_episode():
     del policy.rewards[:]
     del policy.saved_log_probs[:]
 
-
-def main():
+def train(config): 
+    policy = Policy(config)
+    optimizer = optim.Adam(policy.parameters(), lr=config["lr"])
+    eps = np.finfo(np.float32).eps.item()
     running_reward = 10
     for i_episode in count(1):
         state, ep_reward = env.reset(), 0
         for t in range(1, 10000):  # Don't infinite loop while learning
-            action = select_action(state)
+            action = select_action(policy, state)
             state, reward, done, _ = env.step(action)
             if args.render:
                 env.render()
@@ -131,14 +152,24 @@ def main():
                 break
 
         running_reward = 0.05 * ep_reward + (1 - 0.05) * running_reward
-        finish_episode()
+        finish_episode(policy, optimizer, eps)
         if i_episode % args.log_interval == 0:
             print('Episode {}\tLast reward: {:.2f}\tAverage reward: {:.2f}'.format(
                   i_episode, ep_reward, running_reward))
+            plot_grad_flow(policy.named_parameters())
         if running_reward > env.spec.reward_threshold:
             print("Solved! Running reward is now {} and "
                   "the last episode runs to {} time steps!".format(running_reward, t))
             break
+
+
+def main():
+    config = {"d_model": 4, "nhead": 1, "num_encoder_layers": 1, 
+              "num_decoder_layers": 0, "dim_feedforward": 10, "dropout": 0.0, 
+              "lr":0.001}
+
+    train(config)
+
 
 
 if __name__ == '__main__':
