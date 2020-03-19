@@ -6,8 +6,8 @@ achieved excellent results on NLP tasks such as machine translation, and was dem
 be more parallelisable than Recurrent Neural Networks. 
 
 The original paper can be found here: https://arxiv.org/abs/1706.03762. 
-This implementation is strongly based on the architecture the pytorch implementation, which 
-can be found here: https://github.com/pytorch/pytorch/blob/bdd7dbfd4b75e66a88d393993b41c77f576f74fc/torch/nn/modules/transformer.py#L382
+This implementation is strongly based on the pytorch implementation, which can be found here: 
+https://github.com/pytorch/pytorch/blob/bdd7dbfd4b75e66a88d393993b41c77f576f74fc/torch/nn/modules/transformer.py#L382
 """
 import math
 import copy
@@ -16,24 +16,24 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import LayerNorm, Linear, MultiheadAttention, Dropout, ModuleList
 from torch.nn.init import xavier_uniform_
-# from torch.nn import TransformerEncoder, TransformerEncoderLayer
 
 class TransformerModel(nn.Module):
-    def __init__(self, d_model=512, nhead=8, num_encoder_layers=6, num_decoder_layers=6, dim_feedforward=2048, dropout=0.0):
+    def __init__(self, d_model=512, n_head=8, num_encoder_layers=6, num_decoder_layers=6, dim_feedforward=2048, dropout=0.0):
         super(TransformerModel, self).__init__()
         self.src_mask = None
         self.model_type = 'Transformer'
-        encoder_layer = TransformerEncoderLayer(d_model, nhead, dim_feedforward, dropout)
+        encoder_layer = TransformerEncoderLayer(d_model, n_head, dim_feedforward, dropout)
         encoder_norm = LayerNorm(d_model)
         self.encoder = TransformerEncoder(encoder_layer, num_encoder_layers, encoder_norm)
-        # decoder_layer = TransformerDecoderLayer(d_model, nhead, dim_feedforward, dropout)
-        # decoder_norm = LayerNorm(d_model)
-        # self.decoder = TransformerDecoder(decoder_layer, num_decoder_layers, decoder_norm)
+        if (num_decoder_layers > 0):
+            decoder_layer = TransformerDecoderLayer(d_model, n_head, dim_feedforward, dropout)
+            decoder_norm = LayerNorm(d_model)
+            self.decoder = TransformerDecoder(decoder_layer, num_decoder_layers, decoder_norm)
 
         self._reset_parameters()
 
         self.d_model = d_model
-        self.nhead = nhead
+        self.n_head = n_head
 
     def _generate_square_subsequent_mask(self, sz):
         mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
@@ -107,10 +107,10 @@ class TransformerDecoder(nn.Module):
 
 class TransformerEncoderLayer(nn.Module):
     """Self-attention and feedforward networks"""
-    def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1):
+    def __init__(self, d_model, n_head, dim_feedforward=2048, dropout=0.1):
         super(TransformerEncoderLayer, self).__init__()
         # Attention Layers 
-        self.self_attn = MultiheadAttention(d_model, nhead, dropout=dropout)
+        self.self_attn = MultiheadAttention(d_model, n_head, dropout=dropout)
         # Feedforward layer 
         self.linear1 = Linear(d_model, dim_feedforward)
         self.dropout = Dropout(dropout)
@@ -137,10 +137,10 @@ class TransformerEncoderLayer(nn.Module):
 class TransformerDecoderLayer(nn.Module):
     """TransformerDecoderLayer is made up of self-attn, multi-head-attn and feedforward network."""
 
-    def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1):
+    def __init__(self, d_model, n_head, dim_feedforward=2048, dropout=0.1):
         super(TransformerDecoderLayer, self).__init__()
-        self.self_attn = MultiheadAttention(d_model, nhead, dropout=dropout)
-        self.multihead_attn = MultiheadAttention(d_model, nhead, dropout=dropout)
+        self.self_attn = MultiheadAttention(d_model, n_head, dropout=dropout)
+        self.multihead_attn = MultiheadAttention(d_model, n_head, dropout=dropout)
         # Implementation of Feedforward model
         self.linear1 = Linear(d_model, dim_feedforward)
         self.dropout = Dropout(dropout)

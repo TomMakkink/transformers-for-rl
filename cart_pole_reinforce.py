@@ -23,6 +23,8 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.distributions import Categorical
 from transformers.transformer import TransformerModel
+from transformers.transformer_xl import TransformerXL
+from ray import tune
 
 
 
@@ -40,6 +42,7 @@ parser.add_argument('--render', action='store_true',
 parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                     help='interval between training status logs (default: 10)')
 parser.add_argument('--transformer', action="store",
+                    choices=['vanilla', 'xl'],
                     help="use a transformer to 'preprocess' input")
 args = parser.parse_args()
 
@@ -59,7 +62,7 @@ def plot_grad_flow(named_parameters):
     ave_grads = []
     layers = []
     for n, p in named_parameters:
-        if(p.requires_grad) and ("bias" not in n):
+        if(p.requires_grad) and ("bias" not in n) and p is not None:
             layers.append(n)
             ave_grads.append(p.grad.abs().mean())
     # plt.plot(ave_grads, alpha=0.3, color="b")
@@ -78,15 +81,27 @@ def plot_grad_flow(named_parameters):
 class Policy(nn.Module):
     def __init__(self, config):
         super(Policy, self).__init__()
-        if args.transformer is not None:
+        if args.transformer == "vanilla":
             print("Using Transformer...")
             self.transformer = TransformerModel(
                 d_model=config["d_model"], 
-                nhead=config["nhead"], 
+                n_head=config["n_heads"], 
                 num_encoder_layers=config["num_encoder_layers"],
                 num_decoder_layers=config["num_decoder_layers"], 
                 dim_feedforward=config["dim_feedforward"], 
                 dropout=config["dropout"],
+            )
+        elif args.transformer == "xl":
+            print("Using Transformer-XL")
+            # self, n_layers:int, n_heads:int, d_model:int, d_head:int, d_inner:int,
+            #      resid_p:float=0., attn_p:float=0., ff_p:float=0., embed_p:float=0., bias:bool=False, scale:bool=True,
+            #      mask:bool=True, mem_len:int=0):
+            self.transformer = TransformerXL(
+                d_model=config["d_model"],
+                n_layers=config["n_layers"],
+                n_heads=config["n_head"],
+                d_inner=config["dim_feedforward"],
+                d_head=config["d_head"],
             )
         
         self.affine1 = nn.Linear(4, 128)
@@ -98,7 +113,8 @@ class Policy(nn.Module):
 
     def forward(self, x):
         if args.transformer is not None:
-            x = self.transformer(x)
+            mems = []
+            p = self.transformer(x, *mems)
         
         x = self.affine1(x.view(1,4))
         x = self.dropout(x)
@@ -134,6 +150,7 @@ def finish_episode(policy, optimizer, eps):
     del policy.rewards[:]
     del policy.saved_log_probs[:]
 
+
 def train(config): 
     policy = Policy(config)
     optimizer = optim.Adam(policy.parameters(), lr=config["lr"])
@@ -156,7 +173,7 @@ def train(config):
         if i_episode % args.log_interval == 0:
             print('Episode {}\tLast reward: {:.2f}\tAverage reward: {:.2f}'.format(
                   i_episode, ep_reward, running_reward))
-            plot_grad_flow(policy.named_parameters())
+            # plot_grad_flow(policy.named_parameters())
         if running_reward > env.spec.reward_threshold:
             print("Solved! Running reward is now {} and "
                   "the last episode runs to {} time steps!".format(running_reward, t))
@@ -164,9 +181,13 @@ def train(config):
 
 
 def main():
-    config = {"d_model": 4, "nhead": 1, "num_encoder_layers": 1, 
-              "num_decoder_layers": 0, "dim_feedforward": 10, "dropout": 0.0, 
-              "lr":0.001}
+    # analysis = tune.run(
+    # train, config={"lr": tune.grid_search([0.001, 0.01, 0.1])})
+
+    # print("Best config: ", analysis.get_best_config(metric="mean_accuracy"))
+    
+    config = {"d_model": 4, "n_head": 1, "n_layers": 1, "dim_feedforward": 10, "dropout": 0.0, 
+              "d_head": 1, "lr":0.001}
 
     train(config)
 
