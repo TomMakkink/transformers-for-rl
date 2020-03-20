@@ -99,9 +99,10 @@ class Policy(nn.Module):
             self.transformer = TransformerXL(
                 d_model=config["d_model"],
                 n_layers=config["n_layers"],
-                n_heads=config["n_head"],
+                n_heads=config["n_heads"],
                 d_inner=config["dim_feedforward"],
                 d_head=config["d_head"],
+                mem_len=4, 
             )
         
         self.affine1 = nn.Linear(4, 128)
@@ -112,7 +113,7 @@ class Policy(nn.Module):
         self.rewards = []
 
     def forward(self, x):
-        if args.transformer is not None:
+        if args.transformer == "xl":
             mems = []
             p = self.transformer(x, *mems)
         
@@ -186,8 +187,8 @@ def main():
 
     # print("Best config: ", analysis.get_best_config(metric="mean_accuracy"))
     
-    config = {"d_model": 4, "n_head": 1, "n_layers": 1, "dim_feedforward": 10, "dropout": 0.0, 
-              "d_head": 1, "lr":0.001}
+    config = {"d_model": 4, "n_heads": 1, "n_layers": 1, "dim_feedforward": 10, "dropout": 0.0, 
+              "d_head": 4, "lr":0.001}
 
     train(config)
 

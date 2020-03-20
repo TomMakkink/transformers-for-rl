@@ -6,7 +6,7 @@ than RNN's and Transformers, achieved better performance on both short and long 
 vanilla transformers at evaluation. 
 
 The original paper can be found here: https://arxiv.org/pdf/1901.02860.pdf. 
-The original opensource implementation, which can be found here: 
+The original opensource implementation can be found here: 
 https://github.com/kimiyoung/transformer-xl
 This implementation was strongly based on the fastai Transformer-XL implementation, which can be found here: 
 https://github.com/fastai/fastai/blob/master/fastai/text/models/transformer.py#L175
@@ -54,28 +54,29 @@ class MultiHeadAttention(nn.Module):
         self.ln = nn.LayerNorm(d_model)
 
     def forward(self, x:torch.Tensor, mask:torch.Tensor=None, **kwargs):
-        return self.ln(x + self.drop_res(self.out(self._attention_einsum(x, mask=mask, **kwargs))))
+        return self.ln(x + self.drop_res(self.out(self._apply_attention(x, mask=mask, **kwargs))))
 
-    def _attention_einsum(self, x, mask=None):
+    def _apply_attention(self, x:torch.Tensor, mask:torch.Tensor=None):
         bs,x_len = x.size(0),x.size(1)
         wq,wk,wv = torch.chunk(self.attention(x), 3, dim=-1)
         wq,wk,wv = map(lambda x:x.view(bs, x.size(1), self.n_heads, self.d_head), (wq,wk,wv))
-        attn_score = torch.einsum('bind,bjnd->bijn', (wq, wk))
-        if self.scale: attn_score.mul_(1/(self.d_head ** 0.5))
+        wq,wk,wv = wq.permute(0, 2, 1, 3),wk.permute(0, 2, 3, 1),wv.permute(0, 2, 1, 3)
+        attn_score = torch.matmul(wq, wk)
+        if self.scale: attn_score.div_(self.d_head ** 0.5)
         if mask is not None:
             attn_score = attn_score.float().masked_fill(mask, -float('inf')).type_as(attn_score)
-        attn_prob = self.drop_att(F.softmax(attn_score, dim=2))
-        attn_vec = torch.einsum('bijn,bjnd->bind', (attn_prob, wv))
-        return attn_vec.contiguous().view(bs, x_len, -1)
+        attn_prob = self.drop_att(F.softmax(attn_score, dim=-1))
+        attn_vec = torch.matmul(attn_prob, wv)
+        return attn_vec.permute(0, 2, 1, 3).contiguous().contiguous().view(bs, x_len, -1)
 
 
 def _line_shift(x:torch.Tensor, mask:bool=False):
-   "Shift the line i of `x` by p-i elements to the left, is `mask` puts 0s on the diagonal."
-   bs,n,p,nh = x.size()
-   x_pad = torch.cat([x.new_zeros(bs,n,1,nh), x], dim=2)
-   x_shift = x_pad.view(bs,p + 1,n,nh)[:,1:].view_as(x)
-   if mask: x_shift.mul_(torch.tril(x.new_ones(n,p), p-n)[None,:,:,None])
-   return x_shift
+    "Shift the line i of `x` by p-i elements to the left, is `mask` puts 0s on the diagonal."
+    bs,nh,n,p = x.size()
+    x_pad = torch.cat([x.new_zeros(bs,nh,n,1), x], dim=3)
+    x_shift = x_pad.view(bs,nh,p + 1,n)[:,:,1:].view_as(x)
+    if mask: x_shift.mul_(torch.tril(x.new_ones(n,p), p-n)[None,None,])
+    return x_shift
 
 
 class MultiHeadRelativeAttention(MultiHeadAttention):
@@ -84,26 +85,29 @@ class MultiHeadRelativeAttention(MultiHeadAttention):
                  scale:bool=True):
         super(MultiHeadRelativeAttention, self).__init__(n_heads, d_model, d_head)
         self.r_attn = nn.Linear(d_model, n_heads * d_head, bias=bias)
-
-
-    def _attention_einsum(self, x:torch.Tensor, r:torch.Tensor=None, u:torch.Tensor=None, v:torch.Tensor=None, mask:torch.Tensor=None, mem:torch.Tensor=None):
-        # Permute and matmul is a little bit faster but this implementation is more readable
+        
+    def _apply_attention(self, x:torch.Tensor, r:torch.Tensor=None, u:torch.Tensor=None, v:torch.Tensor=None, 
+                        mask:torch.Tensor=None, mem:torch.Tensor=None):
+        # Notations from the paper: x input, r vector of relative distance between two elements, u et v learnable
+        # parameters of the model common between all layers, mask to avoid cheating and mem the previous hidden states.
         bs,x_len,seq_len = x.size(0),x.size(1),r.size(0)
         context = x if mem is None else torch.cat([mem, x], dim=1)
         wq,wk,wv = torch.chunk(self.attention(context), 3, dim=-1)
         wq = wq[:,-x_len:]
-        wkr = self.r_attn(r)
         wq,wk,wv = map(lambda x:x.view(bs, x.size(1), self.n_heads, self.d_head), (wq,wk,wv))
+        wq,wk,wv = wq.permute(0, 2, 1, 3),wk.permute(0, 2, 3, 1),wv.permute(0, 2, 1, 3)
+        wkr = self.r_attn(r)
         wkr = wkr.view(seq_len, self.n_heads, self.d_head)
-        #### compute attention score (AC is (a) + (c) and BS is (b) + (d) in the paper)
-        AC = torch.einsum('bind,bjnd->bijn', (wq+u, wk))
-        BD = _line_shift(torch.einsum('bind,jnd->bijn', (wq+v, wkr)))
-        attn_score = (AC + BD).mul_(1/(self.d_head ** 0.5))
-        if mask is not None:
-            attn_score = attn_score.float().masked_fill(mask, -float('inf')).type_as(attn_score)
-        attn_prob = self.drop_att(F.softmax(attn_score, dim=2))
-        attn_vec = torch.einsum('bijn,bjnd->bind', (attn_prob, wv))
-        return attn_vec.contiguous().view(bs, x_len, -1)
+        wkr = wkr.permute(1,2,0)
+        #### compute attention score (AC is (a) + (c) and BD is (b) + (d) in the paper)
+        AC = torch.matmul(wq+u,wk)
+        BD = _line_shift(torch.matmul(wq+v, wkr))
+        if self.scale: attn_score = (AC + BD).mul_(1/(self.d_head ** 0.5))
+        # if mask is not None:
+            # attn_score = attn_score.float().masked_fill(mask, -float('inf')).type_as(attn_score)
+        attn_prob = self.drop_att(F.softmax(attn_score, dim=-1))
+        attn_vec = torch.matmul(attn_prob, wv)
+        return attn_vec.permute(0, 2, 1, 3).contiguous().view(bs, x_len, -1)
 
 
 class DecoderLayer(nn.Module):
@@ -122,14 +126,14 @@ class DecoderLayer(nn.Module):
 class TransformerXL(nn.Module):
     "TransformerXL Model"
     def __init__(self, n_layers:int, n_heads:int, d_model:int, d_head:int, d_inner:int,
-                 resid_p:float=0., attn_p:float=0., ff_p:float=0., embed_p:float=0., bias:bool=False, scale:bool=True,
+                 resid_p:float=0., attn_p:float=0., ff_p:float=0., bias:bool=False, scale:bool=True,
                  mask:bool=True, mem_len:int=0):
         super(TransformerXL, self).__init__()
         # self.encoder = nn.Embedding(vocab_sz, d_model)
         self.pos_enc = PositionalEncoding(d_model)
-        self.drop_emb = nn.Dropout(embed_p)
-        self.u = nn.Parameter(torch.Tensor(n_heads, d_head)) #Remove 1 for einsum implementation of attention
-        self.v = nn.Parameter(torch.Tensor(n_heads, d_head)) #Remove 1 for einsum implementation of attention
+        # self.drop_emb = nn.Dropout(embed_p)
+        self.u = nn.Parameter(torch.Tensor(n_heads, 1, d_head)) 
+        self.v = nn.Parameter(torch.Tensor(n_heads, 1, d_head)) 
         self.mem_len,self.n_layers,self.d_model,self.mask = mem_len,n_layers,d_model,mask
         self.init = False
         self.layers = nn.ModuleList([DecoderLayer(n_heads, d_model, d_head, d_inner, resid_p=resid_p, attn_p=attn_p,
@@ -156,21 +160,22 @@ class TransformerXL(nn.Module):
             self.init = True
         bs,x_len = x.size()
         # inp = self.drop_emb(self.encoder(x)) #.mul_(self.d_model ** 0.5)
-        inp = torch.tensor(x)
+        inp = x.clone().detach().view(1,1,4)
         m_len = self.hidden[0].size(1) if hasattr(self, 'hidden') and len(self.hidden[0].size()) > 1 else 0
         seq_len = m_len + x_len
-        mask = torch.triu(x.new_ones(x_len, seq_len), diagonal=1+m_len).byte()[None,None] if self.mask else None # for einsum implementation of attention
+        mask = torch.triu(x.new_ones(x_len, seq_len), diagonal=1+m_len).byte()[None,None] if self.mask else None 
         hids = []
-        pos = torch.arange(seq_len-1, -1, -1, device=inp.device, dtype=inp.dtype)
+        pos = torch.arange(seq_len-1, -1, -1, dtype=inp.dtype)
         pos_enc = self.pos_enc(pos)
         hids.append(inp)
         for i, layer in enumerate(self.layers):
             mem = self.hidden[i] if self.mem_len > 0 else None
             inp = layer(inp, r=pos_enc, u=self.u, v=self.v, mask=mask, mem=mem)
             hids.append(inp)
-        core_out = inp[:,-x_len:]
-        if self.mem_len > 0 : self._update_mems(hids)
-        return (self.hidden if self.mem_len > 0 else [core_out]),[core_out]
+        # core_out = inp[:,-x_len:]
+        # if self.mem_len > 0 : self._update_mems(hids)
+        # return (self.hidden if self.mem_len > 0 else [core_out]),[core_out]
+        return x
 
 
 def init_transformer(m):
