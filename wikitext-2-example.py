@@ -3,7 +3,7 @@ import torch
 import torchtext
 from torchtext.data.utils import get_tokenizer
 import torch.nn as nn
-from transformers.transformer import TransformerModel
+from transformers.transformer_xl import TransformerXL
 import time
 
 # =====================================
@@ -46,12 +46,17 @@ def get_batch(source, i):
 # =====================================
 
 ntokens = len(TEXT.vocab.stoi) # the size of vocabulary
+print(ntokens)
 emsize = 200 # embedding dimension
 nhid = 200 # the dimension of the feedforward network model in nn.TransformerEncoder
 nlayers = 2 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
 nhead = 2 # the number of heads in the multiheadattention models
 dropout = 0.2 # the dropout value
-model = TransformerModel(ntokens, emsize, nhead, nhid, nlayers, dropout).to(device)
+    # def __init__(self, vocab_size:int, ctx_length:int, n_layers:int, n_heads:int, d_model:int, d_head:int, d_inner:int,
+    #              resid_p:float=0., attn_p:float=0., ff_p:float=0., bias:bool=False, scale:bool=True,
+    #              mask:bool=True, mem_len:int=0):
+model = TransformerXL(vocab_size=ntokens, ctx_length=200, n_layers=2, n_heads=1, 
+                    d_model=200, d_inner=100, d_head=200).to(device)
 
 # =====================================
 # Run the Model 

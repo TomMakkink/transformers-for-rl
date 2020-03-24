@@ -92,22 +92,28 @@ class MultiHeadRelativeAttention(MultiHeadAttention):
         # parameters of the model common between all layers, mask to avoid cheating and mem the previous hidden states.
         bs,x_len,seq_len = x.size(0),x.size(1),r.size(0)
         context = x if mem is None else torch.cat([mem, x], dim=1)
-        wq,wk,wv = torch.chunk(self.attention(context), 3, dim=-1)
+        attn = self.attention(context)
+        wq,wk,wv = torch.chunk(attn, 3, dim=-1)
         wq = wq[:,-x_len:]
-        wq,wk,wv = map(lambda x:x.view(bs, x.size(1), self.n_heads, self.d_head), (wq,wk,wv))
-        wq,wk,wv = wq.permute(0, 2, 1, 3),wk.permute(0, 2, 3, 1),wv.permute(0, 2, 1, 3)
+        # No embedding dimension, so have changed view function. 
+        # wq,wk,wv = map(lambda x:x.view(bs, x_len, self.n_heads, self.d_head), (wq,wk,wv))
+        wq,wk,wv = map(lambda x:x.view(bs, self.n_heads, self.d_head), (wq,wk,wv))
+        # wq,wk,wv = wq.permute(0, 2, 1, 3),wk.permute(0, 2, 3, 1),wv.permute(0, 2, 1, 3)
+        wk = wk.permute(0, 2, 1)
         wkr = self.r_attn(r)
         wkr = wkr.view(seq_len, self.n_heads, self.d_head)
         wkr = wkr.permute(1,2,0)
-        #### compute attention score (AC is (a) + (c) and BD is (b) + (d) in the paper)
+        ### compute attention score (AC is (a) + (c) and BD is (b) + (d) in the paper)
         AC = torch.matmul(wq+u,wk)
-        BD = _line_shift(torch.matmul(wq+v, wkr))
+        # BD = _line_shift(torch.matmul(wq+v, wkr))
+        BD = torch.matmul(wq+v, wkr)
         if self.scale: attn_score = (AC + BD).mul_(1/(self.d_head ** 0.5))
         # if mask is not None:
-            # attn_score = attn_score.float().masked_fill(mask, -float('inf')).type_as(attn_score)
+        #     attn_score = attn_score.float().masked_fill(mask, -float('inf')).type_as(attn_score)
         attn_prob = self.drop_att(F.softmax(attn_score, dim=-1))
+        attn_prob = attn_prob.permute(0, 2, 1)
         attn_vec = torch.matmul(attn_prob, wv)
-        return attn_vec.permute(0, 2, 1, 3).contiguous().view(bs, x_len, -1)
+        return attn_vec.contiguous().view(bs, x_len, -1)
 
 
 class DecoderLayer(nn.Module):
@@ -129,9 +135,9 @@ class TransformerXL(nn.Module):
                  resid_p:float=0., attn_p:float=0., ff_p:float=0., bias:bool=False, scale:bool=True,
                  mask:bool=True, mem_len:int=0):
         super(TransformerXL, self).__init__()
-        # self.encoder = nn.Embedding(vocab_sz, d_model)
+        # self.encoder = nn.Embedding(vocab_size, d_model)
         self.pos_enc = PositionalEncoding(d_model)
-        # self.drop_emb = nn.Dropout(embed_p)
+        self.drop_emb = nn.Dropout(0.0)
         self.u = nn.Parameter(torch.Tensor(n_heads, 1, d_head)) 
         self.v = nn.Parameter(torch.Tensor(n_heads, 1, d_head)) 
         self.mem_len,self.n_layers,self.d_model,self.mask = mem_len,n_layers,d_model,mask
@@ -160,10 +166,11 @@ class TransformerXL(nn.Module):
             self.init = True
         bs,x_len = x.size()
         # inp = self.drop_emb(self.encoder(x)) #.mul_(self.d_model ** 0.5)
-        inp = x.clone().detach().view(1,1,4)
+        inp = x
         m_len = self.hidden[0].size(1) if hasattr(self, 'hidden') and len(self.hidden[0].size()) > 1 else 0
         seq_len = m_len + x_len
-        mask = torch.triu(x.new_ones(x_len, seq_len), diagonal=1+m_len).byte()[None,None] if self.mask else None 
+        # mask = torch.triu(x.new_ones(x_len, seq_len), diagonal=1+m_len).byte()[None,None] if self.mask else None 
+        mask = None
         hids = []
         pos = torch.arange(seq_len-1, -1, -1, dtype=inp.dtype)
         pos_enc = self.pos_enc(pos)

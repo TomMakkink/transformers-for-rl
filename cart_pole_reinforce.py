@@ -86,8 +86,8 @@ class Policy(nn.Module):
             self.transformer = TransformerModel(
                 d_model=config["d_model"], 
                 n_head=config["n_heads"], 
-                num_encoder_layers=config["num_encoder_layers"],
-                num_decoder_layers=config["num_decoder_layers"], 
+                num_encoder_layers=1,
+                num_decoder_layers=0, 
                 dim_feedforward=config["dim_feedforward"], 
                 dropout=config["dropout"],
             )
@@ -102,7 +102,7 @@ class Policy(nn.Module):
                 n_heads=config["n_heads"],
                 d_inner=config["dim_feedforward"],
                 d_head=config["d_head"],
-                mem_len=4, 
+                mem_len=0, 
             )
         
         self.affine1 = nn.Linear(4, 128)
