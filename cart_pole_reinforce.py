@@ -66,7 +66,7 @@ def plot_grad_flow(named_parameters):
         if(p.requires_grad) and ("bias" not in n) and p is not None:
             layers.append(n)
             ave_grads.append(p.grad.abs().mean())
-            
+
 
 # =====================================
 # Policy Class

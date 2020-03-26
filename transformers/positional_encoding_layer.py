@@ -1,3 +1,4 @@
+import math
 import torch 
 import torch.nn as nn
 
@@ -9,7 +10,7 @@ class AbsolutePositionalEncoding(nn.Module):
     in the input sequence. 
     """
     def __init__(self, d_model, dropout=0.1, max_len=5000):
-        super(PositionalEncoding, self).__init__()
+        super(AbsolutePositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
 
         pe = torch.zeros(max_len, d_model)
@@ -33,7 +34,7 @@ class RelativePositionalEncoding(nn.Module):
     in the input sequence. 
     """
     def __init__(self, demb:int): 
-        super(PositionalEncoding, self).__init__()
+        super(RelativePositionalEncoding, self).__init__()
         freq = 1 / (10000 ** (torch.arange(0., d, 2.)/d))
         self.register_buffer('freq', freq)
 
