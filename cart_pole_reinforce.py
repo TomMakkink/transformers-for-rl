@@ -15,6 +15,7 @@ The following implementation will experiment with the use of transformers in thi
 import argparse
 import gym
 import numpy as np
+import matplotlib.pyplot as plt
 from itertools import count
 
 import torch
@@ -81,42 +82,41 @@ def plot_grad_flow(named_parameters):
 class Policy(nn.Module):
     def __init__(self, config):
         super(Policy, self).__init__()
-        if args.transformer == "vanilla":
+        self.transformer_type = config["transformer"]
+        if config["transformer"] == "vanilla":
             print("Using Transformer...")
             self.transformer = TransformerModel(
                 d_model=config["d_model"], 
                 n_head=config["n_heads"], 
-                num_encoder_layers=1,
-                num_decoder_layers=0, 
+                num_encoder_layers=config["n_layers"],
+                num_decoder_layers=1, 
                 dim_feedforward=config["dim_feedforward"], 
                 dropout=config["dropout"],
             )
-        elif args.transformer == "xl":
+        elif config["transformer"] == "xl":
             print("Using Transformer-XL")
-            # self, n_layers:int, n_heads:int, d_model:int, d_head:int, d_inner:int,
-            #      resid_p:float=0., attn_p:float=0., ff_p:float=0., embed_p:float=0., bias:bool=False, scale:bool=True,
-            #      mask:bool=True, mem_len:int=0):
             self.transformer = TransformerXL(
                 d_model=config["d_model"],
                 n_layers=config["n_layers"],
                 n_heads=config["n_heads"],
                 d_inner=config["dim_feedforward"],
                 d_head=config["d_head"],
-                mem_len=0, 
+                mem_len=4, 
             )
         
         self.affine1 = nn.Linear(4, 128)
-        self.dropout = nn.Dropout(p=0.6)
+        self.dropout = nn.Dropout(p=0.1)
         self.affine2 = nn.Linear(128, 2)
 
         self.saved_log_probs = []
         self.rewards = []
 
     def forward(self, x):
-        if args.transformer == "xl":
+        if self.transformer_type == "xl":
             mems = []
-            p = self.transformer(x, *mems)
-        
+            x = self.transformer(x, *mems)
+        elif self.transformer_type == "vanilla":
+            x = self.transformer(x)
         x = self.affine1(x.view(1,4))
         x = self.dropout(x)
         x = F.relu(x)
@@ -168,29 +168,39 @@ def train(config):
             ep_reward += reward
             if done:
                 break
-
         running_reward = 0.05 * ep_reward + (1 - 0.05) * running_reward
+        # tune.track.log(episode_reward_mean=ep_reward)
+        tune.track.log(running_reward=running_reward)
         finish_episode(policy, optimizer, eps)
         if i_episode % args.log_interval == 0:
             print('Episode {}\tLast reward: {:.2f}\tAverage reward: {:.2f}'.format(
                   i_episode, ep_reward, running_reward))
-            # plot_grad_flow(policy.named_parameters())
+
+
         if running_reward > env.spec.reward_threshold:
             print("Solved! Running reward is now {} and "
                   "the last episode runs to {} time steps!".format(running_reward, t))
             break
 
+        # Added for graphing 
+        if i_episode > 1000:
+            break; 
+
+
 
 def main():
-    # analysis = tune.run(
-    # train, config={"lr": tune.grid_search([0.001, 0.01, 0.1])})
+    analysis = tune.run(
+                    train, 
+                    config = {"d_model": 4, "n_heads": 1, "n_layers": 1, "dim_feedforward": 10, "dropout": 0.0, 
+                            "d_head": 4, "lr":0.001, "transformer": tune.grid_search(["", "vanilla", "xl"])}
+                )
 
-    # print("Best config: ", analysis.get_best_config(metric="mean_accuracy"))
     
-    config = {"d_model": 4, "n_heads": 1, "n_layers": 1, "dim_feedforward": 10, "dropout": 0.0, 
-              "d_head": 4, "lr":0.001}
+    # Transformer-XL 
+    # config = {"d_model": 4, "n_heads": 1, "n_layers": 1, "dim_feedforward": 10, "dropout": 0.0, 
+    #           "d_head": 4, "lr":0.001, "transformer": "xl"}
 
-    train(config)
+    # train(config)
 
 
 
