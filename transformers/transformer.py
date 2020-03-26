@@ -22,6 +22,7 @@ class TransformerModel(nn.Module):
         super(TransformerModel, self).__init__()
         self.src_mask = None
         self.model_type = 'Transformer'
+        self.pos_encoder = PositionalEncoding(d_model, dropout)
         encoder_layer = TransformerEncoderLayer(d_model, n_head, dim_feedforward, dropout)
         encoder_norm = LayerNorm(d_model)
         self.encoder = TransformerEncoder(encoder_layer, num_encoder_layers, encoder_norm)
@@ -45,9 +46,11 @@ class TransformerModel(nn.Module):
             device = src.device
             mask = self._generate_square_subsequent_mask(len(src)).to(device)
             self.src_mask = mask
-
+        
+        src = src.view(src.size(0), 1, src.size(1))
         # src = self.encoder(src) * math.sqrt(self.ninp)
-        output = self.encoder(src.view(1,1,4), self.src_mask)
+        # src = self.pos_encoder(src.view(1,1,4) * math.sqrt(self.d_model))
+        output = self.encoder(src, self.src_mask)
         # output = self.decoder(output)
         return output
 
@@ -186,9 +189,7 @@ class PositionalEncoding(nn.Module):
         self.register_buffer('pe', pe)
 
     def forward(self, x):
-        print(f"Before: {x}")
         x = x + self.pe[:x.size(0), :]
-        print(f"After: {x}")
         return self.dropout(x)
 
 
