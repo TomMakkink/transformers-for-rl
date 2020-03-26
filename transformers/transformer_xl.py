@@ -24,22 +24,36 @@ class PositionalEncoding(nn.Module):
     "Encode the position with a sinusoid."
     def __init__(self, d:int): 
         super(PositionalEncoding, self).__init__()
-        self.register_buffer('freq', 1 / (10000 ** (torch.arange(0., d, 2.)/d)))
+        freq = 1 / (10000 ** (torch.arange(0., d, 2.)/d))
+        self.register_buffer('freq', freq)
 
-    def forward(self, pos:torch.Tensor):
+    def forward(self, pos:torch.torch.Tensor):
         inp = torch.ger(pos, self.freq)
         enc = torch.cat([inp.sin(), inp.cos()], dim=-1)
         return enc
 
 
-def feed_forward(d_model:int, d_ff:int, ff_p:float=0.0):
-    return nn.Sequential(
-            nn.Linear(d_model, d_ff), 
-            nn.ReLU(inplace=True),
-            nn.Linear(d_ff, d_model),
-            nn.Dropout(ff_p),
-            nn.LayerNorm(d_model),
+class PositionwiseFF(nn.Module):
+    def __init__(self, d_model, d_inner, dropout):
+        super(PositionwiseFF, self).__init__()
+
+        self.CoreNet = nn.Sequential(
+            nn.Linear(d_model, d_inner), nn.ReLU(inplace=True),
+            nn.Dropout(dropout),
+            nn.Linear(d_inner, d_model),
+            nn.Dropout(dropout),
         )
+
+        self.layer_norm = nn.LayerNorm(d_model)
+
+    def forward(self, inp):
+        ##### positionwise feed-forward
+        core_out = self.CoreNet(inp)
+
+        ##### residual connection + layer normalization
+        output = self.layer_norm(inp + core_out)
+
+        return output
 
 
 class MultiHeadAttention(nn.Module):
@@ -88,45 +102,42 @@ class MultiHeadRelativeAttention(MultiHeadAttention):
         
     def _apply_attention(self, x:torch.Tensor, r:torch.Tensor=None, u:torch.Tensor=None, v:torch.Tensor=None, 
                         mask:torch.Tensor=None, mem:torch.Tensor=None):
-        # Notations from the paper: x input, r vector of relative distance between two elements, u et v learnable
-        # parameters of the model common between all layers, mask to avoid cheating and mem the previous hidden states.
+        #Notations from the paper: x input, r vector of relative distance between two elements, u et v learnable
+        #parameters of the model common between all layers, mask to avoid cheating and mem the previous hidden states.
         bs,x_len,seq_len = x.size(0),x.size(1),r.size(0)
         context = x if mem is None else torch.cat([mem, x], dim=1)
         attn = self.attention(context)
-        wq,wk,wv = torch.chunk(attn, 3, dim=-1)
+        wq,wk,wv = torch.chunk(self.attention(context), 3, dim=-1)
         wq = wq[:,-x_len:]
-        # No embedding dimension, so have changed view function. 
-        # wq,wk,wv = map(lambda x:x.view(bs, x_len, self.n_heads, self.d_head), (wq,wk,wv))
-        wq,wk,wv = map(lambda x:x.view(bs, self.n_heads, self.d_head), (wq,wk,wv))
-        # wq,wk,wv = wq.permute(0, 2, 1, 3),wk.permute(0, 2, 3, 1),wv.permute(0, 2, 1, 3)
-        wk = wk.permute(0, 2, 1)
+        wq,wk,wv = map(lambda x:x.view(bs, x.size(1), self.n_heads, self.d_head), (wq,wk,wv))
+        wq,wk,wv = wq.permute(0, 2, 1, 3),wk.permute(0, 2, 3, 1),wv.permute(0, 2, 1, 3)
         wkr = self.r_attn(r)
         wkr = wkr.view(seq_len, self.n_heads, self.d_head)
         wkr = wkr.permute(1,2,0)
-        ### compute attention score (AC is (a) + (c) and BD is (b) + (d) in the paper)
+        #### compute attention score (AC is (a) + (c) and BS is (b) + (d) in the paper)
         AC = torch.matmul(wq+u,wk)
-        # BD = _line_shift(torch.matmul(wq+v, wkr))
-        BD = torch.matmul(wq+v, wkr)
+        BD = _line_shift(torch.matmul(wq+v, wkr))
         if self.scale: attn_score = (AC + BD).mul_(1/(self.d_head ** 0.5))
-        # if mask is not None:
-        #     attn_score = attn_score.float().masked_fill(mask, -float('inf')).type_as(attn_score)
+        if mask is not None:
+            attn_score = attn_score.float().masked_fill(mask, -float('inf')).type_as(attn_score)
         attn_prob = self.drop_att(F.softmax(attn_score, dim=-1))
-        attn_prob = attn_prob.permute(0, 2, 1)
         attn_vec = torch.matmul(attn_prob, wv)
-        return attn_vec.contiguous().view(bs, x_len, -1)
+        return attn_vec.permute(0, 2, 1, 3).contiguous().view(bs, x_len, -1)
 
 
 class DecoderLayer(nn.Module):
     "Basic block of a Transformer model."
-    #Can't use Sequential directly cause more than one input...
+    # Can't use Sequential directly cause more than one input...
     def __init__(self, n_heads:int, d_model:int, d_head:int, d_inner:int, resid_p:float=0., attn_p:float=0., ff_p:float=0.,
                  bias:bool=True, scale:bool=True):
         super(DecoderLayer, self).__init__()
         self.mhra = MultiHeadRelativeAttention(n_heads, d_model, d_head, resid_p=resid_p, attn_p=attn_p, bias=bias, scale=scale)
-        self.ff   = feed_forward(d_model, d_inner, ff_p=ff_p)
+        self.pos_ff = PositionwiseFF(d_model, d_inner, dropout=ff_p)
 
     def forward(self, x:torch.Tensor, mask:torch.Tensor=None, **kwargs): 
-        return self.ff(self.mhra(x, mask=mask, **kwargs))
+        output = self.mhra(x, mask=mask, **kwargs)
+        output = self.pos_ff(output)
+        return output
 
 
 class TransformerXL(nn.Module):
@@ -164,8 +175,8 @@ class TransformerXL(nn.Module):
         if self.mem_len > 0 and not self.init:
             self.reset()
             self.init = True
-        bs,x_len = x.size()
-        # inp = self.drop_emb(self.encoder(x)) #.mul_(self.d_model ** 0.5)
+        x = x.view(x.size(0), 1, x.size(1))
+        bs,x_len, _ = x.size()
         inp = x
         m_len = self.hidden[0].size(1) if hasattr(self, 'hidden') and len(self.hidden[0].size()) > 1 else 0
         seq_len = m_len + x_len
@@ -179,10 +190,10 @@ class TransformerXL(nn.Module):
             mem = self.hidden[i] if self.mem_len > 0 else None
             inp = layer(inp, r=pos_enc, u=self.u, v=self.v, mask=mask, mem=mem)
             hids.append(inp)
-        # core_out = inp[:,-x_len:]
-        # if self.mem_len > 0 : self._update_mems(hids)
+        core_out = inp[:,-x_len:]
+        if self.mem_len > 0 : self._update_mems(hids)
         # return (self.hidden if self.mem_len > 0 else [core_out]),[core_out]
-        return x
+        return core_out
 
 
 def init_transformer(m):
