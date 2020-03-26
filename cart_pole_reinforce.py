@@ -66,14 +66,7 @@ def plot_grad_flow(named_parameters):
         if(p.requires_grad) and ("bias" not in n) and p is not None:
             layers.append(n)
             ave_grads.append(p.grad.abs().mean())
-    # plt.plot(ave_grads, alpha=0.3, color="b")
-    # plt.hlines(0, 0, len(ave_grads)+1, linewidth=1, color="k" )
-    # plt.xticks(range(0,len(ave_grads), 1), layers, rotation="vertical")
-    # plt.xlim(xmin=0, xmax=len(ave_grads))
-    # plt.xlabel("Layers")
-    # plt.ylabel("average gradient")
-    # plt.title("Gradient flow")
-    # plt.grid(True)
+            
 
 # =====================================
 # Policy Class
@@ -170,7 +163,7 @@ def train(config):
                 break
         running_reward = 0.05 * ep_reward + (1 - 0.05) * running_reward
         # tune.track.log(episode_reward_mean=ep_reward)
-        tune.track.log(running_reward=running_reward)
+        # tune.track.log(running_reward=running_reward)
         finish_episode(policy, optimizer, eps)
         if i_episode % args.log_interval == 0:
             print('Episode {}\tLast reward: {:.2f}\tAverage reward: {:.2f}'.format(
@@ -189,18 +182,18 @@ def train(config):
 
 
 def main():
-    analysis = tune.run(
-                    train, 
-                    config = {"d_model": 4, "n_heads": 1, "n_layers": 1, "dim_feedforward": 10, "dropout": 0.0, 
-                            "d_head": 4, "lr":0.001, "transformer": tune.grid_search(["", "vanilla", "xl"])}
-                )
+    # analysis = tune.run(
+    #                 train, 
+    #                 config = {"d_model": 4, "n_heads": 1, "n_layers": 1, "dim_feedforward": 10, "dropout": 0.0, 
+    #                         "d_head": 4, "lr":0.001, "transformer": tune.grid_search(["", "vanilla", "xl"])}
+    #             )
 
     
     # Transformer-XL 
-    # config = {"d_model": 4, "n_heads": 1, "n_layers": 1, "dim_feedforward": 10, "dropout": 0.0, 
-    #           "d_head": 4, "lr":0.001, "transformer": "xl"}
+    config = {"d_model": 4, "n_heads": 1, "n_layers": 1, "dim_feedforward": 10, "dropout": 0.0, 
+              "d_head": 4, "lr":0.001, "transformer": "vanilla"}
 
-    # train(config)
+    train(config)
 
 
 

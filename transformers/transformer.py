@@ -14,8 +14,9 @@ import copy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn import LayerNorm, Linear, MultiheadAttention, Dropout, ModuleList
+from torch.nn import LayerNorm, Linear, Dropout, ModuleList
 from torch.nn.init import xavier_uniform_
+from transformers.attention_layer import MultiHeadAttention
 
 class TransformerModel(nn.Module):
     def __init__(self, d_model=512, n_head=8, num_encoder_layers=6, num_decoder_layers=6, dim_feedforward=2048, dropout=0.0):
@@ -113,7 +114,7 @@ class TransformerEncoderLayer(nn.Module):
     def __init__(self, d_model, n_head, dim_feedforward=2048, dropout=0.1):
         super(TransformerEncoderLayer, self).__init__()
         # Attention Layers 
-        self.self_attn = MultiheadAttention(d_model, n_head, dropout=dropout)
+        self.self_attn = MultiHeadAttention(d_model, n_head, dropout=dropout)
         # Feedforward layer 
         self.linear1 = Linear(d_model, dim_feedforward)
         self.dropout = Dropout(dropout)
@@ -128,7 +129,7 @@ class TransformerEncoderLayer(nn.Module):
         # type: (Tensor, Optional[Tensor], Optional[Tensor]) -> Tensor
         """Pass the input through the encoder layer."""
         src2 = self.self_attn(src, src, src, attn_mask=src_mask,
-                              key_padding_mask=src_key_padding_mask)[0]
+                              key_padding_mask=src_key_padding_mask)
         src = src + self.dropout1(src2)
         src = self.norm1(src)
         src2 = self.linear2(self.dropout(F.relu(self.linear1(src))))
@@ -142,8 +143,8 @@ class TransformerDecoderLayer(nn.Module):
 
     def __init__(self, d_model, n_head, dim_feedforward=2048, dropout=0.1):
         super(TransformerDecoderLayer, self).__init__()
-        self.self_attn = MultiheadAttention(d_model, n_head, dropout=dropout)
-        self.multihead_attn = MultiheadAttention(d_model, n_head, dropout=dropout)
+        self.self_attn = MultiHeadAttention(d_model, n_head, dropout=dropout)
+        self.multihead_attn = MultiHeadAttention(d_model, n_head, dropout=dropout)
         # Implementation of Feedforward model
         self.linear1 = Linear(d_model, dim_feedforward)
         self.dropout = Dropout(dropout)
@@ -162,11 +163,11 @@ class TransformerDecoderLayer(nn.Module):
         # type: (Tensor, Tensor, Optional[Tensor], Optional[Tensor], Optional[Tensor], Optional[Tensor]) -> Tensor
         """Pass the inputs (and mask) through the decoder layer."""
         tgt2 = self.self_attn(tgt, tgt, tgt, attn_mask=tgt_mask,
-                              key_padding_mask=tgt_key_padding_mask)[0]
+                              key_padding_mask=tgt_key_padding_mask)
         tgt = tgt + self.dropout1(tgt2)
         tgt = self.norm1(tgt)
         tgt2 = self.multihead_attn(tgt, memory, memory, attn_mask=memory_mask,
-                                   key_padding_mask=memory_key_padding_mask)[0]
+                                   key_padding_mask=memory_key_padding_mask)
         tgt = tgt + self.dropout2(tgt2)
         tgt = self.norm2(tgt)
         tgt2 = self.linear2(self.dropout(self.activation(self.linear1(tgt))))

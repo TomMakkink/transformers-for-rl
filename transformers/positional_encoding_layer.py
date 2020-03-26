@@ -32,7 +32,7 @@ class RelativePositionalEncoding(nn.Module):
     Provides the model with information regarding the relative position of inputs 
     in the input sequence. 
     """
-    def __init__(self, d:int): 
+    def __init__(self, demb:int): 
         super(PositionalEncoding, self).__init__()
         freq = 1 / (10000 ** (torch.arange(0., d, 2.)/d))
         self.register_buffer('freq', freq)
