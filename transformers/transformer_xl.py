@@ -11,7 +11,6 @@ https://github.com/kimiyoung/transformer-xl
 This implementation was strongly based on the fastai Transformer-XL implementation, which can be found here: 
 https://github.com/fastai/fastai/blob/master/fastai/text/models/transformer.py#L175
 """
-
 import math 
 import numpy as np 
 
@@ -19,19 +18,11 @@ import torch
 import torch.nn as nn 
 import torch.nn.functional as F 
 
+from transformers.positional_encoding_layer import RelativePositionalEncoding
+from transformers.attention_layer import RelativeMultiHeadAttention
 
-class PositionalEncoding(nn.Module):
-    "Encode the position with a sinusoid."
-    def __init__(self, d:int): 
-        super(PositionalEncoding, self).__init__()
-        freq = 1 / (10000 ** (torch.arange(0., d, 2.)/d))
-        self.register_buffer('freq', freq)
-
-    def forward(self, pos:torch.torch.Tensor):
-        inp = torch.ger(pos, self.freq)
-        enc = torch.cat([inp.sin(), inp.cos()], dim=-1)
-        return enc
-
+Tensor = torch.Tensor
+# TODO: Need to standardies variable names
 
 class PositionwiseFF(nn.Module):
     def __init__(self, d_model, d_inner, dropout):
@@ -43,100 +34,26 @@ class PositionwiseFF(nn.Module):
             nn.Linear(d_inner, d_model),
             nn.Dropout(dropout),
         )
-
         self.layer_norm = nn.LayerNorm(d_model)
 
-    def forward(self, inp):
-        ##### positionwise feed-forward
-        core_out = self.CoreNet(inp)
-
-        ##### residual connection + layer normalization
-        output = self.layer_norm(inp + core_out)
-
+    def forward(self, src):
+        core_out = self.CoreNet(src)
+        output = self.layer_norm(src + core_out)
         return output
 
 
-class MultiHeadAttention(nn.Module):
-    "MutiHeadAttention"
-    def __init__(self, n_heads:int, d_model:int, d_head:int, resid_p:float=0., attn_p:float=0., bias:bool=True,
-                 scale:bool=True):
-        super(MultiHeadAttention, self).__init__()
-        self.n_heads,self.d_head,self.scale = n_heads,d_head,scale
-        self.attention = nn.Linear(d_model, 3 * n_heads * d_head, bias=bias)
-        self.out = nn.Linear(n_heads * d_head, d_model, bias=bias)
-        self.drop_att,self.drop_res = nn.Dropout(attn_p),nn.Dropout(resid_p)
-        self.ln = nn.LayerNorm(d_model)
+class RelPartialLearnableDecoderLayer(nn.Module):
+    def __init__(self, n_head, d_model, d_head, d_inner, dropout,
+                 **kwargs):
+        super(RelPartialLearnableDecoderLayer, self).__init__()
+        self.dec_attn = RelPartialLearnableMultiHeadAttn(n_head, d_model,
+                            d_head, dropout, **kwargs)
+        self.pos_ff = PositionwiseFF(d_model, d_inner, dropout)
 
-    def forward(self, x:torch.Tensor, mask:torch.Tensor=None, **kwargs):
-        return self.ln(x + self.drop_res(self.out(self._apply_attention(x, mask=mask, **kwargs))))
-
-    def _apply_attention(self, x:torch.Tensor, mask:torch.Tensor=None):
-        bs,x_len = x.size(0),x.size(1)
-        wq,wk,wv = torch.chunk(self.attention(x), 3, dim=-1)
-        wq,wk,wv = map(lambda x:x.view(bs, x.size(1), self.n_heads, self.d_head), (wq,wk,wv))
-        wq,wk,wv = wq.permute(0, 2, 1, 3),wk.permute(0, 2, 3, 1),wv.permute(0, 2, 1, 3)
-        attn_score = torch.matmul(wq, wk)
-        if self.scale: attn_score.div_(self.d_head ** 0.5)
-        if mask is not None:
-            attn_score = attn_score.float().masked_fill(mask, -float('inf')).type_as(attn_score)
-        attn_prob = self.drop_att(F.softmax(attn_score, dim=-1))
-        attn_vec = torch.matmul(attn_prob, wv)
-        return attn_vec.permute(0, 2, 1, 3).contiguous().contiguous().view(bs, x_len, -1)
-
-
-def _line_shift(x:torch.Tensor, mask:bool=False):
-    "Shift the line i of `x` by p-i elements to the left, is `mask` puts 0s on the diagonal."
-    bs,nh,n,p = x.size()
-    x_pad = torch.cat([x.new_zeros(bs,nh,n,1), x], dim=3)
-    x_shift = x_pad.view(bs,nh,p + 1,n)[:,:,1:].view_as(x)
-    if mask: x_shift.mul_(torch.tril(x.new_ones(n,p), p-n)[None,None,])
-    return x_shift
-
-
-class MultiHeadRelativeAttention(MultiHeadAttention):
-    "MultiHeadAttention with relative positional encoding."
-    def __init__(self, n_heads:int, d_model:int, d_head:int, resid_p:float=0., attn_p:float=0., bias:bool=True,
-                 scale:bool=True):
-        super(MultiHeadRelativeAttention, self).__init__(n_heads, d_model, d_head)
-        self.r_attn = nn.Linear(d_model, n_heads * d_head, bias=bias)
-        
-    def _apply_attention(self, x:torch.Tensor, r:torch.Tensor=None, u:torch.Tensor=None, v:torch.Tensor=None, 
-                        mask:torch.Tensor=None, mem:torch.Tensor=None):
-        #Notations from the paper: x input, r vector of relative distance between two elements, u et v learnable
-        #parameters of the model common between all layers, mask to avoid cheating and mem the previous hidden states.
-        bs,x_len,seq_len = x.size(0),x.size(1),r.size(0)
-        context = x if mem is None else torch.cat([mem, x], dim=1)
-        attn = self.attention(context)
-        wq,wk,wv = torch.chunk(self.attention(context), 3, dim=-1)
-        wq = wq[:,-x_len:]
-        wq,wk,wv = map(lambda x:x.view(bs, x.size(1), self.n_heads, self.d_head), (wq,wk,wv))
-        wq,wk,wv = wq.permute(0, 2, 1, 3),wk.permute(0, 2, 3, 1),wv.permute(0, 2, 1, 3)
-        wkr = self.r_attn(r)
-        wkr = wkr.view(seq_len, self.n_heads, self.d_head)
-        wkr = wkr.permute(1,2,0)
-        #### compute attention score (AC is (a) + (c) and BS is (b) + (d) in the paper)
-        AC = torch.matmul(wq+u,wk)
-        BD = _line_shift(torch.matmul(wq+v, wkr))
-        if self.scale: attn_score = (AC + BD).mul_(1/(self.d_head ** 0.5))
-        if mask is not None:
-            attn_score = attn_score.float().masked_fill(mask, -float('inf')).type_as(attn_score)
-        attn_prob = self.drop_att(F.softmax(attn_score, dim=-1))
-        attn_vec = torch.matmul(attn_prob, wv)
-        return attn_vec.permute(0, 2, 1, 3).contiguous().view(bs, x_len, -1)
-
-
-class DecoderLayer(nn.Module):
-    "Basic block of a Transformer model."
-    # Can't use Sequential directly cause more than one input...
-    def __init__(self, n_heads:int, d_model:int, d_head:int, d_inner:int, resid_p:float=0., attn_p:float=0., ff_p:float=0.,
-                 bias:bool=True, scale:bool=True):
-        super(DecoderLayer, self).__init__()
-        self.mhra = MultiHeadRelativeAttention(n_heads, d_model, d_head, resid_p=resid_p, attn_p=attn_p, bias=bias, scale=scale)
-        self.pos_ff = PositionwiseFF(d_model, d_inner, dropout=ff_p)
-
-    def forward(self, x:torch.Tensor, mask:torch.Tensor=None, **kwargs): 
-        output = self.mhra(x, mask=mask, **kwargs)
+    def forward(self, x:Tensor, r, y, v, mems=None):
+        output = self.dec_attn(dec_inp, r, r_w_bias, r_r_bias, mems=mems)
         output = self.pos_ff(output)
+
         return output
 
 
@@ -147,10 +64,10 @@ class TransformerXL(nn.Module):
                  mask:bool=True, mem_len:int=0):
         super(TransformerXL, self).__init__()
         # self.encoder = nn.Embedding(vocab_size, d_model)
-        self.pos_enc = PositionalEncoding(d_model)
+        self.pos_enc = RelativePositionalEncoding(d_model)
         self.drop_emb = nn.Dropout(0.0)
-        self.u = nn.Parameter(torch.Tensor(n_heads, 1, d_head)) 
-        self.v = nn.Parameter(torch.Tensor(n_heads, 1, d_head)) 
+        self.u = nn.Parameter(torch.Tensor(n_heads, d_head)) 
+        self.v = nn.Parameter(torch.Tensor(n_heads, d_head)) 
         self.mem_len,self.n_layers,self.d_model,self.mask = mem_len,n_layers,d_model,mask
         self.init = False
         self.layers = nn.ModuleList([DecoderLayer(n_heads, d_model, d_head, d_inner, resid_p=resid_p, attn_p=attn_p,
@@ -196,14 +113,7 @@ class TransformerXL(nn.Module):
         return core_out
 
 
-def init_transformer(m):
-    classname = m.__class__.__name__
-    if classname.find('Linear') != -1:
-        if hasattr(m, 'weight') and m.weight is not None: nn.init.normal_(m.weight, 0., 0.02)
-        if hasattr(m, 'bias') and m.bias is not None:     nn.init.constant_(m.bias, 0.)
-    elif classname.find('LayerNorm') != -1:
-        if hasattr(m, 'weight') and m.weight is not None: nn.init.normal_(m.weight, 1., 0.02)
-        if hasattr(m, 'bias') and m.bias is not None:     nn.init.constant_(m.bias, 0.)
-    elif classname.find('TransformerXL') != -1:
-        if hasattr(m, 'u'): nn.init.normal_(m.u, 0., 0.02)
-        if hasattr(m, 'v'): nn.init.normal_(m.v, 0., 0.02)
+
+
+
+
