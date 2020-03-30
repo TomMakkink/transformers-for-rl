@@ -19,7 +19,7 @@ class MultiHeadAttention(nn.Module):
     def __init__(
         self, 
         embed_dim:int, 
-        num_heads:int,
+        n_heads:int,
         dropout:float=0.0,
         bias:bool=True,
         **kwargs,  
@@ -27,16 +27,16 @@ class MultiHeadAttention(nn.Module):
         """
         Args:
             embed_dim: embedding dimension. 
-            num_heads: number of attention heads. 
+            n_heads: number of attention heads. 
             dropout: dropout layer on attention output weigths. Default: 0.0. 
             bias: add bias as module parameter. Default: True. 
         """
         super(MultiHeadAttention, self).__init__()
         self.embed_dim = embed_dim
-        self.num_heads = num_heads
+        self.n_heads = n_heads
         self.dropout = dropout
-        self.head_dim = embed_dim // num_heads
-        assert self.head_dim * num_heads == self.embed_dim, "embed_dim must be divisible by num_heads"
+        self.head_dim = embed_dim // n_heads
+        assert self.head_dim * n_heads == self.embed_dim, "embed_dim must be divisible by n_heads"
 
         self.in_proj_weight = nn.Parameter(torch.empty(3 * embed_dim, embed_dim))
 
@@ -69,8 +69,8 @@ class MultiHeadAttention(nn.Module):
         """
         tgt_len, bsz, embed_dim = query.size()
         assert key.size() == value.size()
-        head_dim = self.embed_dim // self.num_heads
-        assert head_dim * self.num_heads == self.embed_dim, "embed_dim must be divisible by num_heads"
+        head_dim = self.embed_dim // self.n_heads
+        assert head_dim * self.n_heads == self.embed_dim, "embed_dim must be divisible by n_heads"
         scaling = 1 / (head_dim ** 0.5)
         
         if torch.equal(query, key) and torch.equal(key, value):
@@ -80,22 +80,22 @@ class MultiHeadAttention(nn.Module):
 
         q = q * scaling 
 
-        q = q.contiguous().view(tgt_len, bsz * self.num_heads, head_dim).transpose(0, 1)
-        k = k.contiguous().view(-1, bsz * self.num_heads, head_dim).transpose(0, 1)
-        v = v.contiguous().view(-1, bsz * self.num_heads, head_dim).transpose(0, 1)
+        q = q.contiguous().view(tgt_len, bsz * self.n_heads, head_dim).transpose(0, 1)
+        k = k.contiguous().view(-1, bsz * self.n_heads, head_dim).transpose(0, 1)
+        v = v.contiguous().view(-1, bsz * self.n_heads, head_dim).transpose(0, 1)
 
         src_len = k.size(1)
 
         attn_output_weights = torch.bmm(q, k.transpose(1, 2))
-        assert list(attn_output_weights.size()) == [bsz * self.num_heads, tgt_len, src_len]
+        assert list(attn_output_weights.size()) == [bsz * self.n_heads, tgt_len, src_len]
 
-        attn_output_weights = attn_output_weights.view(bsz * self.num_heads, tgt_len, src_len)
+        attn_output_weights = attn_output_weights.view(bsz * self.n_heads, tgt_len, src_len)
 
         attn_output_weights = F.softmax(attn_output_weights, dim=-1)
         attn_output_weights = F.dropout(attn_output_weights, p=self.dropout)
 
         attn_output = torch.bmm(attn_output_weights, v)
-        assert list(attn_output.size()) == [bsz * self.num_heads, tgt_len, head_dim]
+        assert list(attn_output.size()) == [bsz * self.n_heads, tgt_len, head_dim]
         attn_output = attn_output.transpose(0, 1).contiguous().view(tgt_len, bsz, embed_dim)
         attn_output = F.linear(attn_output, self.out_proj.weight, self.out_proj.bias)
 
@@ -115,8 +115,8 @@ class RelativeMultiHeadAttention(nn.Module):
     """
     def __init__(
         self, 
+        n_heads:int,
         embed_dim:int, 
-        num_heads:int,
         dropout:float=0.0,
         bias:bool=False,
         mem_len=None, 
@@ -125,22 +125,22 @@ class RelativeMultiHeadAttention(nn.Module):
         """
         Args:
             embed_dim: embedding dimension. 
-            num_heads: number of attention heads. 
+            n_heads: number of attention heads. 
             dropout: dropout layer on attention output weigths. Default: 0.0. 
             bias: add bias as module parameter. Default: False. 
             mem_len: length of memory. 
         """
         super(RelativeMultiHeadAttention, self).__init__()
         self.embed_dim = embed_dim
-        self.num_heads = num_heads
-        self.head_dim = embed_dim // num_heads
-        assert self.head_dim * num_heads == self.embed_dim, "embed_dim must be divisible by num_heads"
+        self.n_heads = n_heads
+        self.head_dim = embed_dim // n_heads
+        assert self.head_dim * n_heads == self.embed_dim, "embed_dim must be divisible by n_heads"
         
         self.dropout = nn.Dropout(dropout)
-        self.qkv_net = nn.Linear(self.d_model, 3 * self.num_heads * self.head_dim, bias=False)
-        self.r_net = nn.Linear(self.embed_dim, self.num_heads * self.head_dim, bias=False)
+        self.qkv_net = nn.Linear(self.embed_dim, 3 * self.n_heads * self.head_dim, bias=False)
+        self.r_net = nn.Linear(self.embed_dim, self.n_heads * self.head_dim, bias=False)
 
-        self.out_proj = nn.Linear(num_heads * self.head_dim, embed_dim, bias=False)
+        self.out_proj = nn.Linear(n_heads * self.head_dim, embed_dim, bias=False)
         self.layer_norm = nn.LayerNorm(embed_dim)
 
         self.scale = 1 / (self.head_dim ** 0.5)
@@ -166,18 +166,23 @@ class RelativeMultiHeadAttention(nn.Module):
         Returns: 
             Attention output with shape [target_seq_len, batch_size, dim]
         """
-        tgt_len, rlen, bsz = x.size(0), r.size(0), x.size(1)
+        qlen, rlen, bsz = x.size(0), r.size(0), x.size(1)
 
-        context = x if mem is None else torch.cat([mem, x], dim=0)
+        context = x if mems is None else torch.cat([mems, x], 0)
         w_heads = self.qkv_net(context)
         rk = self.r_net(r)
         wq, wk, wv = torch.chunk(w_heads, 3, dim=-1)
-        wq = wq[-tgt_len:]
+        wq = wq[-qlen:]
+        klen = wk.size(0)
 
-        # Shape: [tgt_len, batch_size, num_head, head_dim]
-        wq,wk,wv = map(lambda x:x.view(tgt_len, bsz, self.num_heads, self.head_dim), (wq,wk,wv))
+        # Shape: [qlen, batch_size, num_head, head_dim]
+        # wq,wk,wv = map(lambda x:x.view(tgt_len, bsz, self.n_heads, self.head_dim), (wq,wk,wv))
+        wq = wq.view(qlen, bsz, self.n_heads, self.head_dim)
+        wk = wk.view(klen, bsz, self.n_heads, self.head_dim)
+        wv = wv.view(klen, bsz, self.n_heads, self.head_dim)
+
         # Shape: [tgt_len, num_head, head_dim]
-        rk = rk.view(rlen, self.num_heads, self.head_dims)
+        rk = rk.view(rlen, self.n_heads, self.head_dim)
 
         # Compute attention score 
         # Length of k, q, and v must be the same 
@@ -200,13 +205,13 @@ class RelativeMultiHeadAttention(nn.Module):
 
         # [tgt_len, batch_size, num_head * head_dim]
         attn_vec = attn_vec.contiguous().view(
-            attn_vec.size(0), attn_vec.size(1), self.num_heads * self.head_dim)
+            attn_vec.size(0), attn_vec.size(1), self.n_heads * self.head_dim)
 
         attn_out = self.out_proj(attn_vec)
         attn_out = self.dropout(attn_out)
 
         # Residual connection + layer normalization 
-        output = self.layer_norm(w + attn_out)
+        output = self.layer_norm(x + attn_out)
 
         return output
         

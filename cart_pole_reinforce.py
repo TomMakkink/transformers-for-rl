@@ -66,6 +66,7 @@ def plot_grad_flow(named_parameters):
         if(p.requires_grad) and ("bias" not in n) and p is not None:
             layers.append(n)
             ave_grads.append(p.grad.abs().mean())
+    print(f"Average grads: {ave_grads}")
 
 
 # =====================================
@@ -104,13 +105,18 @@ class Policy(nn.Module):
         self.saved_log_probs = []
         self.rewards = []
 
+        self.mems = tuple()
+
     def forward(self, x):
         if self.transformer_type == "xl":
-            mems = []
-            x = self.transformer(x, *mems)
+            ret = self.transformer(x, *self.mems)
+            x, self.mems = ret[0], ret[1:]
+            # print(f"x: {x}")
+            # print(f"mems: {self.mems}")
         elif self.transformer_type == "vanilla":
             x = self.transformer(x)
-        x = self.affine1(x.view(1,4))
+        # x = x.view(x.size(0), x.size(2))
+        x = self.affine1(x)
         x = self.dropout(x)
         x = F.relu(x)
         action_scores = self.affine2(x)
@@ -140,6 +146,7 @@ def finish_episode(policy, optimizer, eps):
     optimizer.zero_grad()
     policy_loss = torch.cat(policy_loss).sum()
     policy_loss.backward()
+    # plot_grad_flow(policy.named_parameters())
     optimizer.step()
     del policy.rewards[:]
     del policy.saved_log_probs[:]
@@ -169,7 +176,6 @@ def train(config):
             print('Episode {}\tLast reward: {:.2f}\tAverage reward: {:.2f}'.format(
                   i_episode, ep_reward, running_reward))
 
-
         if running_reward > env.spec.reward_threshold:
             print("Solved! Running reward is now {} and "
                   "the last episode runs to {} time steps!".format(running_reward, t))
@@ -190,7 +196,7 @@ def main():
 
     
     # Transformer-XL 
-    config = {"d_model": 4, "n_heads": 1, "n_layers": 1, "dim_feedforward": 10, "dropout": 0.0, 
+    config = {"d_model": 4, "n_heads": 1, "n_layers": 1, "dim_feedforward": 5, "dropout": 0.0, 
               "d_head": 4, "lr":0.001, "transformer": "xl"}
 
     train(config)

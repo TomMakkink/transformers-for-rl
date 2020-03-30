@@ -46,5 +46,4 @@ class RelativePositionalEncoding(nn.Module):
         inp = torch.ger(pos, self.freq)
         enc = torch.cat([inp.sin(), inp.cos()], dim=-1)
         enc = enc[:, None, :]
-        print(f"Encoding: {enc}")
         return self.dropout(enc)
