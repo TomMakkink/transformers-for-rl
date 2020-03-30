@@ -196,7 +196,7 @@ def main():
 
     
     # Transformer-XL 
-    config = {"d_model": 4, "n_heads": 1, "n_layers": 1, "dim_feedforward": 5, "dropout": 0.0, 
+    config = {"d_model": 4, "n_heads": 1, "n_layers": 1, "dim_feedforward": 10, "dropout": 0.0, 
               "d_head": 4, "lr":0.001, "transformer": "xl"}
 
     train(config)

@@ -35,6 +35,7 @@ class DecoderLayer(nn.Module):
         super(DecoderLayer, self).__init__()
         self.attention = RelativeMultiHeadAttention(n_heads, d_head, dropout, mem_len=mem_len, **kwargs)
         self.pos_ff = PositionwiseFF(d_model, d_inner, dropout)
+        self.layer_norm = nn.LayerNorm(d_model)
 
     def forward(self, x:Tensor, r:Tensor, u:Tensor, v:Tensor, mems:Tensor=None):
         output = self.attention(x, r, u, v, mems=mems)
