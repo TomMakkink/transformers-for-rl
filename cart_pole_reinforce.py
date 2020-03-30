@@ -83,28 +83,8 @@ class Policy(nn.Module):
             num_heads=config["num_heads"],
             dim_mlp=config["dim_mlp"],
             dim_head=config["dim_head"],
+            mem_len=config["mem_len"],
         )
-
-        # if config["transformer"] == "vanilla":
-        #     print("Using Transformer...")
-        #     self.transformer = TransformerModel(
-        #         dim_model=config["dim_model"], 
-        #         num_heads=config["num_heads"], 
-        #         num_encoder_layers=config["num_layers"],
-        #         num_decoder_layers=1, 
-        #         dim_mlp=config["dim_mlp"], 
-        #         dropout=config["dropout"],
-        #     )
-        # elif config["transformer"] == "xl":
-        #     print("Using Transformer-XL")
-        #     self.transformer = TransformerXL(
-        #         dim_model=config["dim_model"],
-        #         num_layers=config["num_layers"],
-        #         num_heads=config["num_heads"],
-        #         dim_mlp=config["dim_mlp"],
-        #         dim_head=config["dim_head"],
-        #         mem_len=4, 
-        #     )
         
         self.affine1 = nn.Linear(4, 128)
         self.dropout = nn.Dropout(p=0.1)
@@ -116,16 +96,7 @@ class Policy(nn.Module):
         self.mems = tuple()
 
     def forward(self, x):
-        # if self.transformer_type == "xl":
-        #     ret = self.transformer(x, *self.mems)
-        #     x, self.mems = ret[0], ret[1:]
-        #     # print(f"x: {x}")
-        #     # print(f"mems: {self.mems}")
-        # elif self.transformer_type == "vanilla":
-        #     x = self.transformer(x)
-        # x = x.view(x.size(0), x.size(2))
         x = self.transformer(x)
-        # x = x.view(x.size(0), x.size(2))
         x = self.affine1(x)
         x = self.dropout(x)
         x = F.relu(x)
@@ -207,7 +178,7 @@ def main():
     
     # Transformer-XL 
     config = {"dim_model": 4, "num_heads": 1, "num_layers": 1, "dim_mlp": 20, "dropout": 0.1, 
-              "dim_head": 4, "lr":0.001, "transformer_type": ""}
+              "dim_head": 4, "lr":0.001, "mem_len": 0, "transformer_type": ""}
 
     train(config)
 

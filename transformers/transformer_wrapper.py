@@ -17,6 +17,7 @@ class Transformer(nn.Module):
         num_heads:int=1, 
         dim_mlp:int=32, 
         dropout:float=0.1,  
+        mem_len:int=0,
     ):
         super(Transformer, self).__init__()
         if transformer_type.lower() == "gtrxl":
@@ -29,11 +30,30 @@ class Transformer(nn.Module):
                 dim_mlp=dim_mlp,
                 dropout=dropout,
             )
-        # elif transformer_type.lower() == "xl":
-        #     self.transformer =
-        else: self.transformer = None
+        elif transformer_type.lower() == "xl":
+            print("Using Transformer-XL...")
+            self.transformer = TransformerXL(
+                dim_model=dim_model,
+                num_layers=num_layers,
+                num_heads=num_heads,
+                dim_mlp=dim_mlp,
+                dim_head=dim_head,
+                dropout=dropout,
+                mem_len=mem_len, 
+            )
+        elif transformer_type.lower() == "vanilla":
+            print("Using Transformer...")
+            self.transformer = TransformerModel(
+                dim_model=dim_model, 
+                num_heads=num_heads, 
+                num_layers=num_layers,
+                dim_mlp=dim_mlp, 
+                dropout=dropout,
+            )
+        else: 
+            print("Vanilla Policy Gradient...")
+            self.transformer = None
 
     def forward(self, inputs):
         if self.transformer is None: return inputs
-        # print(f"wrapper outputs: {x}")
-        return self.transformer(inputs)
+        return self.transformer(inputs).view(inputs.size(0), inputs.size(1))
