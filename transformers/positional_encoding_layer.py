@@ -4,6 +4,10 @@ import torch.nn as nn
 
 Tensor = torch.Tensor
 
+# TODO: Refactor this so you only have one PositionalEncoding class, and you chose the encoding scheme: 
+# e.g. relative or absolute 
+
+
 class AbsolutePositionalEncoding(nn.Module):
     """
     Absolute positional encoding as used in the "Attention is All you Need" 

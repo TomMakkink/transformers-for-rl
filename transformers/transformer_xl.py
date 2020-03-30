@@ -13,16 +13,16 @@ Tensor = torch.Tensor
 # TODO: Clean up code 
 
 class PositionwiseFF(nn.Module):
-    def __init__(self, d_model, d_inner, dropout):
+    def __init__(self, dim_model, dim_feedforward, dropout):
         super(PositionwiseFF, self).__init__()
 
         self.CoreNet = nn.Sequential(
-            nn.Linear(d_model, d_inner), nn.ReLU(inplace=True),
+            nn.Linear(dim_model, dim_feedforward), nn.ReLU(inplace=True),
             nn.Dropout(dropout),
-            nn.Linear(d_inner, d_model),
+            nn.Linear(dim_feedforward, dim_model),
             nn.Dropout(dropout),
         )
-        self.layer_norm = nn.LayerNorm(d_model)
+        self.layer_norm = nn.LayerNorm(dim_model)
 
     def forward(self, src):
         core_out = self.CoreNet(src)
@@ -31,11 +31,11 @@ class PositionwiseFF(nn.Module):
 
 
 class DecoderLayer(nn.Module):
-    def __init__(self, n_heads, d_model, d_head, d_inner, dropout, mem_len=None, **kwargs):
+    def __init__(self, num_heads, dim_model, dim_head, dim_feedforward, dropout, mem_len=None, **kwargs):
         super(DecoderLayer, self).__init__()
-        self.attention = RelativeMultiHeadAttention(n_heads, d_head, dropout, mem_len=mem_len, **kwargs)
-        self.pos_ff = PositionwiseFF(d_model, d_inner, dropout)
-        self.layer_norm = nn.LayerNorm(d_model)
+        self.attention = RelativeMultiHeadAttention(num_heads, dim_head, dropout, mem_len=mem_len, **kwargs)
+        self.pos_ff = PositionwiseFF(dim_model, dim_feedforward, dropout)
+        self.layer_norm = nn.LayerNorm(dim_model)
 
     def forward(self, x:Tensor, r:Tensor, u:Tensor, v:Tensor, mems:Tensor=None):
         output = self.attention(x, r, u, v, mems=mems)
@@ -56,12 +56,12 @@ class TransformerXL(nn.Module):
     """
     def __init__(
         self, 
-        n_layers:int, 
-        n_heads:int, 
-        d_model:int, 
-        d_head:int, 
-        d_inner:int,
-        d_embed:int=None,
+        num_layers:int, 
+        num_heads:int, 
+        dim_model:int, 
+        dim_head:int, 
+        dim_feedforward:int,
+        dim_embed:int=None,
         dropout:float=0.0,
         dropoutattn:float=0.0,
         mem_len:int=None,
@@ -73,27 +73,27 @@ class TransformerXL(nn.Module):
         """
         super(TransformerXL, self).__init__()
 
-        self.d_model, self.n_heads, self.d_head = d_model, n_heads, d_head 
-        self.d_embed = d_model if d_embed is None else d_embed
-        self.n_layers = n_layers
+        self.dim_model, self.num_heads, self.dim_head = dim_model, num_heads, dim_head 
+        self.dim_embed = dim_model if dim_embed is None else dim_embed
+        self.num_layers = num_layers
         self.drop = nn.Dropout(dropout)
         self.mem_len, self.tgt_len = mem_len, tgt_len
 
         self.layers = nn.ModuleList()
-        for i in range(n_layers):
+        for i in range(num_layers):
             self.layers.append(
-                DecoderLayer(n_heads, d_model, d_head, d_inner, dropout, mem_len)
+                DecoderLayer(num_heads, dim_model, dim_head, dim_feedforward, dropout, mem_len)
             )
 
-        self.pos_emb = RelativePositionalEncoding(d_model)
-        self.u = nn.Parameter(torch.Tensor(n_heads, d_head))
-        self.v = nn.Parameter(torch.Tensor(n_heads, d_head))
+        self.pos_emb = RelativePositionalEncoding(dim_model)
+        self.u = nn.Parameter(torch.Tensor(num_heads, dim_head))
+        self.v = nn.Parameter(torch.Tensor(num_heads, dim_head))
 
     def init_mems(self):
         if self.mem_len > 0:
             mems = []
             param = next(self.parameters())
-            for i in range(self.n_layers+1):
+            for i in range(self.num_layers+1):
                 empty = torch.empty(0)
                 mems.append(empty)
             return mems
