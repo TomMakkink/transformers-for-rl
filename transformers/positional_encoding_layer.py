@@ -4,8 +4,26 @@ import torch.nn as nn
 
 Tensor = torch.Tensor
 
-# TODO: Refactor this so you only have one PositionalEncoding class, and you chose the encoding scheme: 
-# e.g. relative or absolute 
+class PositionalEncoding(nn.Module):
+    """
+    Wrapper for the positional-encoding layer. Possibilites include: absolute and relative. 
+    """
+    def __init__(
+        self, 
+        encoding_type:str, 
+        d_model:int, 
+        max_len:int, 
+        dropout:float=0.1
+    ):
+        if encoding_type.lower() == "absolute":
+            self.encoder = AbsolutePositionalEncoding(d_model, dropout, max_len)
+        elif encoding_type.lower() == "relative":
+            self.encoder = RelativePositionalEncoding(d_model, dropout)
+        else:
+            raise ValueError, "Possible encodings are: 'relative' and 'absolute'"
+
+    def forward(self, x:Tensor):
+        return self.encoder(x)
 
 
 class AbsolutePositionalEncoding(nn.Module):
@@ -15,10 +33,9 @@ class AbsolutePositionalEncoding(nn.Module):
     Provides the model with information regarding the absolute position of inputs 
     in the input sequence. 
     """
-    def __init__(self, d_model:Tensor, dropout:float=0.1, max_len:int=5000):
+    def __init__(self, d_model:int, dropout:float=0.1, max_len:int=5000):
         super(AbsolutePositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
-
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
         div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
@@ -42,11 +59,10 @@ class RelativePositionalEncoding(nn.Module):
     def __init__(self, d_model:int, dropout:float=0.1): 
         super(RelativePositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
-
         freq = 1 / (10000 ** (torch.arange(0., d_model, 2.)/d_model))
         self.register_buffer('freq', freq)
 
-    def forward(self, pos:torch.torch.Tensor):
+    def forward(self, pos:Tensor):
         inp = torch.ger(pos, self.freq)
         enc = torch.cat([inp.sin(), inp.cos()], dim=-1)
         enc = enc[:, None, :]
