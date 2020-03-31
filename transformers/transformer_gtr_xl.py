@@ -1,7 +1,7 @@
 import torch 
 import torch.nn as nn 
 
-from transformers.positional_encoding_layer import RelativePositionalEncoding
+from transformers.positional_encoding_layer import PositionalEncoding
 from transformers.attention_layer import GTrXLBlock
 
 class GTrXL(nn.Module):
@@ -16,7 +16,7 @@ class GTrXL(nn.Module):
     ):
         super(GTrXL, self).__init__()
         self.embedding = nn.Linear(dim_model, dim_model)
-        self.positional_encoding_layer = RelativePositionalEncoding(dim_model)
+        self.positional_encoding_layer = PositionalEncoding(encoding_type="relative", dim_model=dim_model)
         self.dropout = nn.Dropout(dropout)
 
         self.GTrXLs = [
@@ -32,7 +32,7 @@ class GTrXL(nn.Module):
 
         self.output_layer = nn.Sequential(
             nn.Linear(dim_model, dim_mlp, bias=False), nn.ReLU(inplace=True),
-            # nn.Dropout(dropout),
+            nn.Dropout(dropout),
             nn.Linear(dim_mlp, dim_model, bias=False),
         )
 
@@ -41,7 +41,6 @@ class GTrXL(nn.Module):
         # Leave out embedding & positional encoding for now 
         # Leave dropout as well 
         # Word embedding format 
-        # Positional encoding returns []
         x = inputs.view(inputs.size(0), 1, inputs.size(1))
         for layer in self.GTrXLs:
             x = layer(x)

@@ -11,7 +11,7 @@ class PositionWiseMLP(nn.Module):
         self.pos_wise_mlp = nn.Sequential(
             nn.Linear(dim_model, dim_mlp), nn.ReLU(inplace=True),
             nn.Dropout(dropout),
-            nn.Linear(dim_mlp, dim_model), # nn.ReLU(inplace=True)
+            nn.Linear(dim_mlp, dim_model), 
         )
 
     def forward(self, src):
@@ -225,6 +225,26 @@ class RelativeMultiHeadAttention(nn.Module):
         return output
         
 
+# class TransformerXLBlock(nn.Module):
+#     def __init__(
+#         self, 
+#         num_layers:int, 
+#         num_heads:int, 
+#         dim_model:int, 
+#         dim_head:int, 
+#         dim_feedforward:int,
+#         dim_embed:int=None,
+#         dropout:float=0.0,
+#         dropoutattn:float=0.0,
+#         mem_len:int=None,
+#         tgt_len:int=None,
+#     ):
+#     super(TransformerXLBlock, self).__init__()
+
+
+#     def forward(self, inputs):
+#         return None
+
 
 class GatedRecurrentUnit(nn.Module): 
     def __init__(self, dim_model:int, **kwargs):
@@ -249,7 +269,8 @@ class GatedRecurrentUnit(nn.Module):
 
 
 class GTrXLBlock(nn.Module):
-    def __init__(self, 
+    def __init__(
+        self, 
         num_heads:int, 
         dim_model:int,
         dim_mlp:int, 

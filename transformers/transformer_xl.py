@@ -8,19 +8,16 @@ import torch.nn.functional as F
 from transformers.positional_encoding_layer import RelativePositionalEncoding
 from transformers.attention_layer import RelativeMultiHeadAttention
 
-Tensor = torch.Tensor
-# TODO: Need to standardies variable names
-# TODO: Clean up code 
+Tensor = torch.Tensor 
 
 class PositionwiseFF(nn.Module):
-    def __init__(self, dim_model, dim_feedforward, dropout):
+    def __init__(self, dim_model, dim_mlp, dropout):
         super(PositionwiseFF, self).__init__()
 
         self.CoreNet = nn.Sequential(
-            nn.Linear(dim_model, dim_feedforward), nn.ReLU(inplace=True),
+            nn.Linear(dim_model, dim_mlp), nn.ReLU(inplace=True),
             nn.Dropout(dropout),
-            nn.Linear(dim_feedforward, dim_model),
-            nn.Dropout(dropout),
+            nn.Linear(dim_mlp, dim_model),
         )
         self.layer_norm = nn.LayerNorm(dim_model)
 
@@ -31,10 +28,10 @@ class PositionwiseFF(nn.Module):
 
 
 class DecoderLayer(nn.Module):
-    def __init__(self, num_heads, dim_model, dim_head, dim_feedforward, dropout, mem_len=None, **kwargs):
+    def __init__(self, num_heads, dim_model, dim_head, dim_mlp, dropout, mem_len=None, **kwargs):
         super(DecoderLayer, self).__init__()
         self.attention = RelativeMultiHeadAttention(num_heads, dim_head, dropout, mem_len=mem_len, **kwargs)
-        self.pos_ff = PositionwiseFF(dim_model, dim_feedforward, dropout)
+        self.pos_ff = PositionwiseFF(dim_model, dim_mlp, dropout)
         self.layer_norm = nn.LayerNorm(dim_model)
 
     def forward(self, x:Tensor, r:Tensor, u:Tensor, v:Tensor, mems:Tensor=None):
@@ -60,17 +57,13 @@ class TransformerXL(nn.Module):
         num_heads:int, 
         dim_model:int, 
         dim_head:int, 
-        dim_feedforward:int,
+        dim_mlp:int,
         dim_embed:int=None,
         dropout:float=0.0,
         dropoutattn:float=0.0,
         mem_len:int=None,
         tgt_len:int=None,
     ):
-        """
-        Args: 
-
-        """
         super(TransformerXL, self).__init__()
 
         self.dim_model, self.num_heads, self.dim_head = dim_model, num_heads, dim_head 
@@ -82,7 +75,7 @@ class TransformerXL(nn.Module):
         self.layers = nn.ModuleList()
         for i in range(num_layers):
             self.layers.append(
-                DecoderLayer(num_heads, dim_model, dim_head, dim_feedforward, dropout, mem_len)
+                DecoderLayer(num_heads, dim_model, dim_head, dim_mlp, dropout, mem_len)
             )
 
         self.pos_emb = RelativePositionalEncoding(dim_model)

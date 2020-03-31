@@ -177,8 +177,8 @@ def main():
 
     
     # Transformer-XL 
-    config = {"dim_model": 4, "num_heads": 1, "num_layers": 1, "dim_mlp": 20, "dropout": 0.1, 
-              "dim_head": 4, "lr":0.001, "mem_len": 0, "transformer_type": ""}
+    config = {"dim_model": 4, "num_heads": 1, "num_layers": 1, "dim_mlp": 30, "dropout": 0.1, 
+              "dim_head": 4, "lr":0.001, "mem_len": 0, "transformer_type": "xl"}
 
     train(config)
 

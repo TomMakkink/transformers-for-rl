@@ -11,16 +11,17 @@ class PositionalEncoding(nn.Module):
     def __init__(
         self, 
         encoding_type:str, 
-        d_model:int, 
-        max_len:int, 
+        dim_model:int, 
+        max_len:int=5000, 
         dropout:float=0.1
     ):
+        super(PositionalEncoding, self).__init__()
         if encoding_type.lower() == "absolute":
-            self.encoder = AbsolutePositionalEncoding(d_model, dropout, max_len)
+            self.encoder = AbsolutePositionalEncoding(dim_model, dropout, max_len)
         elif encoding_type.lower() == "relative":
-            self.encoder = RelativePositionalEncoding(d_model, dropout)
+            self.encoder = RelativePositionalEncoding(dim_model, dropout)
         else:
-            raise ValueError, "Possible encodings are: 'relative' and 'absolute'"
+            raise ValueError("Possible encodings are: 'relative' and 'absolute'")
 
     def forward(self, x:Tensor):
         return self.encoder(x)
@@ -33,12 +34,12 @@ class AbsolutePositionalEncoding(nn.Module):
     Provides the model with information regarding the absolute position of inputs 
     in the input sequence. 
     """
-    def __init__(self, d_model:int, dropout:float=0.1, max_len:int=5000):
+    def __init__(self, dim_model:int, dropout:float=0.1, max_len:int=5000):
         super(AbsolutePositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
-        pe = torch.zeros(max_len, d_model)
+        pe = torch.zeros(max_len, dim_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        div_term = torch.exp(torch.arange(0, dim_model, 2).float() * (-math.log(10000.0) / dim_model))
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
         pe = pe.unsqueeze(0).transpose(0, 1)
@@ -56,10 +57,10 @@ class RelativePositionalEncoding(nn.Module):
     Provides the model with information regarding the relative position of inputs 
     in the input sequence. 
     """
-    def __init__(self, d_model:int, dropout:float=0.1): 
+    def __init__(self, dim_model:int, dropout:float=0.1): 
         super(RelativePositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
-        freq = 1 / (10000 ** (torch.arange(0., d_model, 2.)/d_model))
+        freq = 1 / (10000 ** (torch.arange(0., dim_model, 2.)/dim_model))
         self.register_buffer('freq', freq)
 
     def forward(self, pos:Tensor):

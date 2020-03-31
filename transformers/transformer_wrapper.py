@@ -20,6 +20,7 @@ class Transformer(nn.Module):
         mem_len:int=0,
     ):
         super(Transformer, self).__init__()
+        self.transformer_type = transformer_type
         if transformer_type.lower() == "gtrxl":
             print("Using GTrXL Transformer...")
             self.transformer = GTrXL(
@@ -41,6 +42,7 @@ class Transformer(nn.Module):
                 dropout=dropout,
                 mem_len=mem_len, 
             )
+            self.mem = tuple()
         elif transformer_type.lower() == "vanilla":
             print("Using Transformer...")
             self.transformer = TransformerModel(
@@ -56,4 +58,9 @@ class Transformer(nn.Module):
 
     def forward(self, inputs):
         if self.transformer is None: return inputs
-        return self.transformer(inputs).view(inputs.size(0), inputs.size(1))
+        if self.transformer_type == "xl":
+            ret = self.transformer(inputs, *self.mem)
+            output, self.mem = ret[0], ret[1:]
+        else:
+            output = self.transformer(inputs)
+        return output.view(inputs.size(0), inputs.size(1))
