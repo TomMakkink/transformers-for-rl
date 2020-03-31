@@ -19,6 +19,17 @@ class Transformer(nn.Module):
         dropout:float=0.1,  
         mem_len:int=0,
     ):
+        """
+        Args: 
+            dim_model: input embedding dimension.
+            dim_head: embedding dimension of each transformer head. 
+            transformer_type: type of transformer used: ["vanilla", "xl", "gtrxl", "None"]. Default: "None". 
+            num_layers: number of layers in the transformer model. Default: 2.
+            num_heads: number of attention heads. Default: 1. 
+            dim_mlp: inner dimension of the positionwise multi-layer perceptron. Default: 32. 
+            dropout: dropout. Default: 0.1. 
+            mem_len: length of memory. Only relavant to "xl" and "gtrxl". Default: 0. 
+        """
         super(Transformer, self).__init__()
         self.transformer_type = transformer_type
         if transformer_type.lower() == "gtrxl":
@@ -33,6 +44,7 @@ class Transformer(nn.Module):
             )
         elif transformer_type.lower() == "xl":
             print("Using Transformer-XL...")
+            self.mem = tuple()
             self.transformer = TransformerXL(
                 dim_model=dim_model,
                 num_layers=num_layers,
@@ -42,7 +54,6 @@ class Transformer(nn.Module):
                 dropout=dropout,
                 mem_len=mem_len, 
             )
-            self.mem = tuple()
         elif transformer_type.lower() == "vanilla":
             print("Using Transformer...")
             self.transformer = TransformerModel(
