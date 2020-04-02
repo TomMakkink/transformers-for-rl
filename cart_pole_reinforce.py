@@ -1,9 +1,10 @@
-""" REINFORCE algorithm on the CartPole-v1 environment. 
+""" 
+REINFORCE algorithm on the CartPole-v1 environment. 
 
 This implementation of REINFORCE is based on the opensource pytorch version 
 which can be found here: https://github.com/pytorch/examples/blob/master/reinforcement_learning/reinforce.py. 
 
-The agent in the CartPole enviornment is tasked with balancing a cart 
+The agent in the CartPole enviornment is tasked with balancing a pole on a cart 
 for as long as possible by moving left or right. For each timestep 
 that the pole is up, a reward of +1 is provided. The observation space 
 consists of 4 inputs: cart position, cart velocity, pole angle, pole velocity 
@@ -26,7 +27,7 @@ from torch.distributions import Categorical
 from transformers.transformer_wrapper import Transformer
 from ray import tune
 
-
+from nadam import Nadam
 
 # =====================================
 # Parse command-line arguments
@@ -75,15 +76,16 @@ def plot_grad_flow(named_parameters):
 class Policy(nn.Module):
     def __init__(self, config):
         super(Policy, self).__init__()
-        # self.transformer_type = config["transformer"]
+        self.transformer_type = config["transformer_type"]
         self.transformer = Transformer(
             transformer_type=config["transformer_type"],
-            dim_model=config["dim_model"],
+            d_model=config["d_model"],
+            output_dim=config["output_dim"],
             num_layers=config["num_layers"],
             num_heads=config["num_heads"],
             dim_mlp=config["dim_mlp"],
-            dim_head=config["dim_head"],
             mem_len=config["mem_len"],
+            ninp=config["ninp"],
         )
         
         self.affine1 = nn.Linear(4, 128)
@@ -93,10 +95,15 @@ class Policy(nn.Module):
         self.saved_log_probs = []
         self.rewards = []
 
-        self.mems = tuple()
+        self.saved_state = []
 
     def forward(self, x):
-        x = self.transformer(x)
+        self.saved_state.append(x)
+        if len(self.saved_state) == 5:
+            x = torch.stack(self.saved_state)
+            x = self.transformer(x)
+            x = x.view(1, x.size(0))
+            self.saved_state = self.saved_state[1:]
         x = self.affine1(x)
         x = self.dropout(x)
         x = F.relu(x)
@@ -135,7 +142,7 @@ def finish_episode(policy, optimizer, eps):
 
 def train(config): 
     policy = Policy(config)
-    optimizer = optim.Adam(policy.parameters(), lr=config["lr"])
+    optimizer = Nadam(policy.parameters(), lr=config["lr"])
     eps = np.finfo(np.float32).eps.item()
     running_reward = 10
     for i_episode in count(1):
@@ -150,8 +157,6 @@ def train(config):
             if done:
                 break
         running_reward = 0.05 * ep_reward + (1 - 0.05) * running_reward
-        # tune.track.log(episode_reward_mean=ep_reward)
-        # tune.track.log(running_reward=running_reward)
         finish_episode(policy, optimizer, eps)
         if i_episode % args.log_interval == 0:
             print('Episode {}\tLast reward: {:.2f}\tAverage reward: {:.2f}'.format(
@@ -162,8 +167,7 @@ def train(config):
                   "the last episode runs to {} time steps!".format(running_reward, t))
             break
 
-        # Added for graphing 
-        if i_episode > 1000:
+        if i_episode > 2000:
             break; 
 
 
@@ -171,17 +175,13 @@ def train(config):
 def main():
     # analysis = tune.run(
     #                 train, 
-    #                 config = {"dim_model": 4, "num_heads": 1, "num_layers": 1, "dim_mlp": 10, "dropout": 0.0, 
-    #                         "dim_head": 4, "lr":0.001, "transformer": tune.grid_search(["", "vanilla", "xl"])}
+    #                 config = {"d_model": 4, "num_heads": 1, "num_layers": 1, "dim_mlp": 24, "dropout": 0.0, 
+    #                         "dim_head": 4, "lr":0.001, "transformer": tune.grid_search(["gtrxl", "vanilla", "xl", "none"])}
     #             )
-
-    
-    # Transformer-XL 
-    config = {"dim_model": 4, "num_heads": 1, "num_layers": 1, "dim_mlp": 30, "dropout": 0.1, 
-              "dim_head": 4, "lr":0.001, "mem_len": 0, "transformer_type": "xl"}
+    config = {"d_model": 4, "output_dim": 4, "num_heads": 1, "num_layers": 1, "dim_mlp": 20, "dropout": 0.0, 
+              "lr":0.001, "mem_len": 0, "transformer_type": "gtrxl", "ninp": 5}
 
     train(config)
-
 
 
 if __name__ == '__main__':

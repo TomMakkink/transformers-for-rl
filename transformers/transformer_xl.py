@@ -1,44 +1,10 @@
-import math 
-import numpy as np 
-
 import torch 
 import torch.nn as nn 
 import torch.nn.functional as F 
-
-from transformers.positional_encoding_layer import RelativePositionalEncoding
-from transformers.attention_layer import RelativeMultiHeadAttention
+from transformers.positional_encoding_layer import PositionalEncoding
+from transformers.attention_layer import RelativeMultiHeadAttention, TransformerXLBlock
 
 Tensor = torch.Tensor 
-
-class PositionwiseFF(nn.Module):
-    def __init__(self, dim_model, dim_mlp, dropout):
-        super(PositionwiseFF, self).__init__()
-
-        self.CoreNet = nn.Sequential(
-            nn.Linear(dim_model, dim_mlp), nn.ReLU(inplace=True),
-            nn.Dropout(dropout),
-            nn.Linear(dim_mlp, dim_model),
-        )
-        self.layer_norm = nn.LayerNorm(dim_model)
-
-    def forward(self, src):
-        core_out = self.CoreNet(src)
-        output = self.layer_norm(src + core_out)
-        return output
-
-
-class DecoderLayer(nn.Module):
-    def __init__(self, num_heads, dim_model, dim_head, dim_mlp, dropout, mem_len=None, **kwargs):
-        super(DecoderLayer, self).__init__()
-        self.attention = RelativeMultiHeadAttention(num_heads, dim_head, dropout, mem_len=mem_len, **kwargs)
-        self.pos_ff = PositionwiseFF(dim_model, dim_mlp, dropout)
-        self.layer_norm = nn.LayerNorm(dim_model)
-
-    def forward(self, x:Tensor, r:Tensor, u:Tensor, v:Tensor, mems:Tensor=None):
-        output = self.attention(x, r, u, v, mems=mems)
-        output = self.pos_ff(output)
-        return output
-
 
 class TransformerXL(nn.Module):
     """
@@ -53,98 +19,115 @@ class TransformerXL(nn.Module):
     """
     def __init__(
         self, 
+        d_model:int, 
+        ninp:int,
+        output_dim:int,
         num_layers:int, 
         num_heads:int, 
-        dim_model:int, 
-        dim_head:int, 
         dim_mlp:int,
-        dim_embed:int=None,
         dropout:float=0.0,
-        dropoutattn:float=0.0,
         mem_len:int=None,
         tgt_len:int=None,
     ):
+        """
+        Args: 
+            d_model: number of expected features in the input. 
+            ninp: number of inputs. 
+            output_dim = output dimension of the model. 
+            num_layers: number of 'submodule' layers in the transformer. 
+            num_heads: number of attention heads.  
+            dim_mlp: inner dimension of multilayer perceptron. 
+            dropout: dropout. Default: None. 
+            mem_len: length of memory. Default: None. 
+            tgt_len: length of target sequence. Default: None. 
+        """
         super(TransformerXL, self).__init__()
-
-        self.dim_model, self.num_heads, self.dim_head = dim_model, num_heads, dim_head 
-        self.dim_embed = dim_model if dim_embed is None else dim_embed
-        self.num_layers = num_layers
+        dim_head = d_model // num_heads
         self.drop = nn.Dropout(dropout)
-        self.mem_len, self.tgt_len = mem_len, tgt_len
-
-        self.layers = nn.ModuleList()
-        for i in range(num_layers):
-            self.layers.append(
-                DecoderLayer(num_heads, dim_model, dim_head, dim_mlp, dropout, mem_len)
-            )
-
-        self.pos_emb = RelativePositionalEncoding(dim_model)
+        self.mem_len = mem_len
+        self.tgt_len = tgt_len
+        self.num_layers = num_layers
+        self.positional_encoding_layer = PositionalEncoding(encoding_type="relative", d_model=d_model)
         self.u = nn.Parameter(torch.Tensor(num_heads, dim_head))
         self.v = nn.Parameter(torch.Tensor(num_heads, dim_head))
 
-    def init_mems(self):
+        self.TransformerXLs = [
+            TransformerXLBlock(
+                num_heads=num_heads, 
+                d_model=d_model,
+                dim_head=dim_head,
+                dim_mlp=dim_mlp,
+                dropout=dropout,
+                mem_len=mem_len,
+                tgt_len=tgt_len,
+            )
+            for k in range(num_layers)
+        ]
+
+        self.output_layer = nn.Linear(ninp * d_model, output_dim, bias=False)
+
+    def init_mem(self):
         if self.mem_len > 0:
-            mems = []
+            mem = []
             param = next(self.parameters())
             for i in range(self.num_layers+1):
                 empty = torch.empty(0)
-                mems.append(empty)
-            return mems
+                mem.append(empty)
+            return mem
         else:
             return None
 
-    def _update_mems(self, hids, mems, qlen, mlen):
-        if mems is None: return None
-        assert len(hids) == len(mems), 'len(hids) != len(mems)'
+    def _update_mem(self, hids, mem, qlen, mlen):
+        if mem is None: return None
+        assert len(hids) == len(mem), 'len(hids) != len(mem)'
         with torch.no_grad():
-            new_mems = []
+            new_mem = []
             end_idx = mlen + max(0, qlen)
             beg_idx = max(0, end_idx - self.mem_len)
             for i in range(len(hids)):
-                cat = torch.cat([mems[i], hids[i]], dim=0)
-                new_mems.append(cat[beg_idx:end_idx].detach())
-        return new_mems
+                cat = torch.cat([mem[i], hids[i]], dim=0)
+                new_mem.append(cat[beg_idx:end_idx].detach())
+        return new_mem
 
 
-    def forward(self, data, *mems):
-        if not mems: mems = self.init_mems()
-        tgt_len = data.size(0)
-        qlen, bsz = data.size()
+    def forward(self, inputs:Tensor, *mem:Tensor):
+        """
+        Args: 
+            inputs: input tensor, of shape: [source_seq_len, batch_size, features] 
+            mem: memory from previous sequence. 
 
-        # Word-embedding format
-        data = data.view(data.size(0), 1, data.size(1))
+        Returns: 
+            Transformer output, of shape: [output_dim]
+        """
+        if not mem: mem = self.init_mem()
+        qlen, bsz, _ = inputs.size()
         
-        mlen = mems[0].size(0) if mems is not None else 0
+        mlen = mem[0].size(0) if mem is not None else 0
         klen = mlen + qlen 
         hids = []
 
         pos_seq = torch.arange(klen-1, -1, -1.0)
-        pos_emb = self.pos_emb(pos_seq)
+        pos_emb = self.positional_encoding_layer(pos_seq)
 
-        core_out = self.drop(data)
+        core_out = self.drop(inputs)
         pos_emb = self.drop(pos_emb)
-        # Exclude positional embedding for simple cartpole problem 
-        pos_emb = torch.tensor([[[1.0, 1.0, 1.0, 1.0]]])
 
         hids.append(core_out)
-        for i, layer in enumerate(self.layers):
-            mems_i = None if mems is None else mems[i]
-            core_out = layer(core_out, pos_emb, self.u, self.v, mems=mems_i)
+        for i, layer in enumerate(self.TransformerXLs):
+            mem_i = None if mem is None else mem[i]
+            core_out = layer(core_out, pos_emb, self.u, self.v, mem=mem_i)
             hids.append(core_out)
 
         core_out = self.drop(core_out)
 
-        new_mems = self._update_mems(hids, mems, mlen, qlen)
-        pred_hid = core_out[-tgt_len:]
+        new_mem = self._update_mem(hids, mem, mlen, qlen)
+        pred_hid = core_out[-qlen:]
+        loss = self.output_layer(torch.flatten(pred_hid))
 
-        # loss = F.softmax(pred_hid, -1)
-        loss = pred_hid
-        loss = loss.view(tgt_len, -1)
-
-        if new_mems is None:
+        if new_mem is None:
             return [loss]
         else:
-            return [loss] + new_mems
+            return [loss] + new_mem
 
 
 

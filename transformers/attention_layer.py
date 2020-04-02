@@ -5,19 +5,6 @@ from torch.nn.init import xavier_uniform_, constant_
 
 Tensor = torch.Tensor
 
-class PositionWiseMLP(nn.Module):
-    def __init__(self, dim_model:Tensor, dim_mlp:int, dropout:float=0.1):
-        super(PositionWiseMLP, self).__init__()
-        self.pos_wise_mlp = nn.Sequential(
-            nn.Linear(dim_model, dim_mlp), nn.ReLU(inplace=True),
-            nn.Dropout(dropout),
-            nn.Linear(dim_mlp, dim_model), 
-        )
-
-    def forward(self, src):
-        return self.pos_wise_mlp(src)
-
-
 class MultiHeadAttention(nn.Module):
     """
     Multi-Head Attention layer as described in "Attention is All You Need": https://arxiv.org/abs/1706.03762.
@@ -31,34 +18,34 @@ class MultiHeadAttention(nn.Module):
 
     def __init__(
         self, 
-        dim_model:int, 
+        d_model:int, 
         num_heads:int,
-        dropout:float=0.1,
+        dropout:float=0.0,
         bias:bool=False,
         **kwargs,  
     ):
         """
         Args:
-            dim_model: embedding dimension. 
+            d_model: number of expected features in the input. 
             num_heads: number of attention heads. 
             dropout: dropout layer on attention output weigths. Default: 0.0. 
             bias: add bias as module parameter. Default: False. 
         """
         super(MultiHeadAttention, self).__init__()
-        self.dim_model = dim_model
+        self.d_model = d_model
         self.num_heads = num_heads
         self.dropout = dropout
-        self.head_dim = dim_model // num_heads
-        assert self.head_dim * num_heads == self.dim_model, "dim_model must be divisible by num_heads"
+        self.head_dim = d_model // num_heads
+        assert self.head_dim * num_heads == self.d_model, "d_model must be divisible by num_heads"
 
-        self.in_proj_weight = nn.Parameter(torch.empty(3 * dim_model, dim_model))
+        self.in_proj_weight = nn.Parameter(torch.empty(3 * d_model, d_model))
 
         if bias:
-            self.in_proj_bias = nn.Parameter(torch.empty(3 * dim_model))
+            self.in_proj_bias = nn.Parameter(torch.empty(3 * d_model))
         else:
             self.register_parameter('in_proj_bias', None)
 
-        self.out_proj = nn.Linear(dim_model, dim_model, bias=bias)
+        self.out_proj = nn.Linear(d_model, d_model, bias=bias)
 
         self._reset_parameters() 
 
@@ -80,10 +67,10 @@ class MultiHeadAttention(nn.Module):
         Returns: 
             Attention output with shape [target_seq_len, batch_size, dim]
         """
-        tgt_len, bsz, dim_model = query.size()
+        tgt_len, bsz, d_model = query.size()
         assert key.size() == value.size()
-        head_dim = self.dim_model // self.num_heads
-        assert head_dim * self.num_heads == self.dim_model, "dim_model must be divisible by num_heads"
+        head_dim = self.d_model // self.num_heads
+        assert head_dim * self.num_heads == self.d_model, "d_model must be divisible by num_heads"
         scaling = 1 / (head_dim ** 0.5)
         
         if torch.equal(query, key) and torch.equal(key, value):
@@ -109,11 +96,10 @@ class MultiHeadAttention(nn.Module):
 
         attn_output = torch.bmm(attn_output_weights, v)
         assert list(attn_output.size()) == [bsz * self.num_heads, tgt_len, head_dim]
-        attn_output = attn_output.transpose(0, 1).contiguous().view(tgt_len, bsz, dim_model)
+        attn_output = attn_output.transpose(0, 1).contiguous().view(tgt_len, bsz, d_model)
         attn_output = F.linear(attn_output, self.out_proj.weight, self.out_proj.bias)
 
         return attn_output
-
 
 
 class RelativeMultiHeadAttention(nn.Module):
@@ -129,7 +115,7 @@ class RelativeMultiHeadAttention(nn.Module):
     def __init__(
         self, 
         num_heads:int,
-        dim_model:int, 
+        d_model:int, 
         dropout:float=0.0,
         bias:bool=False,
         mem_len=None, 
@@ -137,24 +123,24 @@ class RelativeMultiHeadAttention(nn.Module):
     ):
         """
         Args:
-            dim_model: embedding dimension. 
+            d_model: number of expected features in the input.  
             num_heads: number of attention heads. 
             dropout: dropout layer on attention output weigths. Default: 0.0. 
             bias: add bias as module parameter. Default: False. 
             mem_len: length of memory. 
         """
         super(RelativeMultiHeadAttention, self).__init__()
-        self.dim_model = dim_model
+        self.d_model = d_model
         self.num_heads = num_heads
-        self.head_dim = dim_model // num_heads
-        assert self.head_dim * num_heads == self.dim_model, "dim_model must be divisible by num_heads"
+        self.head_dim = d_model // num_heads
+        assert self.head_dim * num_heads == self.d_model, "d_model must be divisible by num_heads"
         
         self.dropout = nn.Dropout(dropout)
-        self.qkv_net = nn.Linear(self.dim_model, 3 * self.num_heads * self.head_dim, bias=False)
-        self.r_net = nn.Linear(self.dim_model, self.num_heads * self.head_dim, bias=False)
+        self.qkv_net = nn.Linear(self.d_model, 3 * self.num_heads * self.head_dim, bias=False)
+        self.r_net = nn.Linear(self.d_model, self.num_heads * self.head_dim, bias=False)
 
-        self.out_proj = nn.Linear(num_heads * self.head_dim, dim_model, bias=False)
-        self.layer_norm = nn.LayerNorm(dim_model)
+        self.out_proj = nn.Linear(num_heads * self.head_dim, d_model, bias=False)
+        self.layer_norm = nn.LayerNorm(d_model)
 
         self.scale = 1 / (self.head_dim ** 0.5)
 
@@ -168,11 +154,11 @@ class RelativeMultiHeadAttention(nn.Module):
             x = x * torch.tril(ones, x.size(1) - x.size(0))[:,:,None,None]
         return x
 
-    def forward(self, x:Tensor, r:Tensor, u:Tensor, v:Tensor, mems:Tensor=None):
+    def forward(self, x:Tensor, r:Tensor, u:Tensor, v:Tensor, mem:Tensor=None):
         """
         Args: 
             x: Input tensor, shape [target_seq_len, batch_size, dim]
-            r: relative distance between two elements, shape [source_seq_len]
+            r: relative distance between two elements.
             u, v: learnable parameters of model common between layers 
             mem: fixed cache of previous hidden states, of shape: [target_seq_len, batch_size, dim]
 
@@ -181,7 +167,7 @@ class RelativeMultiHeadAttention(nn.Module):
         """
         qlen, rlen, bsz = x.size(0), r.size(0), x.size(1)
 
-        context = x if mems is None else torch.cat([mems, x], 0)
+        context = x if mem is None else torch.cat([mem, x], 0)
         w_heads = self.qkv_net(context)
         rk = self.r_net(r)
         wq, wk, wv = torch.chunk(w_heads, 3, dim=-1)
@@ -223,43 +209,92 @@ class RelativeMultiHeadAttention(nn.Module):
         output = self.layer_norm(x + attn_out)
 
         return output
+
+
+class PositionWiseMLP(nn.Module):
+    def __init__(self, d_model:Tensor, dim_mlp:int, dropout:float=0.1):
+        super(PositionWiseMLP, self).__init__()
+        self.pos_wise_mlp = nn.Sequential(
+            nn.Linear(d_model, dim_mlp), nn.ReLU(inplace=True),
+            nn.Dropout(dropout),
+            nn.Linear(dim_mlp, d_model), 
+        )
+
+    def forward(self, src):
+        return self.pos_wise_mlp(src)
+
+
+class TransformerBlock(nn.Module):
+    def __init__(
+        self, 
+        num_heads:int,
+        d_model:int,
+        dim_mlp:int,
+        dropout:int,
+    ):
+        super(TransformerBlock, self).__init__()
+        self.layer_norm_1 = nn.LayerNorm(d_model)
+        self.layer_norm_2 = nn.LayerNorm(d_model)
+        self.attention = MultiHeadAttention(d_model, num_heads, dropout)
+        self.pos_wise_mlp = PositionWiseMLP(d_model, dim_mlp, dropout)
+
+    def forward(self, inputs):
+        # Attention 
+        x = inputs 
+        y = self.attention(inputs, inputs, inputs)
+        y = self.layer_norm_1(x + y)
+
+        # Position-wise MLP
+        x = y 
+        y = self.pos_wise_mlp(y)
+        output = self.layer_norm_2(x + y)
+        return output
+
+   
+class TransformerXLBlock(nn.Module):
+    def __init__(
+        self, 
+        num_heads:int, 
+        d_model:int, 
+        dim_head:int, 
+        dim_mlp:int,
+        dropout:float=0.0,
+        mem_len:int=None,
+        tgt_len:int=None,
+    ):
+        super(TransformerXLBlock, self).__init__()
+        self.layer_norm_1 = nn.LayerNorm(d_model)
+        self.layer_norm_2 = nn.LayerNorm(d_model)
+        self.attention = RelativeMultiHeadAttention(num_heads, d_model, dropout, mem_len=mem_len)
+        self.pos_wise_mlp = PositionWiseMLP(d_model, dim_mlp, dropout)
         
+    def forward(self, inputs:Tensor, r:Tensor, u:Tensor, v:Tensor, mem:Tensor=None):
+        # Attention 
+        x = inputs
+        y = self.attention(inputs, r, u, v, mem)
+        y = self.layer_norm_1(x + y) 
 
-# class TransformerXLBlock(nn.Module):
-#     def __init__(
-#         self, 
-#         num_layers:int, 
-#         num_heads:int, 
-#         dim_model:int, 
-#         dim_head:int, 
-#         dim_feedforward:int,
-#         dim_embed:int=None,
-#         dropout:float=0.0,
-#         dropoutattn:float=0.0,
-#         mem_len:int=None,
-#         tgt_len:int=None,
-#     ):
-#     super(TransformerXLBlock, self).__init__()
-
-
-#     def forward(self, inputs):
-#         return None
+        # Position-wise MLP
+        x = y 
+        y = self.pos_wise_mlp(y)
+        output = self.layer_norm_2(x + y)
+        return output
 
 
 class GatedRecurrentUnit(nn.Module): 
-    def __init__(self, dim_model:int, **kwargs):
-        super(GatedRecurrentUnit, self).__init__(**kwargs)
-        self.wr = nn.Parameter(torch.ones(dim_model, dim_model))
-        self.ur = nn.Parameter(torch.ones(dim_model, dim_model))
-        self.wz = nn.Parameter(torch.ones(dim_model, dim_model))
-        self.uz = nn.Parameter(torch.ones(dim_model, dim_model))
-        self.bz = nn.Parameter(torch.ones(dim_model,))
-        self.wg = nn.Parameter(torch.ones(dim_model, dim_model))
-        self.ug = nn.Parameter(torch.ones(dim_model, dim_model))
+    def __init__(self, d_model:int):
+        super(GatedRecurrentUnit, self).__init__()
+        self.wr = nn.Parameter(torch.ones(d_model, d_model))
+        self.ur = nn.Parameter(torch.ones(d_model, d_model))
+        self.wz = nn.Parameter(torch.ones(d_model, d_model))
+        self.uz = nn.Parameter(torch.ones(d_model, d_model))
+        self.bz = nn.Parameter(torch.ones(d_model,))
+        self.wg = nn.Parameter(torch.ones(d_model, d_model))
+        self.ug = nn.Parameter(torch.ones(d_model, d_model))
 
     def forward(self, inputs:Tensor):
         x, y = inputs 
-        batch_size, seq_len, dim_model = x.size()
+        batch_size, seq_len, d_model = x.size()
         assert x.shape == y.shape, "Two inputs should be of the same size"
 
         r = torch.sigmoid(torch.matmul(y, self.wr) + torch.matmul(x, self.ur))
@@ -272,30 +307,30 @@ class GTrXLBlock(nn.Module):
     def __init__(
         self, 
         num_heads:int, 
-        dim_model:int,
+        d_model:int,
         dim_mlp:int, 
         use_scale:bool=True,
         dropout:float=0.0,
     ):
         super(GTrXLBlock, self).__init__()
-        self.layer_norm_1 = nn.LayerNorm(dim_model)
-        self.layer_norm_2 = nn.LayerNorm(dim_model)
+        self.layer_norm_1 = nn.LayerNorm(d_model)
+        self.layer_norm_2 = nn.LayerNorm(d_model)
 
-        self.attention = MultiHeadAttention(dim_model, num_heads, dropout)
+        self.attention = MultiHeadAttention(d_model, num_heads, dropout)
 
-        self.gated_layer_1 = GatedRecurrentUnit(dim_model)
-        self.gated_layer_2 = GatedRecurrentUnit(dim_model)
+        self.gated_layer_1 = GatedRecurrentUnit(d_model)
+        self.gated_layer_2 = GatedRecurrentUnit(d_model)
 
-        self.pos_wise_mlp = PositionWiseMLP(dim_model, dim_mlp, dropout)
+        self.pos_wise_mlp = PositionWiseMLP(d_model, dim_mlp, dropout)
         self.relu = nn.ReLU(inplace=True)
 
     def forward(self, inputs):
-        # Attention Block 
+        # Attention
         x = inputs 
         y = self.layer_norm_1(inputs)
         y = self.gated_layer_1([x,y])
         
-        # Pointwise MLP Block 
+        # Position-wise MLP
         x = y
         y = self.layer_norm_2(y)
         y = self.pos_wise_mlp(y)
