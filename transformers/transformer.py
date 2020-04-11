@@ -19,7 +19,6 @@ class TransformerModel(nn.Module):
     def __init__(
         self, 
         d_model:int,
-        ninp:int, 
         output_dim:int,
         num_layers:int,  
         num_heads:int=2, 
@@ -29,7 +28,6 @@ class TransformerModel(nn.Module):
         """
         Args: 
             d_model: number of expected features in the input. 
-            ninput: number of inputs. 
             output_dim: output dimension of the model. 
             num_layers: number of submodules in the transformer. 
             num_heads: number of attention heads. Default: 2. 
@@ -40,7 +38,6 @@ class TransformerModel(nn.Module):
         self.pos_encoder = PositionalEncoding(encoding_type="absolute", d_model=d_model)
         self.dropout = nn.Dropout(dropout)
         self.d_model = d_model
-        self.num_heads = num_heads
         
         self.Transformers = [
             TransformerBlock(
@@ -52,8 +49,15 @@ class TransformerModel(nn.Module):
             for k in range(num_layers)
         ]
 
-        self.out_layer = nn.Linear(ninp * d_model, output_dim, bias=False)
+        self.out_layer = nn.Linear(d_model, output_dim, bias=False)
         self._reset_parameters()
+
+
+    def _reset_parameters(self):
+        r"""Initiate parameters in the transformer model."""
+        for p in self.parameters():
+            if p.dim() > 1:
+                xavier_uniform_(p)
 
 
     def forward(self, inputs:Tensor):
@@ -67,12 +71,6 @@ class TransformerModel(nn.Module):
         x = self.pos_encoder(inputs * math.sqrt(self.d_model))
         for layer in self.Transformers:
             x = layer(x)
-        x = torch.flatten(x)
         return self.out_layer(x)
 
     
-    def _reset_parameters(self):
-        r"""Initiate parameters in the transformer model."""
-        for p in self.parameters():
-            if p.dim() > 1:
-                xavier_uniform_(p)

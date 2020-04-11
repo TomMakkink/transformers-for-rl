@@ -19,7 +19,6 @@ class GTrXL(nn.Module):
     def __init__(
         self, 
         d_model:int, 
-        ninp:int, 
         output_dim:int,
         num_layers:int, 
         num_heads:int, 
@@ -29,7 +28,6 @@ class GTrXL(nn.Module):
         """
         Args: 
             d_model: number of expected features in the input. 
-            ninp: number of inputs. 
             output_dim: output dimension of the model.  
             num_layers: number of submodules in the transformer. 
             num_heads: number of attention heads.  
@@ -51,12 +49,7 @@ class GTrXL(nn.Module):
             for k in range(num_layers)
         ]
 
-        self.output_layer = nn.Linear(ninp * d_model, output_dim, bias=False)
-        # self.output_layer = nn.Sequential(
-        #     nn.Linear(d_model, dim_mlp, bias=False), nn.ReLU(inplace=True),
-        #     nn.Dropout(dropout),
-        #     nn.Linear(dim_mlp, output_dim, bias=False)
-        # )
+        self.output_layer = nn.Linear(d_model, output_dim, bias=False)
 
 
     def forward(self, inputs:Tensor):
@@ -70,6 +63,5 @@ class GTrXL(nn.Module):
         x = self.positional_encoding_layer(inputs)
         for layer in self.GTrXLs:
             x = layer(x)
-        x = torch.flatten(x)
         output = self.output_layer(x)
         return output

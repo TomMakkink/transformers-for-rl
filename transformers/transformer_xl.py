@@ -20,7 +20,6 @@ class TransformerXL(nn.Module):
     def __init__(
         self, 
         d_model:int, 
-        ninp:int,
         output_dim:int,
         num_layers:int, 
         num_heads:int, 
@@ -31,8 +30,7 @@ class TransformerXL(nn.Module):
     ):
         """
         Args: 
-            d_model: number of expected features in the input. 
-            ninp: number of inputs. 
+            d_model: number of expected features in the input.  
             output_dim = output dimension of the model. 
             num_layers: number of 'submodule' layers in the transformer. 
             num_heads: number of attention heads.  
@@ -64,7 +62,7 @@ class TransformerXL(nn.Module):
             for k in range(num_layers)
         ]
 
-        self.output_layer = nn.Linear(ninp * d_model, output_dim, bias=False)
+        self.output_layer = nn.Linear(d_model, output_dim, bias=False)
 
     def init_mem(self):
         if self.mem_len > 0:
@@ -122,7 +120,7 @@ class TransformerXL(nn.Module):
 
         new_mem = self._update_mem(hids, mem, mlen, qlen)
         pred_hid = core_out[-qlen:]
-        loss = self.output_layer(torch.flatten(pred_hid))
+        loss = self.output_layer(pred_hid)
 
         if new_mem is None:
             return [loss]

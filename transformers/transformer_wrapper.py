@@ -3,6 +3,7 @@ import torch.nn as nn
 from transformers.transformer_gtr_xl import GTrXL
 from transformers.transformer import TransformerModel
 from transformers.transformer_xl import TransformerXL
+from transformers.ReZero import ReZero
 
 Tensor = torch.Tensor
 
@@ -13,7 +14,6 @@ class Transformer(nn.Module):
     def __init__(
         self,
         d_model:int,
-        ninp:int, 
         output_dim:int,
         transformer_type:str="None",
         num_layers:int=2,
@@ -25,7 +25,6 @@ class Transformer(nn.Module):
         """
         Args: 
             d_model: number of expected features in the input. 
-            ninp: number of inputs. 
             output_dim: output dimension of the model. 
             transformer_type: type of transformer used: ["vanilla", "xl", "gtrxl", "None"]. Default: "None". 
             num_layers: number of layers in the transformer model. Default: 2.
@@ -40,7 +39,6 @@ class Transformer(nn.Module):
             print("Using GTrXL Transformer...")
             self.transformer = GTrXL( 
                 d_model=d_model,
-                ninp=ninp, 
                 output_dim=output_dim, 
                 num_layers=num_layers,
                 num_heads=num_heads,
@@ -52,7 +50,6 @@ class Transformer(nn.Module):
             self.mem = tuple()
             self.transformer = TransformerXL(
                 d_model=d_model,
-                ninp=ninp,
                 output_dim=output_dim,
                 num_layers=num_layers,
                 num_heads=num_heads,
@@ -60,11 +57,20 @@ class Transformer(nn.Module):
                 dropout=dropout,
                 mem_len=mem_len, 
             )
+        elif transformer_type.lower() == "rezero":
+            print("Using ReZero...")
+            self.transformer = ReZero(
+                d_model=d_model, 
+                output_dim=output_dim,
+                num_heads=num_heads, 
+                num_layers=num_layers,
+                dim_mlp=dim_mlp, 
+                dropout=dropout,
+            )
         elif transformer_type.lower() == "vanilla":
             print("Using Transformer...")
             self.transformer = TransformerModel(
                 d_model=d_model, 
-                ninp=ninp, 
                 output_dim=output_dim,
                 num_heads=num_heads, 
                 num_layers=num_layers,
