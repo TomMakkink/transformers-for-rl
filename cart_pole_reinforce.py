@@ -25,9 +25,9 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.distributions import Categorical
 from transformers.transformer_wrapper import Transformer
-from ray import tune
-
+from torch.utils.tensorboard import SummaryWriter
 from nadam import Nadam
+import torchvision.transforms as T
 
 # =====================================
 # Parse command-line arguments
@@ -85,7 +85,6 @@ class Policy(nn.Module):
             num_heads=config["num_heads"],
             dim_mlp=config["dim_mlp"],
             mem_len=config["mem_len"],
-            ninp=config["ninp"],
         )
         
         self.affine1 = nn.Linear(4, 128)
@@ -99,11 +98,11 @@ class Policy(nn.Module):
 
     def forward(self, x):
         self.saved_state.append(x)
-        if len(self.saved_state) == 5:
-            x = torch.stack(self.saved_state)
-            x = self.transformer(x)
-            x = x.view(1, x.size(0))
-            self.saved_state = self.saved_state[1:]
+        # if len(self.saved_state) == 5 and self.transformer.transformer is not None:
+        #     x = torch.stack(self.saved_state)
+        #     x = self.transformer(x)
+        #     x = x.view(1, x.size(0))
+        #     self.saved_state = self.saved_state[1:]
         x = self.affine1(x)
         x = self.dropout(x)
         x = F.relu(x)
@@ -117,6 +116,7 @@ def select_action(policy, state):
     m = Categorical(probs)
     action = m.sample()
     policy.saved_log_probs.append(m.log_prob(action))
+    print(f"Action: {action.item()}")
     return action.item()
 
 
@@ -141,6 +141,7 @@ def finish_episode(policy, optimizer, eps):
 
 
 def train(config): 
+    writer = SummaryWriter("runs/" + config["transformer_type"])
     policy = Policy(config)
     optimizer = Nadam(policy.parameters(), lr=config["lr"])
     eps = np.finfo(np.float32).eps.item()
@@ -157,6 +158,7 @@ def train(config):
             if done:
                 break
         running_reward = 0.05 * ep_reward + (1 - 0.05) * running_reward
+        writer.add_scalar('Running Reward', running_reward, i_episode)
         finish_episode(policy, optimizer, eps)
         if i_episode % args.log_interval == 0:
             print('Episode {}\tLast reward: {:.2f}\tAverage reward: {:.2f}'.format(
@@ -175,11 +177,12 @@ def train(config):
 def main():
     # analysis = tune.run(
     #                 train, 
-    #                 config = {"d_model": 4, "num_heads": 1, "num_layers": 1, "dim_mlp": 24, "dropout": 0.0, 
-    #                         "dim_head": 4, "lr":0.001, "transformer": tune.grid_search(["gtrxl", "vanilla", "xl", "none"])}
+    #                 config = {"d_model": 4, "num_heads": 1, "num_layers": 1, "dim_mlp": 24, "dropout": 0.0, "output_dim": 4,
+    #                         "dim_head": 4, "lr":0.001, "transformer_type": tune.grid_search(["gtrxl", "vanilla", "xl", "rezero", "none"])}
     #             )
+
     config = {"d_model": 4, "output_dim": 4, "num_heads": 1, "num_layers": 1, "dim_mlp": 20, "dropout": 0.0, 
-              "lr":0.001, "mem_len": 0, "transformer_type": "gtrxl", "ninp": 5}
+              "lr":0.001, "mem_len": 2, "transformer_type": "ReZero"}
 
     train(config)
 
