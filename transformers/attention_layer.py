@@ -235,13 +235,13 @@ class TransformerBlock(nn.Module):
         super(TransformerBlock, self).__init__()
         self.layer_norm_1 = nn.LayerNorm(d_model)
         self.layer_norm_2 = nn.LayerNorm(d_model)
-        self.attention = MultiHeadAttention(d_model, num_heads, dropout)
+        self.attention = nn.MultiheadAttention(d_model, num_heads, dropout)
         self.pos_wise_mlp = PositionWiseMLP(d_model, dim_mlp, dropout)
 
     def forward(self, inputs):
         # Attention 
         x = inputs 
-        y = self.attention(inputs, inputs, inputs)
+        y = self.attention(inputs, inputs, inputs)[0]
         y = self.layer_norm_1(x + y)
 
         # Position-wise MLP
@@ -316,7 +316,7 @@ class GTrXLBlock(nn.Module):
         self.layer_norm_1 = nn.LayerNorm(d_model)
         self.layer_norm_2 = nn.LayerNorm(d_model)
 
-        self.attention = MultiHeadAttention(d_model, num_heads, dropout)
+        self.attention = nn.MultiheadAttention(d_model, num_heads, dropout)
 
         self.gated_layer_1 = GatedRecurrentUnit(d_model)
         self.gated_layer_2 = GatedRecurrentUnit(d_model)
@@ -339,6 +339,36 @@ class GTrXLBlock(nn.Module):
         return output
 
     
+    
+class RZTXEncoderLayer(nn.Module):
+    def __init__(self, d_model, num_heads, dim_mlp=2048, dropout=0.1):
+        super(RZTXEncoderLayer, self).__init__()
+
+        self.self_attn = nn.MultiheadAttention(d_model, num_heads, dropout=dropout)
+        self.linear1 = nn.Linear(d_model, dim_mlp)
+        self.dropout = nn.Dropout(dropout)
+        self.linear2 = nn.Linear(dim_mlp, d_model)
+        self.dropout1 = nn.Dropout(dropout)
+        self.dropout2 = nn.Dropout(dropout)
+        self.resweight = nn.Parameter(torch.Tensor([0]))
+        self.activation = F.relu
+
+
+    def forward(self, src, src_mask=None, src_key_padding_mask=None):
+        # Self attention layer
+        src2 = src
+        src2 = self.self_attn(src2, src2, src2, attn_mask=src_mask,
+                              key_padding_mask=src_key_padding_mask)
+        src2 = src2[0] # no attention weights
+        src2 = src2 * self.resweight
+        src = src + self.dropout1(src2)
+
+        # Pointiwse FF Layer
+        src2 = src            
+        src2 = self.linear2(self.dropout(self.activation(self.linear1(src2))))
+        src2 = src2 * self.resweight
+        src = src + self.dropout2(src2)
+        return src
 
 
         
