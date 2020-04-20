@@ -1,7 +1,51 @@
 import torch 
 import torch.nn as nn 
+from torch.distributions import Normal
 import numpy as np
+import scipy.signal
 
+
+def plot_grad_flow(named_parameters):
+    ave_grads = []
+    layers = []
+    for n, p in named_parameters:
+        if(p.requires_grad) and ("bias" not in n) and p is not None:
+            layers.append(n)
+            ave_grads.append(p.grad.abs().mean())
+    print(f"Average grads: {ave_grads}")
+
+def combined_shape(length, shape=None):
+    if shape is None:
+        return (length,)
+    return (length, shape) if np.isscalar(shape) else (length, *shape)
+
+
+def mlp(sizes, activation, output_activation=nn.Identity):
+    layers = []
+    for j in range(len(sizes)-1):
+        act = activation if j < len(sizes)-2 else output_activation
+        layers += [nn.Linear(sizes[j], sizes[j+1]), act()]
+    return nn.Sequential(*layers)
+
+
+def count_vars(module):
+    return sum([np.prod(p.shape) for p in module.parameters()])
+
+
+def discount_cumsum(x, discount):
+    """
+    magic from rllab for computing discounted cumulative sums of vectors.
+    input: 
+        vector x, 
+        [x0, 
+         x1, 
+         x2]
+    output:
+        [x0 + discount * x1 + discount^2 * x2,  
+         x1 + discount * x2,
+         x2]
+    """
+    return scipy.signal.lfilter([1], [1, float(-discount)], x[::-1], axis=0)[::-1]
 
 class PPOBuffer:
     """
@@ -11,8 +55,8 @@ class PPOBuffer:
     """
 
     def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95):
-        self.obs_buf = np.zeros(core.combined_shape(size, obs_dim), dtype=np.float32)
-        self.act_buf = np.zeros(core.combined_shape(size, act_dim), dtype=np.float32)
+        self.obs_buf = np.zeros(combined_shape(size, obs_dim), dtype=np.float32)
+        self.act_buf = np.zeros(combined_shape(size, act_dim), dtype=np.float32)
         self.adv_buf = np.zeros(size, dtype=np.float32)
         self.rew_buf = np.zeros(size, dtype=np.float32)
         self.ret_buf = np.zeros(size, dtype=np.float32)
@@ -54,14 +98,14 @@ class PPOBuffer:
         
         # the next two lines implement GAE-Lambda advantage calculation
         deltas = rews[:-1] + self.gamma * vals[1:] - vals[:-1]
-        self.adv_buf[path_slice] = core.discount_cumsum(deltas, self.gamma * self.lam)
+        self.adv_buf[path_slice] = discount_cumsum(deltas, self.gamma * self.lam)
         
         # the next line computes rewards-to-go, to be targets for the value function
-        self.ret_buf[path_slice] = core.discount_cumsum(rews, self.gamma)[:-1]
+        self.ret_buf[path_slice] = discount_cumsum(rews, self.gamma)[:-1]
         
         self.path_start_idx = self.ptr
 
-    def get(self):
+    def get(self, device):
         """
         Call this at the end of an epoch to get all of the data from
         the buffer, with advantages appropriately normalized (shifted to have
@@ -76,8 +120,7 @@ class PPOBuffer:
         self.adv_buf = (self.adv_buf - adv_mean) / adv_std
         data = dict(obs=self.obs_buf, act=self.act_buf, ret=self.ret_buf,
                     adv=self.adv_buf, logp=self.logp_buf)
-        return {k: torch.as_tensor(v, dtype=torch.float32) for k,v in data.items()}
-
+        return {k: torch.as_tensor(v, dtype=torch.float32, device=device) for k,v in data.items()}
 
 
 class MLPGaussianActor(nn.Module):
@@ -86,19 +129,19 @@ class MLPGaussianActor(nn.Module):
         log_std = -0.5 * torch.ones(act_dim, dtype=torch.float32)
         self.log_std = torch.nn.Parameter(torch.as_tensor(log_std))
         self.mu_net = nn.Sequential(
-            nn.Flatten(start_dim=0),
-            nn.Linear(torch.prod(torch.tensor(obs_dim)), 256),
+            nn.Linear(obs_dim, 64),
             nn.ReLU(), 
-            nn.Linear(256, 64),
+            nn.Linear(64, 64),
             nn.ReLU(), 
-            nn.Linear(64, act_dim)
+            nn.Linear(64, act_dim),
+            nn.Tanh(), 
         )
 
     def forward(self, obs, act=None):
         # Produce action distributions for given observations, and 
         # optionally compute the log likelihood of given actions under
         # those distributions.
-        pi = self._distribution(obs)
+        pi = self._distribution(obs) 
         logp_a = None
         if act is not None:
             logp_a = self._log_prob_from_distribution(pi, act)
@@ -117,12 +160,12 @@ class MLPCritic(nn.Module):
     def __init__(self, obs_dim):
         super().__init__()
         self.v_net = nn.Sequential(
-            nn.Flatten(start_dim=0),
-            nn.Linear(torch.prod(torch.tensor(obs_dim)), 256),
+            nn.Linear(obs_dim, 256),
             nn.ReLU(), 
             nn.Linear(256, 64),
             nn.ReLU(), 
-            nn.Linear(64, 1)
+            nn.Linear(64, 1),
+            nn.Tanh(), 
         )
 
     def forward(self, obs):
@@ -134,7 +177,7 @@ class MLPActorCritic(nn.Module):
                  hidden_sizes=(64,64), activation=nn.Tanh):
         super().__init__()
 
-        obs_dim = observation_space.shape
+        obs_dim = torch.prod(torch.tensor(observation_space.shape))
 
         # policy builder depends on action space
         self.pi = MLPGaussianActor(obs_dim, action_space.shape[0])
@@ -148,7 +191,7 @@ class MLPActorCritic(nn.Module):
             a = pi.sample()
             logp_a = self.pi._log_prob_from_distribution(pi, a)
             v = self.v(obs)
-        return a.numpy(), v.numpy(), logp_a.numpy()
+        return a.cpu().detach().numpy(), v.cpu().detach().numpy(), logp_a.cpu().detach().numpy()
 
     def act(self, obs):
         return self.step(obs)[0]
