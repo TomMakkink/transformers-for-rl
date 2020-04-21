@@ -1,0 +1,48 @@
+Failure # 1 (occurred at 2020-04-16_15-44-43)
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.7/site-packages/ray/tune/trial_runner.py", line 459, in _process_trial
+    result = self.trial_executor.fetch_result(trial)
+  File "/usr/local/lib/python3.7/site-packages/ray/tune/ray_trial_executor.py", line 377, in fetch_result
+    result = ray.get(trial_future[0], DEFAULT_GET_TIMEOUT)
+  File "/usr/local/lib/python3.7/site-packages/ray/worker.py", line 1504, in get
+    raise value.as_instanceof_cause()
+ray.exceptions.RayTaskError(Error): [36mray::PPO.train()[39m (pid=4373, ip=172.17.0.5)
+  File "python/ray/_raylet.pyx", line 448, in ray._raylet.execute_task
+  File "python/ray/_raylet.pyx", line 426, in ray._raylet.execute_task.function_executor
+  File "/usr/local/lib/python3.7/site-packages/ray/rllib/agents/trainer.py", line 497, in train
+    raise e
+  File "/usr/local/lib/python3.7/site-packages/ray/rllib/agents/trainer.py", line 486, in train
+    result = Trainable.train(self)
+  File "/usr/local/lib/python3.7/site-packages/ray/tune/trainable.py", line 254, in train
+    result = self._train()
+  File "/usr/local/lib/python3.7/site-packages/ray/rllib/agents/trainer_template.py", line 139, in _train
+    fetches = self.optimizer.step()
+  File "/usr/local/lib/python3.7/site-packages/ray/rllib/optimizers/sync_samples_optimizer.py", line 59, in step
+    for e in self.workers.remote_workers()
+  File "/usr/local/lib/python3.7/site-packages/ray/rllib/utils/memory.py", line 29, in ray_get_and_free
+    result = ray.get(object_ids)
+ray.exceptions.RayTaskError(Error): [36mray::RolloutWorker.sample()[39m (pid=4377, ip=172.17.0.5)
+  File "python/ray/_raylet.pyx", line 448, in ray._raylet.execute_task
+  File "python/ray/_raylet.pyx", line 426, in ray._raylet.execute_task.function_executor
+  File "/usr/local/lib/python3.7/site-packages/ray/rllib/evaluation/rollout_worker.py", line 489, in sample
+    batches = [self.input_reader.next()]
+  File "/usr/local/lib/python3.7/site-packages/ray/rllib/evaluation/sampler.py", line 53, in next
+    batches = [self.get_data()]
+  File "/usr/local/lib/python3.7/site-packages/ray/rllib/evaluation/sampler.py", line 96, in get_data
+    item = next(self.rollout_provider)
+  File "/usr/local/lib/python3.7/site-packages/ray/rllib/evaluation/sampler.py", line 316, in _env_runner
+    soft_horizon, no_done_at_end)
+  File "/usr/local/lib/python3.7/site-packages/ray/rllib/evaluation/sampler.py", line 478, in _process_observations
+    resetted_obs = base_env.try_reset(env_id)
+  File "/usr/local/lib/python3.7/site-packages/ray/rllib/env/base_env.py", line 332, in try_reset
+    return {_DUMMY_AGENT_ID: self.vector_env.reset_at(env_id)}
+  File "/usr/local/lib/python3.7/site-packages/ray/rllib/env/vector_env.py", line 100, in reset_at
+    return self.envs[index].reset()
+  File "/usr/local/lib/python3.7/site-packages/gym/wrappers/monitor.py", line 37, in reset
+    self._before_reset()
+  File "/usr/local/lib/python3.7/site-packages/gym/wrappers/monitor.py", line 180, in _before_reset
+    self.stats_recorder.before_reset()
+  File "/usr/local/lib/python3.7/site-packages/gym/wrappers/monitoring/stats_recorder.py", line 68, in before_reset
+    raise error.Error("Tried to reset environment which is not done. While the monitor is active for {}, you cannot call reset() unless the episode is over.".format(self.env_id))
+gym.error.Error: Tried to reset environment which is not done. While the monitor is active for (unknown), you cannot call reset() unless the episode is over.
+

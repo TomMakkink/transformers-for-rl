@@ -1,52 +1,11 @@
 FROM elanvb/r3l-torch
 
-RUN apt-get update && apt-get install -y \
-    curl \
-    zip \
-    unzip \
-    software-properties-common \
-    pkg-config \
-    g++-4.8 \
-    zlib1g-dev \
-    python \
-    lua5.1 \
-    liblua5.1-0-dev \
-    libffi-dev \
-    gettext \
-    freeglut3 \
-    libsdl2-dev \
-    libosmesa6-dev \
-    libglu1-mesa \
-    libglu1-mesa-dev \
-    python-dev \
-    build-essential \
-    git \
-    python-setuptools \
-    python-pip \
-    libjpeg-dev \
-    python-numpy \
-    python-pil \
-    python3-dev \
-    python3-numpy \
-    python3-pil 
+RUN apt-get install -y libopenmpi-dev
 
-# Install bazel
-RUN echo "deb [arch=amd64] http://storage.googleapis.com/bazel-apt stable jdk1.8" | \
-    tee /etc/apt/sources.list.d/bazel.list && \
-    curl https://bazel.build/bazel-release.pub.gpg | \
-    apt-key add - && \
-    apt-get update && apt-get install -y bazel
+RUN python -m pip install gym['Box2D']
+RUN git clone https://github.com/openai/spinningup.git && \
+    cd spinningup && \
+    pip install -e .
 
-# Build DeepMind Lab pip package
-RUN git clone https://github.com/deepmind/lab.git && \
-    cd lab && \
-    bazel build -c opt //python/pip_package:build_pip_package && \
-    ./bazel-bin/python/pip_package/build_pip_package /tmp/dmlab_pkg 
+# xvfb-run -s "-screen 0 1400x900x24" bash 
 
-# Install DeepMind Lab pip package
-RUN python -m pip install /tmp/dmlab_pkg/deepmind_lab-1.0-py3-none-any.whl
-
-# Install dm_env 
-RUN python -m pip install dm-env
-
-RUN echo 'alias tb="tensorboard --logdir=runs --port 6007"' >> ~/.bashrc

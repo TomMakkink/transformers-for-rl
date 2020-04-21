@@ -1,0 +1,16 @@
+{
+  "batch_mode": "complete_episodes",
+  "env": "<class 'gym.envs.box2d.car_racing.CarRacing'>",
+  "env_config": {},
+  "horizon": 20000,
+  "log_level": "DEBUG",
+  "model": {
+    "custom_model": "TransformerModel"
+  },
+  "monitor": true,
+  "num_gpus": 1,
+  "num_workers": 2,
+  "seed": 42,
+  "train_batch_size": 4000,
+  "use_pytorch": true
+}
