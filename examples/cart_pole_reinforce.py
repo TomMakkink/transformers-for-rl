@@ -23,11 +23,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from torch.distributions import Normal
-from transformers.transformer_wrapper import Transformer
+from torch.distributions import Categorical
+from models.transformer_wrapper import Transformer
 from torch.utils.tensorboard import SummaryWriter
 from optimisers.nadam import Nadam
-import torchvision.transforms as T
 from gym.wrappers import Monitor
 
 # =====================================
@@ -52,8 +51,8 @@ args = parser.parse_args()
 # Create Environment 
 # =====================================
 
-env = gym.make('CarRacing-v0')
-env = Monitor(env, './video')
+env = gym.make('CartPole-v0')
+env = Monitor(env, './video', force=True)
 env.seed(args.seed)
 torch.manual_seed(args.seed)
 
@@ -89,12 +88,9 @@ class Policy(nn.Module):
             mem_len=config["mem_len"],
         )
         
-        self.affine1 = nn.Linear(96 * 96 * 3, 128)
+        self.affine1 = nn.Linear(4, 128)
         self.dropout = nn.Dropout(p=0.1)
-        self.affine2 = nn.Linear(128, 3)
-
-        log_std = -0.5 * np.ones(act_dim, dtype=np.float32)
-        self.log_std = torch.nn.Parameter(torch.as_tensor(log_std))
+        self.affine2 = nn.Linear(128, 2)
 
         self.saved_log_probs = []
         self.rewards = []
@@ -102,28 +98,27 @@ class Policy(nn.Module):
         self.saved_state = []
 
     def forward(self, x):
-        # self.saved_state.append(x)
-        # if len(self.saved_state) == 5 and self.transformer.transformer is not None:
-        #     x = torch.stack(self.saved_state)
-        #     x = self.transformer(x)
-        #     x = x.view(1, x.size(0))
-        #     self.saved_state = self.saved_state[1:]
-        x = self.affine1(x.flatten())
+        self.saved_state.append(x)
+        if len(self.saved_state) == 5 and self.transformer.transformer is not None:
+            x = torch.stack(self.saved_state)
+            x = self.transformer(x)
+            x = x.view(1, x.size(0))
+            self.saved_state = self.saved_state[1:]
+        x = self.affine1(x)
         x = self.dropout(x)
         x = F.relu(x)
         action_scores = self.affine2(x)
-        # print(f"Action scores: {action_scores}")
-        return action_scores
+        return F.softmax(action_scores, dim=1)
 
 
 def select_action(policy, state):
-    state = torch.from_numpy(state.copy()).float().unsqueeze(0)
-    mu = policy(state).detach().numpy()
-    std = torch.exp(policy.log_std)
-    dist = Normal(mu, std)
+    state = torch.from_numpy(state).float().unsqueeze(0)
+    probs = policy(state)
+    m = Categorical(probs)
+    action = m.sample()
+    policy.saved_log_probs.append(m.log_prob(action))
+    return action.item()
     
-
-
 
 def finish_episode(policy, optimizer, eps):
     R = 0

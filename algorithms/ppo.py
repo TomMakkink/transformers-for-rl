@@ -2,12 +2,13 @@ import numpy as np
 import torch
 from torch.optim import Adam
 import gym
-from gym.wrappers import Monitor
+from gym.wrappers import Monitor, FrameStack
 import time
 import datetime
 from models.mlp_actor_critic import MLPActorCritic
 from utils.general import count_vars, combined_shape, discount_cumsum, plot_grad_flow
 from torch.utils.tensorboard import SummaryWriter
+import torchvision.transforms as T
 
 # GPU or CPU
 device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
@@ -174,6 +175,7 @@ def ppo(env_name, actor_critic=MLPActorCritic, seed=3,
     # seed += 10000 * proc_id()
     env = gym.make(env_name)
     env = Monitor(env, './video', force=True)
+    env = FrameStack(env, num_stack=4)
     env.seed(seed)
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -270,47 +272,57 @@ def ppo(env_name, actor_critic=MLPActorCritic, seed=3,
         episode_rewards = []
         episode_lengths = []
         for t in range(local_steps_per_epoch):
-            # Convert to tensor and add single dimension to the beginning 
-            state = torch.from_numpy(o.copy()).float().unsqueeze(0).to(device)
-            state = torch.flatten(state, start_dim=1)
-            a, v, logp = ac.step(state)
-            next_o, r, d, _ = env.step(a.squeeze())
-            ep_ret += r
-            ep_len += 1
+            # Convert LazyFrame to np array. Shape: [Frames, Height, Width, Channels]
+            state = np.array(o, copy=False)
+            # Convert np array to torch tensor 
+            state = torch.tensor(state, dtype=torch.float32, device=device)
+            # Convert to channels first format. Shape: [Frame, Channels, Height, Width]
+            state = state.permute(0, 3, 1, 2)
+            # state = transform_image(np.array(o, copy=False)).unsqueeze(1).to(device)
 
-            # save and log
-            buf.store(o, a, r, v, logp)
+            from models.resnet import ResNet 
+            state /= 255
+            res = ResNet(3, 16).to(device)
+            t1 = res(state)
+            print(f"Conv output: {t1.shape}")
+            # a, v, logp = ac.step(state)
+        #     next_o, r, d, _ = env.step(a.squeeze())
+        #     ep_ret += r
+        #     ep_len += 1
+
+        #     # save and log
+        #     buf.store(o, a, r, v, logp)
             
-            # Update obs (critical!)
-            o = next_o
+        #     # Update obs (critical!)
+        #     o = next_o
 
-            timeout = ep_len == max_ep_len
-            terminal = d or timeout
-            epoch_ended = t==local_steps_per_epoch-1
+        #     timeout = ep_len == max_ep_len
+        #     terminal = d or timeout
+        #     epoch_ended = t==local_steps_per_epoch-1
 
-            if terminal or epoch_ended:
-                if epoch_ended and not(terminal):
-                    print('Warning: trajectory cut off by epoch at %d steps.'%ep_len, flush=True)
-                # if trajectory didn't reach terminal state, bootstrap value target
-                if timeout or epoch_ended:
-                    state = torch.from_numpy(o.copy()).float().unsqueeze(0).to(device)
-                    state = torch.flatten(state, start_dim=1)
-                    _, v, _ = ac.step(state)
-                else:
-                    v = 0
-                buf.finish_path(v)
-                episode_rewards.append(ep_ret)
-                episode_lengths.append(ep_len)
-                o, ep_ret, ep_len = env.reset(), 0, 0
+        #     if terminal or epoch_ended:
+        #         if epoch_ended and not(terminal):
+        #             print('Warning: trajectory cut off by epoch at %d steps.'%ep_len, flush=True)
+        #         # if trajectory didn't reach terminal state, bootstrap value target
+        #         if timeout or epoch_ended:
+        #             state = torch.tensor(np.array(o, copy=False)).unsqueeze(1).to(device)
+        #             state = torch.flatten(state, start_dim=1)
+        #             _, v, _ = ac.step(state)
+        #         else:
+        #             v = 0
+        #         buf.finish_path(v)
+        #         episode_rewards.append(ep_ret)
+        #         episode_lengths.append(ep_len)
+        #         o, ep_ret, ep_len = env.reset(), 0, 0
 
-        # Perform PPO update!
-        update(epoch)
+        # # Perform PPO update!
+        # update(epoch)
 
-        # Track mean episode return per epoch 
-        mean_episode_reward = sum(episode_rewards)/len(episode_rewards)
-        mean_episode_length = sum(episode_lengths)/len(episode_lengths)
-        writer.add_scalar('Mean Episode Reward', mean_episode_reward, epoch)
-        writer.add_scalar('Mean Episode Length', mean_episode_length, epoch)
+        # # Track mean episode return per epoch 
+        # mean_episode_reward = sum(episode_rewards)/len(episode_rewards)
+        # mean_episode_length = sum(episode_lengths)/len(episode_lengths)
+        # writer.add_scalar('Mean Episode Reward', mean_episode_reward, epoch)
+        # writer.add_scalar('Mean Episode Length', mean_episode_length, epoch)
     
     writer.close()
 

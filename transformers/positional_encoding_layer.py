@@ -50,6 +50,7 @@ class AbsolutePositionalEncoding(nn.Module):
         self.register_buffer('pe', pe)
 
     def forward(self, x:Tensor):
+        print(f"Shape of pos encode tensor: {x.shape}")
         x = x + self.pe[:x.size(0), :]
         return x
 

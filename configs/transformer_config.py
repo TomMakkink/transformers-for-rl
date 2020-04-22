@@ -1,10 +1,9 @@
-transformer_config = 
-    {"d_model": 4, 
-    "output_dim": 4, 
+transformer_config = {
+    # "d_model": 4, 
+    # "output_dim": 4, 
     "num_heads": 1, 
-    "num_layers": 1, 
-    "dim_mlp": 20, 
-    "dropout": 0.0, 
-    "lr":0.001, 
-    "mem_len": 2, 
+    "num_layers": 2, 
+    "dim_mlp": 126, 
+    "dropout": 0.1, 
+    "mem_len": 0.0, 
     "transformer_type": "ReZero"}

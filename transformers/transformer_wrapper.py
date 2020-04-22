@@ -87,7 +87,7 @@ class Transformer(nn.Module):
             inputs: input tensor, of shape: [source_seq_len, batch_size, features]
 
         Returns: 
-            Transformer output, of shape: [batch_size, output_dim]
+            Transformer output, of shape: [source_seq_len, batch_size, output_dim]
         """
         if self.transformer is None: return inputs
         if self.transformer_type == "xl":

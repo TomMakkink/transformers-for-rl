@@ -3,9 +3,11 @@ FROM elanvb/r3l-torch
 RUN apt-get install -y libopenmpi-dev
 
 RUN python -m pip install gym['Box2D']
-RUN git clone https://github.com/openai/spinningup.git && \
-    cd spinningup && \
-    pip install -e .
+RUN python -m pip install torchvision
+
+# RUN git clone https://github.com/openai/spinningup.git && \
+#    cd spinningup && \
+#    pip install -e .
 
 # xvfb-run -s "-screen 0 1400x900x24" bash 
 
