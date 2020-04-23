@@ -17,15 +17,14 @@ print(f"Using: {device}")
 # Summary Writer 
 writer = SummaryWriter("runs/" + str(datetime.datetime.now()))
 
-class PPOBuffer:
+class PPOBuffer():
     """
     A buffer for storing trajectories experienced by a PPO agent interacting
     with the environment, and using Generalized Advantage Estimation (GAE-Lambda)
     for calculating the advantages of state-action pairs.
     """
-
     def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95):
-        self.obs_buf = np.zeros(combined_shape(size, obs_dim), dtype=np.float32)
+        self.obs_buf = torch.zeros(combined_shape(size, obs_dim), dtype=torch.float32, device=device)
         self.act_buf = np.zeros(combined_shape(size, act_dim), dtype=np.float32)
         self.adv_buf = np.zeros(size, dtype=np.float32)
         self.rew_buf = np.zeros(size, dtype=np.float32)
@@ -61,7 +60,6 @@ class PPOBuffer:
         This allows us to bootstrap the reward-to-go calculation to account
         for timesteps beyond the arbitrary episode horizon (or epoch cutoff).
         """
-
         path_slice = slice(self.path_start_idx, self.ptr)
         rews = np.append(self.rew_buf[path_slice], last_val)
         vals = np.append(self.val_buf[path_slice], last_val)
@@ -92,10 +90,11 @@ class PPOBuffer:
                     adv=self.adv_buf, logp=self.logp_buf)
         return {k: torch.as_tensor(v, dtype=torch.float32, device=device) for k,v in data.items()}
 
+
 def ppo(env_name, actor_critic=MLPActorCritic, seed=3, 
         steps_per_epoch=1000, epochs=2000, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
         vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, max_ep_len=1000,
-        target_kl=0.01, save_freq=10):
+        target_kl=0.01, save_freq=10, num_stack=1):
     """
     Proximal Policy Optimization (by clipping), 
     with early stopping based on approximate KL
@@ -175,12 +174,13 @@ def ppo(env_name, actor_critic=MLPActorCritic, seed=3,
     # seed += 10000 * proc_id()
     env = gym.make(env_name)
     env = Monitor(env, './video', force=True)
-    env = FrameStack(env, num_stack=4)
+    env = FrameStack(env, num_stack=1)
     env.seed(seed)
     torch.manual_seed(seed)
     np.random.seed(seed)
 
-    obs_dim = env.observation_space.shape
+    # Shape: [frame, height, width, channel] -> Shape: [frame, channel, height, width]
+    obs_dim = (3, 96, 96)
     act_dim = env.action_space.shape
 
     # Create actor-critic module
@@ -191,17 +191,26 @@ def ppo(env_name, actor_critic=MLPActorCritic, seed=3,
     print('\nNumber of parameters: \t pi: %d, \t v: %d\n'%var_counts)
 
     # Set up experience buffer
-    local_steps_per_epoch = int(steps_per_epoch)
-    buf = PPOBuffer(obs_dim, act_dim, local_steps_per_epoch, gamma, lam)
+    local_steps_per_epoch = int(steps_per_epoch) 
+    buf = PPOBuffer(obs_dim, act_dim, local_steps_per_epoch, gamma, lam) 
+
+    # Process frame
+    def _process_frames(obs):
+        # Convert LazyFrame to np array. Shape: [Frames, Height, Width, Channels]
+        state = np.array(obs, copy=False)
+        # Convert np array to torch tensor 
+        state = torch.tensor(state.copy(), dtype=torch.float32, device=device)
+        # Convert to channels first format. Shape: [Frame, Channels, Height, Width]
+        state = state.permute(0, 3, 1, 2)
+        state /= 255
+        return state
 
     # Set up function for computing PPO policy loss
     def compute_loss_pi(data):
         obs, act, adv, logp_old = data['obs'], data['act'], data['adv'], data['logp']
 
         # Policy loss
-        # Change obs from [batch_size, Width, Height, Channel] -> [batch_size, Features]
-        state = torch.flatten(obs, start_dim=1).to(device)
-        pi, logp = ac.pi(state, act)
+        pi, logp = ac.pi(obs, act)
         ratio = torch.exp(logp - logp_old)
         clip_adv = torch.clamp(ratio, 1-clip_ratio, 1+clip_ratio) * adv
         loss_pi = -(torch.min(ratio * adv, clip_adv)).mean()
@@ -218,14 +227,11 @@ def ppo(env_name, actor_critic=MLPActorCritic, seed=3,
     # Set up function for computing value loss
     def compute_loss_v(data):
         obs, ret = data['obs'], data['ret']
-        # Change obs from [batch_size, Width, Height, Channel] -> [batch_size, Features]
-        state = torch.flatten(obs, start_dim=1)
-        return ((ac.v(state) - ret)**2).mean()
+        return ((ac.v(obs) - ret)**2).mean()
 
     # Set up optimizers for policy and value function
     pi_optimizer = Adam(ac.pi.parameters(), lr=pi_lr)
     vf_optimizer = Adam(ac.v.parameters(), lr=vf_lr)
-
 
     def update(epoch):
         data = buf.get(device)
@@ -268,61 +274,49 @@ def ppo(env_name, actor_critic=MLPActorCritic, seed=3,
     o, ep_ret, ep_len = env.reset(), 0, 0
 
     # Main loop: collect experience in env and update/log each epoch
+    # TODO: Clean up variable names
     for epoch in range(epochs):
         episode_rewards = []
         episode_lengths = []
         for t in range(local_steps_per_epoch):
-            # Convert LazyFrame to np array. Shape: [Frames, Height, Width, Channels]
-            state = np.array(o, copy=False)
-            # Convert np array to torch tensor 
-            state = torch.tensor(state, dtype=torch.float32, device=device)
-            # Convert to channels first format. Shape: [Frame, Channels, Height, Width]
-            state = state.permute(0, 3, 1, 2)
-            # state = transform_image(np.array(o, copy=False)).unsqueeze(1).to(device)
+            state = _process_frames(o)
+            a, v, logp = ac.step(state)
+            next_o, r, d, _ = env.step(a.squeeze())
+            ep_ret += r
+            ep_len += 1
 
-            from models.resnet import ResNet 
-            state /= 255
-            res = ResNet(3, 16).to(device)
-            t1 = res(state)
-            print(f"Conv output: {t1.shape}")
-            # a, v, logp = ac.step(state)
-        #     next_o, r, d, _ = env.step(a.squeeze())
-        #     ep_ret += r
-        #     ep_len += 1
-
-        #     # save and log
-        #     buf.store(o, a, r, v, logp)
+            # save and log. Note: Only store the last frame. Store every ten frames 
+            buf.store(state[-1], a, r, v, logp)
             
-        #     # Update obs (critical!)
-        #     o = next_o
+            # Update obs (critical!)
+            o = next_o
 
-        #     timeout = ep_len == max_ep_len
-        #     terminal = d or timeout
-        #     epoch_ended = t==local_steps_per_epoch-1
+            timeout = ep_len == max_ep_len
+            terminal = d or timeout
+            epoch_ended = t==local_steps_per_epoch-1
 
-        #     if terminal or epoch_ended:
-        #         if epoch_ended and not(terminal):
-        #             print('Warning: trajectory cut off by epoch at %d steps.'%ep_len, flush=True)
-        #         # if trajectory didn't reach terminal state, bootstrap value target
-        #         if timeout or epoch_ended:
-        #             state = torch.tensor(np.array(o, copy=False)).unsqueeze(1).to(device)
-        #             state = torch.flatten(state, start_dim=1)
-        #             _, v, _ = ac.step(state)
-        #         else:
-        #             v = 0
-        #         buf.finish_path(v)
-        #         episode_rewards.append(ep_ret)
-        #         episode_lengths.append(ep_len)
-        #         o, ep_ret, ep_len = env.reset(), 0, 0
+            if terminal or epoch_ended:
+                if epoch_ended and not(terminal):
+                    print('Warning: trajectory cut off by epoch at %d steps.'%ep_len, flush=True)
+                # if trajectory didn't reach terminal state, bootstrap value target
+                if timeout or epoch_ended:
+                    state = _process_frames(o).to(device)
+                    _, v, _ = ac.step(state)
+                else:
+                    v = 0
+                buf.finish_path(v)
+                episode_rewards.append(ep_ret)
+                episode_lengths.append(ep_len)
+                o, ep_ret, ep_len = env.reset(), 0, 0
 
-        # # Perform PPO update!
-        # update(epoch)
+        # Perform PPO update!
+        update(epoch)
 
-        # # Track mean episode return per epoch 
-        # mean_episode_reward = sum(episode_rewards)/len(episode_rewards)
-        # mean_episode_length = sum(episode_lengths)/len(episode_lengths)
-        # writer.add_scalar('Mean Episode Reward', mean_episode_reward, epoch)
-        # writer.add_scalar('Mean Episode Length', mean_episode_length, epoch)
+        # Track mean episode return per epoch 
+        mean_episode_reward = sum(episode_rewards)/len(episode_rewards)
+        mean_episode_length = sum(episode_lengths)/len(episode_lengths)
+        writer.add_scalar('Mean Episode Reward', mean_episode_reward, epoch)
+        writer.add_scalar('Mean Episode Length', mean_episode_length, epoch)
     
     writer.close()
 

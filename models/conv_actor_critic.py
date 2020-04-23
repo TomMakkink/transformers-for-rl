@@ -2,11 +2,10 @@ import torch
 import torch.nn as nn 
 from torch.distributions import Normal
 import numpy as np
-from configs.transformer_config import transformer_config
-from transformers.transformer_wrapper import Transformer
 from models.resnet import ResNet
 
-class TransformerGaussianActor(nn.Module):
+
+class ConvGaussianActor(nn.Module):
     def __init__(self, obs_dim, act_dim):
         super().__init__()
         log_std = -0.5 * torch.ones(act_dim, dtype=torch.float32)
@@ -14,12 +13,11 @@ class TransformerGaussianActor(nn.Module):
         self.mu_net = nn.Sequential(
             ResNet(), 
             nn.Flatten(), 
-            Transformer(d_model=2592, output_dim=512, **transformer_config),
-            nn.Linear(512, 128),
+            nn.Linear(2592, 256),
             nn.ReLU(), 
-            nn.Linear(128, 64),
+            nn.Linear(256, 128),
             nn.ReLU(), 
-            nn.Linear(64, act_dim), 
+            nn.Linear(128, act_dim), 
         )
 
     def forward(self, obs, act=None):
@@ -41,35 +39,35 @@ class TransformerGaussianActor(nn.Module):
         return pi.log_prob(act).sum(axis=-1)    # Last axis sum needed for Torch Normal distribution
 
 
-class TransformerCritic(nn.Module):
+class ConvCritic(nn.Module):
     def __init__(self, obs_dim):
         super().__init__()
         self.v_net = nn.Sequential(
             ResNet(), 
             nn.Flatten(), 
-            Transformer(d_model=2592, output_dim=512, **transformer_config),
-            nn.Linear(512, 128),
+            nn.Linear(2592, 256),
             nn.ReLU(), 
-            nn.Linear(128, 64),
+            nn.Linear(256, 128),
             nn.ReLU(), 
-            nn.Linear(64, 1), 
+            nn.Linear(128, 1), 
         )
 
     def forward(self, obs):
         return torch.squeeze(self.v_net(obs), -1) # Critical to ensure v has right shape.
 
 
-class TransformerActorCritic(nn.Module):
-    def __init__(self, observation_space, action_space):
+class ConvActorCritic(nn.Module):
+    def __init__(self, observation_space, action_space, 
+                 hidden_sizes=(64,64), activation=nn.Tanh):
         super().__init__()
 
         obs_dim = torch.prod(torch.tensor(observation_space.shape))
 
         # policy builder depends on action space
-        self.pi = TransformerGaussianActor(obs_dim, action_space.shape[0])
+        self.pi = ConvGaussianActor(obs_dim, action_space.shape[0])
 
         # build value function
-        self.v  = TransformerCritic(obs_dim)
+        self.v  = ConvCritic(obs_dim)
 
     def step(self, obs):
         with torch.no_grad():

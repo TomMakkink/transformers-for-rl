@@ -1,5 +1,6 @@
 import torch 
 import torch.nn as nn 
+from torch.nn.init import kaiming_uniform_
 
 class ResNetBlock(nn.Module):
     def __init__(self, input_channels, output_channels, dropout=0.0):
@@ -35,15 +36,21 @@ class ResNetBlock(nn.Module):
 
 
 class ResNet(nn.Module):
-    def __init__(self, input_channels, output_channels, dropout=0.0):
+    def __init__(self, dropout=0.0):
         super().__init__()
         self.conv_layers = nn.ModuleList()
         for i, (input_channels, output_channels) in enumerate([(3, 16), (16, 32), (32, 32)]): 
             self.conv_layers.append(ResNetBlock(input_channels, output_channels, dropout))
         self.output_activation = nn.ReLU()
+        self._reset_parameters()
+
+    def _reset_parameters(self):
+        r"""Initiate parameters in the transformer model."""
+        for p in self.parameters():
+            if p.dim() > 1:
+                kaiming_uniform_(p, nonlinearity='relu')
         
     def forward(self, obs):
         for layer in self.conv_layers:
             obs = layer(obs)
-        x = self.output_activation(obs)
-        return x
+        return self.output_activation(obs)
