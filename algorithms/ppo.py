@@ -9,6 +9,7 @@ from models.mlp_actor_critic import MLPActorCritic
 from utils.general import count_vars, combined_shape, discount_cumsum, plot_grad_flow
 from torch.utils.tensorboard import SummaryWriter
 import torchvision.transforms as T
+from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
 
 # GPU or CPU
 device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
@@ -24,8 +25,8 @@ class PPOBuffer():
     for calculating the advantages of state-action pairs.
     """
     def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95):
-        self.obs_buf = torch.zeros(combined_shape(size, obs_dim), dtype=torch.float32, device=device)
-        self.act_buf = np.zeros(combined_shape(size, act_dim), dtype=np.float32)
+        self.obs_buf = torch.zeros(combined_shape(size, obs_dim), dtype=torch.float32)
+        self.act_buf = torch.zeros(combined_shape(size, act_dim), dtype=torch.float32)
         self.adv_buf = np.zeros(size, dtype=np.float32)
         self.rew_buf = np.zeros(size, dtype=np.float32)
         self.ret_buf = np.zeros(size, dtype=np.float32)
@@ -73,7 +74,7 @@ class PPOBuffer():
         
         self.path_start_idx = self.ptr
 
-    def get(self, device):
+    def get(self):
         """
         Call this at the end of an epoch to get all of the data from
         the buffer, with advantages appropriately normalized (shifted to have
@@ -82,19 +83,16 @@ class PPOBuffer():
         assert self.ptr == self.max_size    # buffer has to be full before you can get
         self.ptr, self.path_start_idx = 0, 0
         # the next two lines implement the advantage normalization trick
-        # adv_mean, adv_std = mpi_statistics_scalar(self.adv_buf)
         adv_mean = self.adv_buf.mean()
         adv_std = self.adv_buf.std()
         self.adv_buf = (self.adv_buf - adv_mean) / adv_std
-        data = dict(obs=self.obs_buf, act=self.act_buf, ret=self.ret_buf,
-                    adv=self.adv_buf, logp=self.logp_buf)
-        return {k: torch.as_tensor(v, dtype=torch.float32, device=device) for k,v in data.items()}
+        return self.obs_buf, self.act_buf, self.ret_buf, self.adv_buf, self.logp_buf
 
 
 def ppo(env_name, actor_critic=MLPActorCritic, seed=3, 
         steps_per_epoch=1000, epochs=2000, gamma=0.99, clip_ratio=0.2, pi_lr=3e-4,
         vf_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, max_ep_len=1000,
-        target_kl=0.01, save_freq=10, num_stack=1):
+        target_kl=0.01, save_freq=10, num_stack=1, repeat_action=1):
     """
     Proximal Policy Optimization (by clipping), 
     with early stopping based on approximate KL
@@ -173,8 +171,9 @@ def ppo(env_name, actor_critic=MLPActorCritic, seed=3,
     # Random seed
     # seed += 10000 * proc_id()
     env = gym.make(env_name)
+    env._max_episode_steps = max_ep_len
     env = Monitor(env, './video', force=True)
-    env = FrameStack(env, num_stack=1)
+    env = FrameStack(env, num_stack=num_stack)
     env.seed(seed)
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -192,25 +191,26 @@ def ppo(env_name, actor_critic=MLPActorCritic, seed=3,
 
     # Set up experience buffer
     local_steps_per_epoch = int(steps_per_epoch) 
-    buf = PPOBuffer(obs_dim, act_dim, local_steps_per_epoch, gamma, lam) 
+    buffer_size = local_steps_per_epoch * repeat_action
+    buf = PPOBuffer(obs_dim, act_dim, buffer_size, gamma, lam) 
 
     # Process frame
     def _process_frames(obs):
         # Convert LazyFrame to np array. Shape: [Frames, Height, Width, Channels]
-        state = np.array(obs, copy=False)
+        obs = np.array(obs, copy=False)
         # Convert np array to torch tensor 
-        state = torch.tensor(state.copy(), dtype=torch.float32, device=device)
+        state = torch.as_tensor(obs, dtype=torch.float32, device=device)
         # Convert to channels first format. Shape: [Frame, Channels, Height, Width]
         state = state.permute(0, 3, 1, 2)
         state /= 255
         return state
 
     # Set up function for computing PPO policy loss
-    def compute_loss_pi(data):
-        obs, act, adv, logp_old = data['obs'], data['act'], data['adv'], data['logp']
+    def compute_loss_pi(obs, act, adv, logp):
+        logp_old = logp
 
         # Policy loss
-        pi, logp = ac.pi(obs, act)
+        pi, logp = ac.pi(obs, act) 
         ratio = torch.exp(logp - logp_old)
         clip_adv = torch.clamp(ratio, 1-clip_ratio, 1+clip_ratio) * adv
         loss_pi = -(torch.min(ratio * adv, clip_adv)).mean()
@@ -225,8 +225,7 @@ def ppo(env_name, actor_critic=MLPActorCritic, seed=3,
         return loss_pi, pi_info
 
     # Set up function for computing value loss
-    def compute_loss_v(data):
-        obs, ret = data['obs'], data['ret']
+    def compute_loss_v(obs, ret):
         return ((ac.v(obs) - ret)**2).mean()
 
     # Set up optimizers for policy and value function
@@ -234,40 +233,50 @@ def ppo(env_name, actor_critic=MLPActorCritic, seed=3,
     vf_optimizer = Adam(ac.v.parameters(), lr=vf_lr)
 
     def update(epoch):
-        data = buf.get(device)
+        print("Updating...")
+        obs, act, ret, adv, logp = buf.get()
 
-        pi_l_old, pi_info_old = compute_loss_pi(data)
-        pi_l_old = pi_l_old.item()
-        v_l_old = compute_loss_v(data).item()
+        # Check this works 
+        obs = obs.to(device)
+        act = act.to(device)
+        ret = torch.as_tensor(ret, dtype=torch.float32).to(device)
+        adv = torch.as_tensor(adv, dtype=torch.float32).to(device)
+        logp = torch.as_tensor(logp, dtype=torch.float32).to(device)
 
         # Train policy with multiple steps of gradient descent
         for i in range(train_pi_iters):
-            pi_optimizer.zero_grad()
-            loss_pi, pi_info = compute_loss_pi(data)
-            kl = pi_info['kl']
-            if kl > 1.5 * target_kl:
-                print('Early stopping at step %d due to reaching max kl.'%i)
-                break
-            loss_pi.backward()
-            # plot_grad_flow(ac.pi.named_parameters())
-            pi_optimizer.step()
+            for index in BatchSampler(SubsetRandomSampler(range(buffer_size)), 128, False):
+                pi_optimizer.zero_grad()
+                loss_pi, pi_info = compute_loss_pi(obs[index], act[index], adv[index], logp[index])
+                # kl = pi_info['kl']
+                # if kl > 1.5 * target_kl:
+                #     print('Early stopping at step %d due to reaching max kl.'%i)
+                #     break
+                loss_pi.backward()
+                # plot_grad_flow(ac.pi.named_parameters())
+                pi_optimizer.step()
 
-        # Value function learning
-        for i in range(train_v_iters):
-            vf_optimizer.zero_grad()
-            loss_v = compute_loss_v(data)
-            loss_v.backward()
-            # plot_grad_flow(ac.v.named_parameters())
-            vf_optimizer.step()
+                vf_optimizer.zero_grad()
+                loss_v = compute_loss_v(obs[index], ret[index])
+                loss_v.backward()
+                # plot_grad_flow(ac.v.named_parameters())
+                vf_optimizer.step()
+       
 
-        # Log changes from update
-        kl, ent, cf = pi_info['kl'], pi_info_old['ent'], pi_info['cf']
-        writer.add_scalar("Actor (Policy) loss", pi_l_old, epoch)
-        writer.add_scalar("Critic (Value) loss", v_l_old, epoch)
-        writer.add_scalar("KL", kl, epoch)
-        writer.add_scalar("Entropy", ent, epoch)
-        writer.add_scalar("Delta Actor (Policy) loss", (loss_pi.item() - pi_l_old), epoch)
-        writer.add_scalar("Delta Critic (Value) loss", (loss_v.item() - v_l_old), epoch)
+            # # Value function learning
+            # for i in range(train_v_iters):
+            #     for index in BatchSampler(SubsetRandomSampler(range(buffer_size)), 128, False):
+            #         vf_optimizer.zero_grad()
+            #         loss_v = compute_loss_v(obs[index], ret[index])
+            #         loss_v.backward()
+            #         # plot_grad_flow(ac.v.named_parameters())
+            #         vf_optimizer.step()
+
+            # Log changes from update
+            writer.add_scalar("Actor (Policy) loss", loss_pi, epoch)
+            writer.add_scalar("Critic (Value) loss", loss_v, epoch)
+            writer.add_scalar("KL", pi_info['kl'], epoch)
+            writer.add_scalar("Entropy", pi_info['ent'], epoch)
 
     # Prepare for interaction with environment
     start_time = time.time()
@@ -281,33 +290,41 @@ def ppo(env_name, actor_critic=MLPActorCritic, seed=3,
         for t in range(local_steps_per_epoch):
             state = _process_frames(o)
             a, v, logp = ac.step(state)
-            next_o, r, d, _ = env.step(a.squeeze())
-            ep_ret += r
-            ep_len += 1
+            a, v, logp = a[0], v[0], logp[0]      # Only the most recent frame 
+            a = np.tanh(a)
+            a = (a + np.array([0., 1., 1.])) / np.array([1., 2., 2.])
+            for j in range(repeat_action):
+                next_o, r, d, _ = env.step(a)
+                ep_ret += r
+                ep_len += 1
 
-            # save and log. Note: Only store the last frame. Store every ten frames 
-            buf.store(state[-1], a, r, v, logp)
-            
-            # Update obs (critical!)
-            o = next_o
+                # save and log. Note: Only store the last frame. 
+                buf.store(state[0], torch.as_tensor(a), r, v, logp)
+                
+                # Update obs (critical!)
+                o = next_o
 
-            timeout = ep_len == max_ep_len
-            terminal = d or timeout
-            epoch_ended = t==local_steps_per_epoch-1
+                timeout = ep_len == max_ep_len
+                terminal = d or timeout
+                epoch_ended = t==local_steps_per_epoch-1
 
-            if terminal or epoch_ended:
-                if epoch_ended and not(terminal):
-                    print('Warning: trajectory cut off by epoch at %d steps.'%ep_len, flush=True)
-                # if trajectory didn't reach terminal state, bootstrap value target
-                if timeout or epoch_ended:
-                    state = _process_frames(o).to(device)
-                    _, v, _ = ac.step(state)
-                else:
-                    v = 0
-                buf.finish_path(v)
-                episode_rewards.append(ep_ret)
-                episode_lengths.append(ep_len)
-                o, ep_ret, ep_len = env.reset(), 0, 0
+                if terminal or epoch_ended:
+                    if epoch_ended and not(terminal):
+                        print('Warning: trajectory cut off by epoch at %d steps.'%ep_len, flush=True)
+                    # if trajectory didn't reach terminal state, bootstrap value target
+                    if timeout or epoch_ended:
+                        state = _process_frames(o).to(device)
+                        _, v, _ = ac.step(state)
+                        v = v[0]
+                    else:
+                        v = 0
+                    buf.finish_path(v)
+                    episode_rewards.append(ep_ret)
+                    episode_lengths.append(ep_len)
+                    # Stop monitoring 
+                    env.stats_recorder.save_complete()
+                    env.stats_recorder.done = True
+                    o, ep_ret, ep_len = env.reset(), 0, 0
 
         # Perform PPO update!
         update(epoch)
@@ -319,6 +336,7 @@ def ppo(env_name, actor_critic=MLPActorCritic, seed=3,
         writer.add_scalar('Mean Episode Length', mean_episode_length, epoch)
     
     writer.close()
+    env.monitor.close()
 
 if __name__ == '__main__':
     # mpi_fork(args.cpu)  # run parallel code with mpi

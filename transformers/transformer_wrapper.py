@@ -94,5 +94,5 @@ class Transformer(nn.Module):
             ret = self.transformer(inputs, *self.mem)
             output, self.mem = ret[0], ret[1:]
         else:
-            output = self.transformer(inputs)
+            output = self.transformer(inputs)[0]      # Needed because of the positional encoding 
         return output

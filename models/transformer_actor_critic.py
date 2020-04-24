@@ -20,6 +20,7 @@ class TransformerGaussianActor(nn.Module):
             nn.Linear(128, 64),
             nn.ReLU(), 
             nn.Linear(64, act_dim), 
+            nn.Tanh(), 
         )
 
     def forward(self, obs, act=None):
