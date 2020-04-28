@@ -27,25 +27,26 @@ class TransformerGaussianActor(nn.Module):
         # Produce action distributions for given observations, and 
         # optionally compute the log likelihood of given actions under
         # those distributions.
-        pi = self._distribution(obs) 
+        actor = self._distribution(obs) 
         logp_a = None
         if act is not None:
-            logp_a = self._log_prob_from_distribution(pi, act)
-        return pi, logp_a
+            logp_a = self._log_prob_from_distribution(actor, act)
+        return actor, logp_a
 
     def _distribution(self, obs):
         mu = self.mu_net(obs)
         std = torch.exp(self.log_std)
         return Normal(mu, std)
 
-    def _log_prob_from_distribution(self, pi, act):
-        return pi.log_prob(act).sum(axis=-1)    # Last axis sum needed for Torch Normal distribution
+    def _log_prob_from_distribution(self, actor, act):
+        # Need to double check this 
+        return actor.log_prob(act).sum(axis=-1)    # Last axis sum needed for Torch Normal distribution
 
 
 class TransformerCritic(nn.Module):
     def __init__(self, obs_dim):
         super().__init__()
-        self.v_net = nn.Sequential(
+        self.critic_net = nn.Sequential(
             ResNet(), 
             nn.Flatten(), 
             Transformer(d_model=2592, output_dim=512, **transformer_config),
@@ -57,28 +58,26 @@ class TransformerCritic(nn.Module):
         )
 
     def forward(self, obs):
-        return torch.squeeze(self.v_net(obs), -1) # Critical to ensure v has right shape.
+        return torch.squeeze(self.critic_net(obs), -1) # Critical to ensure v has right shape.
 
 
 class TransformerActorCritic(nn.Module):
-    def __init__(self, observation_space, action_space):
+    def __init__(self, obs_shape, action_shape):
         super().__init__()
 
-        obs_dim = torch.prod(torch.tensor(observation_space.shape))
-
         # policy builder depends on action space
-        self.pi = TransformerGaussianActor(obs_dim, action_space.shape[0])
+        self.actor = TransformerGaussianActor(obs_shape, action_shape)
 
         # build value function
-        self.v  = TransformerCritic(obs_dim)
+        self.critic  = TransformerCritic(obs_shape)
 
     def step(self, obs):
         with torch.no_grad():
-            pi = self.pi._distribution(obs)
-            a = pi.sample()
-            logp_a = self.pi._log_prob_from_distribution(pi, a)
-            v = self.v(obs)
-        return a.cpu().detach().numpy(), v.cpu().detach().numpy(), logp_a.cpu().detach().numpy()
+            actor = self.actor._distribution(obs)
+            a = actor.sample()
+            logp_a = self.actor._log_prob_from_distribution(actor, a)
+            critic = self.critic(obs)
+        return a.cpu().detach().numpy(), critic.cpu().detach().numpy(), logp_a.cpu().detach().numpy()
 
     def act(self, obs):
         return self.step(obs)[0]
