@@ -10,6 +10,7 @@ def plot_grad_flow(named_parameters):
             ave_grads.append(p.grad.abs().mean())
     print(f"Average grads: {ave_grads}")
 
+
 def combined_shape(length, shape=None):
     if shape is None:
         return (length,)

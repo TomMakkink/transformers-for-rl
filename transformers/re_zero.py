@@ -55,7 +55,7 @@ class ReZero(nn.Module):
             inputs: input tensor, of shape: [source_seq_len, batch_size, features]
 
         Returns: 
-            Transformer output, of shape: [output_dim]
+            Transformer output, of shape: [source_seq_len, batch_size, output_dim]
         """
         x = self.pos_encoder(inputs * math.sqrt(self.d_model))
         x = self.transformer_encoder(x)

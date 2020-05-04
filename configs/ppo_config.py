@@ -1,9 +1,9 @@
 ppo_config = {
-    "steps_per_epoch":1000, 
-    "epochs":1, 
+    "steps_per_epoch":2000, 
+    "epochs":5000, 
     "gamma":0.99, 
     "clip_ratio":0.2, 
-    "lr":1e-3, 
+    "lr":0.001, 
     "train_ppo_iters":10, 
     "lam":0.97, 
     "max_ep_len":1000,

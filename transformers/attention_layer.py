@@ -145,7 +145,7 @@ class RelativeMultiHeadAttention(nn.Module):
         self.scale = 1 / (self.head_dim ** 0.5)
 
     def _rel_shift(self, x, zero_triu=False):
-        zero_pad = torch.zeros((x.size(0), 1, *x.size()[2:]))
+        zero_pad = torch.zeros((x.size(0), 1, *x.size()[2:]), dtype=x.dtype, device=x.device)
         x_padded = torch.cat([zero_pad, x], dim=1)
         x_padded = x_padded.view(x.size(1) + 1, x.size(0), *x.size()[2:])
         x = x_padded[1:].view_as(x)
@@ -311,12 +311,14 @@ class GTrXLBlock(nn.Module):
         dim_mlp:int, 
         use_scale:bool=True,
         dropout:float=0.0,
+        mem_len:int=None,
     ):
         super(GTrXLBlock, self).__init__()
         self.layer_norm_1 = nn.LayerNorm(d_model)
         self.layer_norm_2 = nn.LayerNorm(d_model)
 
-        self.attention = nn.MultiheadAttention(d_model, num_heads, dropout)
+        # self.attention = nn.MultiheadAttention(d_model, num_heads, dropout)
+        self.attention = RelativeMultiHeadAttention(num_heads, d_model, dropout, mem_len=mem_len)
 
         self.gated_layer_1 = GatedRecurrentUnit(d_model)
         self.gated_layer_2 = GatedRecurrentUnit(d_model)
@@ -324,10 +326,11 @@ class GTrXLBlock(nn.Module):
         self.pos_wise_mlp = PositionWiseMLP(d_model, dim_mlp, dropout)
         self.relu = nn.ReLU(inplace=True)
 
-    def forward(self, inputs):
+    def forward(self, inputs:Tensor, r:Tensor, u:Tensor, v:Tensor, mem:Tensor=None):
         # Attention
         x = inputs 
-        y = self.layer_norm_1(inputs)
+        y = self.attention(inputs, r, u, v, mem)
+        y = self.layer_norm_1(y)
         y = self.gated_layer_1([x,y])
         
         # Position-wise MLP

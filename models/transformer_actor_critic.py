@@ -11,14 +11,13 @@ class TransformerGaussianActor(nn.Module):
         super().__init__()
         log_std = -0.5 * torch.ones(act_dim, dtype=torch.float32)
         self.log_std = torch.nn.Parameter(torch.as_tensor(log_std))
+        self.resnet = ResNet()
+        self.transformer = Transformer(d_model=2592, output_dim=512, **transformer_config)
         self.mu_net = nn.Sequential(
-            ResNet(), 
-            nn.Flatten(), 
-            Transformer(d_model=2592, output_dim=512, **transformer_config),
             nn.Linear(512, 128),
-            nn.ReLU(), 
+            nn.ReLU(inplace=True), 
             nn.Linear(128, 64),
-            nn.ReLU(), 
+            nn.ReLU(inplace=True),
             nn.Linear(64, act_dim), 
             nn.Tanh(), 
         )
@@ -26,7 +25,7 @@ class TransformerGaussianActor(nn.Module):
     def forward(self, obs, act=None):
         # Produce action distributions for given observations, and 
         # optionally compute the log likelihood of given actions under
-        # those distributions.
+        # those distributions. Sequence_len = number of frames. 
         actor = self._distribution(obs) 
         logp_a = None
         if act is not None:
@@ -34,7 +33,12 @@ class TransformerGaussianActor(nn.Module):
         return actor, logp_a
 
     def _distribution(self, obs):
-        mu = self.mu_net(obs)
+        batch_size, sequence_len, channels, height, width = obs.shape 
+        obs = obs.reshape(batch_size * sequence_len, channels, height, width)
+        conv_out = self.resnet(obs)
+        conv_out = conv_out.reshape(sequence_len, batch_size, 2592)
+        trans_out = self.transformer(conv_out)[0]
+        mu = self.mu_net(trans_out)
         std = torch.exp(self.log_std)
         return Normal(mu, std)
 
@@ -46,19 +50,24 @@ class TransformerGaussianActor(nn.Module):
 class TransformerCritic(nn.Module):
     def __init__(self, obs_dim):
         super().__init__()
+        self.resnet = ResNet()
+        self.transformer = Transformer(d_model=2592, output_dim=512, **transformer_config)
         self.critic_net = nn.Sequential(
-            ResNet(), 
-            nn.Flatten(), 
-            Transformer(d_model=2592, output_dim=512, **transformer_config),
             nn.Linear(512, 128),
-            nn.ReLU(), 
+            nn.ReLU(inplace=True),
             nn.Linear(128, 64),
-            nn.ReLU(), 
+            nn.ReLU(inplace=True), 
             nn.Linear(64, 1), 
         )
 
     def forward(self, obs):
-        return torch.squeeze(self.critic_net(obs), -1) # Critical to ensure v has right shape.
+        batch_size, sequence_len, channels, height, width = obs.shape 
+        obs = obs.reshape(batch_size * sequence_len, channels, height, width)
+        conv_out = self.resnet(obs)
+        conv_out = conv_out.reshape(sequence_len, batch_size, 2592)
+        trans_out = self.transformer(conv_out)[0]
+        value = self.critic_net(trans_out)
+        return value           # Critical to ensure v has right shape.
 
 
 class TransformerActorCritic(nn.Module):

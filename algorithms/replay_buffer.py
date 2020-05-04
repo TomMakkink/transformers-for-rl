@@ -3,7 +3,7 @@ import torch
 import numpy as np
 from utils.general import count_vars, combined_shape, discount_cumsum, plot_grad_flow
 
-class PPOBuffer():
+class ReplayBuffer():
     """
     A buffer for storing trajectories experienced by a PPO agent interacting
     with the environment, and using Generalized Advantage Estimation (GAE-Lambda)

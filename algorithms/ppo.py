@@ -8,8 +8,9 @@ from gym.wrappers import Monitor, FrameStack
 import time
 import datetime
 from utils.general import count_vars, plot_grad_flow
-from algorithms.ppo_buffer import PPOBuffer
+from algorithms.replay_buffer import ReplayBuffer
 from models.mlp_actor_critic import MLPActorCritic
+from optimisers.larc import LARC
 
 # GPU or CPU
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -27,7 +28,7 @@ def make_env(env_name="CarRacing-v0", max_ep_len=1000, num_stack=1):
     return env
 
 
-def process_frames(obs):
+def process_frame(obs):
     # Convert LazyFrame to np array. Shape: [Frames, Height, Width, Channels]
     obs = np.array(obs, copy=False)
     # Convert np array to torch tensor. 
@@ -37,25 +38,23 @@ def process_frames(obs):
     # Convert to channels first format. Shape: [Frame, Channels, Height, Width]
     state = state.permute(0, 3, 1, 2)
     state /= 255
-    return state
+    return state.unsqueeze(0)
 
 
 def select_action(model, state):
     action, value, logp = model.step(state)
-    # Only action, value, logp of last frame 
-    # TODO: Double check that 0 is the right index
-    action, value, logp = action[0], value[0], logp[0]
-    action = np.tanh(action)
     action = (action + np.array([0., 1., 1.])) / np.array([1., 2., 2.])
     return action, value, logp
 
 
-def compute_loss_actor(model, obs, act, adv, logp):
+def compute_loss_actor(model, obs, act, adv, logp, clip_ratio):
     # Policy loss
+    logp = torch.as_tensor(logp, dtype=torch.float32, device=device)
+    adv = torch.as_tensor(adv, dtype=torch.float32, device=device)
     logp_old = logp
-    batch_size, seq_len, channels, height, width = obs.shape
-    obs = obs.view((batch_size * seq_len), channels, height, width)
+    act = torch.as_tensor(act, dtype=torch.float32, device=device)
     actor, logp = model.actor(obs, act) 
+
     ratio = torch.exp(logp - logp_old)
     clip_adv = torch.clamp(ratio, 1-clip_ratio, 1+clip_ratio) * adv
     loss_actor = -(torch.min(ratio * adv, clip_adv)).mean()
@@ -72,10 +71,11 @@ def compute_loss_actor(model, obs, act, adv, logp):
 
 # Set up function for computing value loss
 def compute_loss_critic(model, obs, ret):
+    ret = torch.as_tensor(ret, dtype=torch.float32, device=device)
     return ((model.critic(obs) - ret)**2).mean()
 
 
-def ppo_update(model, buf, iters, optimizer, ent_coef, value_coef):
+def ppo_update(model, buf, iters, optimizer, ent_coef, value_coef, clip_ratio):
     print("Updating...")
     obs, act, ret, adv, logp = buf.get()
 
@@ -83,12 +83,14 @@ def ppo_update(model, buf, iters, optimizer, ent_coef, value_coef):
     for i in range(iters):
         for index in BatchSampler(SubsetRandomSampler(range(len(obs))), 128, False):
             optimizer.zero_grad()
-            loss_actor, actor_info = compute_loss_actor(model, obs[index], act[index], adv[index], logp[index])
+            loss_actor, actor_info = compute_loss_actor(model, obs[index], act[index], adv[index], logp[index], clip_ratio)
             loss_critic = compute_loss_critic(model, obs[index], ret[index])
             loss = loss_actor - actor_info["ent"] * ent_coef + loss_critic * value_coef
             loss.backward()
-            # plot_grad_flow(ac.actor.named_parameters())
-            loss.step()
+            # plot_grad_flow(model.actor.named_parameters())
+            optimizer.step()
+    
+    return loss, loss_actor, loss_critic, actor_info["kl"], actor_info["ent"]
 
 
 def ppo(
@@ -118,23 +120,23 @@ def ppo(
         np.random.seed(seed)
 
         # Create actor-critic model 
-        # TODO: Create an environment wrapper to output observations in (channel, height, width) rather than hardcode 
-        obs_shape = (4, 3, 96, 96)
+        # TODO: Create an environment wrapper to output observations in (channel, height, width)
+        obs_shape = (num_stack, 3, 96, 96)
         action_shape = env.action_space.shape[0]
         ac = actor_critic(obs_shape, action_shape).to(device)
 
         # Set up experience buffer.
-        steps_per_epoch = int(steps_per_epoch) 
-        buf = PPOBuffer(obs_shape, action_shape, steps_per_epoch, gamma, lam)
+        buf = ReplayBuffer(obs_shape, action_shape, steps_per_epoch, gamma, lam)
         buf.to(device)
 
         # Set up Optimiser 
         optimizer = Adam(ac.parameters(), lr=lr)
+        optimizer = LARC(optimizer)
 
         # Prepare for interaction with environment
         start_time = time.time()
         obs, ep_ret, ep_len = env.reset(), 0, 0
-        state = process_frames(obs)
+        state = process_frame(obs)
 
         # Main loop: collect experience in env and update/log each epoch
         for epoch in range(epochs):
@@ -144,8 +146,7 @@ def ppo(
                 # Only update action every {repeat_action} number of steps 
                 if t % repeat_action == 0: 
                     action, value, logp = select_action(model=ac, state=state)
-
-                next_obs, reward, done, _ = env.step(action)
+                next_obs, reward, done, _ = env.step(action[0])
                 ep_ret += reward
                 ep_len += 1
 
@@ -153,10 +154,11 @@ def ppo(
                 buf.store(state, action, reward, value, logp)
                 
                 # Update state
-                state = process_frames(next_obs)
+                state = process_frame(next_obs)
                 
                 timeout = ep_len == max_ep_len
-                terminal = done or timeout
+                if ep_ret <= -10: done = True 
+                terminal = done or timeout 
                 epoch_ended = t == steps_per_epoch-1
 
                 if terminal or epoch_ended:
@@ -168,25 +170,31 @@ def ppo(
                         value = 0
                     buf.finish_path(device, value)
                     if terminal: 
+                        print("Episode ended in terminal state.")
                         episode_rewards.append(ep_ret)
                         episode_lengths.append(ep_len)
-                        env.stats_recorder.save_complete()
-                        env.stats_recorder.done = True
-                    # TODO: Decide what to do here. e.g. mask? Break out of loop? Or just restart? 
+                    env.stats_recorder.save_complete()
+                    env.stats_recorder.done = True
                     obs, ep_ret, ep_len = env.reset(), 0, 0
-                    state = process_frames(obs)
+                    state = process_frame(obs)
 
             # Perform PPO update
-            ppo_update(ac, buf, train_ppo_iters, optimizer, ent_coef, value_coef)
+            loss, loss_actor, loss_critic, kl, ent = ppo_update(ac, buf, train_ppo_iters, optimizer, ent_coef, value_coef, clip_ratio)
 
             # Track mean episode return per epoch 
             mean_episode_reward = sum(episode_rewards)/len(episode_rewards)
             mean_episode_length = sum(episode_lengths)/len(episode_lengths)
             writer.add_scalar('Mean Episode Reward', mean_episode_reward, epoch)
             writer.add_scalar('Mean Episode Length', mean_episode_length, epoch)
+            writer.add_scalar('Loss', loss, epoch)
+            writer.add_scalar('Actor Loss', loss_actor, epoch)
+            writer.add_scalar('Critic Loss', loss_critic, epoch)
+            writer.add_scalar('Kl', kl, epoch)
+            writer.add_scalar('Entropy', ent, epoch)
+            
         
         writer.close()
-        env.monitor.close()
+        # env.monitor.close()
 
 
 def ray_ppo(config):

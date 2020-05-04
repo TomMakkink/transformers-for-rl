@@ -4,6 +4,7 @@ import torch.nn as nn
 
 Tensor = torch.Tensor
 
+# TODO: Clear up documentation. One type includes max seq length, the other does not. 
 class PositionalEncoding(nn.Module):
     """
     Wrapper for the positional-encoding layer, which provides the model with information 

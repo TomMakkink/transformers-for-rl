@@ -45,11 +45,11 @@ class TransformerXL(nn.Module):
         self.mem_len = mem_len
         self.tgt_len = tgt_len
         self.num_layers = num_layers
-        self.positional_encoding_layer = PositionalEncoding(encoding_type="relative", d_model=d_model)
+        self.positional_encoding_layer = PositionalEncoding(d_model=d_model)
         self.u = nn.Parameter(torch.Tensor(num_heads, dim_head))
         self.v = nn.Parameter(torch.Tensor(num_heads, dim_head))
 
-        self.TransformerXLs = [
+        self.TransformerXLs = nn.ModuleList([
             TransformerXLBlock(
                 num_heads=num_heads, 
                 d_model=d_model,
@@ -60,7 +60,7 @@ class TransformerXL(nn.Module):
                 tgt_len=tgt_len,
             )
             for k in range(num_layers)
-        ]
+        ])
 
         self.output_layer = nn.Linear(d_model, output_dim, bias=False)
 
@@ -95,10 +95,10 @@ class TransformerXL(nn.Module):
             mem: memory from previous sequence. 
 
         Returns: 
-            Transformer output, of shape: [output_dim]
+            Transformer output, of shape: [source_seq_len, batch_size, output_dim]
         """
         if not mem: mem = self.init_mem()
-        qlen, bsz, _ = inputs.size()
+        qlen, bsz, features = inputs.size()
         
         mlen = mem[0].size(0) if mem is not None else 0
         klen = mlen + qlen 

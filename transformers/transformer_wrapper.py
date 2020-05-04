@@ -37,13 +37,15 @@ class Transformer(nn.Module):
         self.transformer_type = transformer_type
         if transformer_type.lower() == "gtrxl":
             print("Using GTrXL Transformer...")
+            self.mem = tuple()
             self.transformer = GTrXL( 
                 d_model=d_model,
                 output_dim=output_dim, 
                 num_layers=num_layers,
                 num_heads=num_heads,
-                dim_mlp=dim_mlp,
+                dim_mlp=dim_mlp, 
                 dropout=dropout,
+                mem_len=mem_len,
             )
         elif transformer_type.lower() == "xl":
             print("Using Transformer-XL...")
@@ -90,9 +92,9 @@ class Transformer(nn.Module):
             Transformer output, of shape: [source_seq_len, batch_size, output_dim]
         """
         if self.transformer is None: return inputs
-        if self.transformer_type == "xl":
+        if self.transformer_type == "xl" or self.transformer_type == "gtrxl":
             ret = self.transformer(inputs, *self.mem)
             output, self.mem = ret[0], ret[1:]
         else:
-            output = self.transformer(inputs)[0]      # Needed because of the positional encoding 
+            output = self.transformer(inputs)
         return output
