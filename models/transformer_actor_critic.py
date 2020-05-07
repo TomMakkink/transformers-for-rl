@@ -9,14 +9,10 @@ class Actor(nn.Module):
     def __init__(self, obs_dim, act_dim):
         super().__init__()
         self.alpha_head = nn.Sequential(
-            nn.Linear(1000, 100), 
-            nn.ReLU(), 
             nn.Linear(100, 1),
             nn.Softplus(), 
         )
         self.beta_head = nn.Sequential(
-            nn.Linear(1000, 100), 
-            nn.ReLU(), 
             nn.Linear(100, 1),
             nn.Softplus(), 
         )
@@ -30,11 +26,7 @@ class Actor(nn.Module):
 class Critic(nn.Module):
     def __init__(self, obs_dim):
         super().__init__()
-        self.critic_net = nn.Sequential(
-            nn.Linear(1000, 100),
-            nn.ReLU(inplace=True),
-            nn.Linear(100, 1),
-        )
+        self.critic_net = nn.Linear(100, 1)
 
     def forward(self, state):
         return self.critic_net(state)   
@@ -45,6 +37,12 @@ class TransformerActorCritic(nn.Module):
         super().__init__()
         self.resnet = ResNet()
         self.transformer = Transformer(**transformer_config)
+        self.fully_connected = nn.Sequential(
+            nn.Linear(800, 256), 
+            nn.ReLU(), 
+            nn.Linear(256, 100),
+            nn.ReLU(), 
+        )
         self.actor = Actor(obs_shape, action_shape)
         self.critic = Critic(obs_shape)
 
@@ -59,9 +57,9 @@ class TransformerActorCritic(nn.Module):
         batch_size, seq_len, channels, height, width = state.shape
         state = state.reshape(batch_size * seq_len, channels, height, width)
         state = self.resnet(state)
-        print(f"Shape of state: {state.shape}")
-        state = state.reshape(batch_size, seq_len, 2952)
+        state = state.reshape(batch_size, seq_len, 800)
         state = self.transformer(state)
+        state = self.fully_connected(state)
         alpha, beta = self.actor(state)
         value = self.critic(state)
         return alpha, beta, value

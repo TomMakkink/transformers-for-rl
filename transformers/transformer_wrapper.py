@@ -83,11 +83,12 @@ class Transformer(nn.Module):
         elif transformer_type.lower() == "reformer":
             print("Using Reformer...")
             self.transformer = Reformer(
-                dim=d_model, 
+                dim=800, 
                 depth=num_layers, 
-                max_seq_len=4096, 
+                max_seq_len=50, 
                 lsh_dropout=dropout, 
                 heads=num_heads, 
+                bucket_size=5, 
             )
         else: 
             print("Vanilla Policy Gradient...")

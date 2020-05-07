@@ -11,8 +11,8 @@ class ReplayBuffer():
     with the environment, and using Generalized Advantage Estimation (GAE-Lambda)
     for calculating the advantages of state-action pairs.
     """
-    def __init__(self, obs_dim, act_dim, size, image_pad, gamma=0.99, lam=0.95):
-        self.obs_buf = torch.zeros(combined_shape(size, obs_dim), dtype=torch.float32)
+    def __init__(self, obs_dim, act_dim, size, image_pad, device, gamma=0.99, lam=0.95):
+        self.obs_buf = torch.zeros(combined_shape(size, obs_dim), dtype=torch.float32, device=device)
         self.act_buf = np.zeros(combined_shape(size, act_dim), dtype=np.float32)
         self.adv_buf = np.zeros(size, dtype=np.float32)
         self.rew_buf = np.zeros(size, dtype=np.float32)
@@ -32,10 +32,9 @@ class ReplayBuffer():
         Append one timestep of agent-environment interaction to the buffer.
         """
         assert self.ptr < self.max_size     # buffer has to have room so you can store
-        
-        # Store augmented obs 
-        # obs = obs.squeeze()
-        augmented_obs = self.aug_trans(obs).squeeze()
+ 
+        obs = obs.squeeze()
+        augmented_obs = self.aug_trans(obs)
         self.obs_buf[self.ptr] = augmented_obs
         self.act_buf[self.ptr] = act
         self.rew_buf[self.ptr] = rew
@@ -43,7 +42,7 @@ class ReplayBuffer():
         self.logp_buf[self.ptr] = logp
         self.ptr += 1
 
-    def finish_path(self, device, last_val=0):
+    def finish_path(self, last_val=0):
         """
         Call this at the end of a trajectory, or when one gets cut off
         by an epoch ending. This looks back in the buffer to where the
@@ -67,21 +66,6 @@ class ReplayBuffer():
 
         # the next line computes rewards-to-go, to be targets for the value function
         self.ret_buf[path_slice] = discount_cumsum(rews, self.gamma)[:-1]
-        # rews = torch.cat((self.rew_buf[path_slice], last_val))
-        # vals = torch.cat((self.val_buf[path_slice], last_val))
-        
-        # # GAE-Lambda advantage calculation
-        # deltas = rews[:-1] + self.gamma * vals[1:] - vals[:-1]
-        # deltas = deltas.cpu().detach().numpy()
-        # rews = rews.cpu().detach().numpy()
-
-        # # TODO: run this on the gpu as a torch tensor. This is definitely not the most efficient way. 
-        # discounted_adv = discount_cumsum(deltas, self.gamma * self.lam)
-        # self.adv_buf[path_slice] = torch.as_tensor(discounted_adv.copy(), dtype=torch.float32)
-        
-        # # the next line computes rewards-to-go, to be targets for the value function
-        # discounted_ret = discount_cumsum(rews, self.gamma)[:-1]
-        # self.ret_buf[path_slice] = torch.as_tensor(discounted_ret.copy(), dtype=torch.float32)
         
         self.path_start_idx = self.ptr
 
@@ -100,15 +84,4 @@ class ReplayBuffer():
 
         return self.obs_buf, self.act_buf, self.ret_buf, self.adv_buf, self.logp_buf
 
-    def to(self, device):
-        """
-        Copy to the relevant device. 
-        """
-        self.obs_buf = self.obs_buf.to(device)
-        # self.act_buf = self.act_buf.to(device)
-        # self.adv_buf = self.adv_buf.to(device)
-        # self.rew_buf = self.rew_buf.to(device)
-        # self.ret_buf = self.ret_buf.to(device)
-        # self.val_buf = self.val_buf.to(device)
-        # self.logp_buf = self.logp_buf.to(device)
     

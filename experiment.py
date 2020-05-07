@@ -1,8 +1,9 @@
 import torch 
 import numpy as np
-from algorithms.ppo import ppo 
+from algorithms.ppo import train
 from models.transformer_actor_critic import TransformerActorCritic
 from configs.ppo_config import ppo_config 
+from configs.env_config import env_config
 from ray import tune
 
 
@@ -13,13 +14,8 @@ def main():
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-    config = {"env_name": "CarRacing-v0", "actor_critic":TransformerActorCritic, "seed":seed, **ppo_config}
-    ppo(**config)
-    # tune.run(
-    #     ray_ppo, 
-    #     config = {"env_name": "CarRacing-v0", "actor_critic":TransformerActorCritic, "seed":seed, **ppo_config},
-    #     resources_per_trial = {"cpu": 4, "gpu": 1} ,
-    # )
+    config = {"actor_critic_model": TransformerActorCritic, **ppo_config}
+    train(epochs=5000, steps_per_epoch=1000, repeat_action=4, seed=seed, ppo_config=config, env_config=env_config)
 
 
 if __name__ == '__main__':
