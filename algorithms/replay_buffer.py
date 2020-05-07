@@ -1,5 +1,7 @@
 # PPO buffer implementation derived from openai ppo: https://github.com/openai/spinningup/blob/master/spinup/algos/pytorch/ppo/ppo.py
 import torch 
+import torch.nn as nn
+import kornia
 import numpy as np
 from utils.general import count_vars, combined_shape, discount_cumsum, plot_grad_flow
 
@@ -9,7 +11,7 @@ class ReplayBuffer():
     with the environment, and using Generalized Advantage Estimation (GAE-Lambda)
     for calculating the advantages of state-action pairs.
     """
-    def __init__(self, obs_dim, act_dim, size, gamma=0.99, lam=0.95):
+    def __init__(self, obs_dim, act_dim, size, image_pad, gamma=0.99, lam=0.95):
         self.obs_buf = torch.zeros(combined_shape(size, obs_dim), dtype=torch.float32)
         self.act_buf = np.zeros(combined_shape(size, act_dim), dtype=np.float32)
         self.adv_buf = np.zeros(size, dtype=np.float32)
@@ -17,6 +19,11 @@ class ReplayBuffer():
         self.ret_buf = np.zeros(size, dtype=np.float32)
         self.val_buf = np.zeros(size, dtype=np.float32)
         self.logp_buf = np.zeros(size, dtype=np.float32)
+
+        self.aug_trans = nn.Sequential(
+            nn.ReplicationPad2d(image_pad),
+            kornia.augmentation.RandomCrop((obs_dim[-1], obs_dim[-1])))
+
         self.gamma, self.lam = gamma, lam
         self.ptr, self.path_start_idx, self.max_size = 0, 0, size
 
@@ -25,7 +32,11 @@ class ReplayBuffer():
         Append one timestep of agent-environment interaction to the buffer.
         """
         assert self.ptr < self.max_size     # buffer has to have room so you can store
-        self.obs_buf[self.ptr] = obs
+        
+        # Store augmented obs 
+        # obs = obs.squeeze()
+        augmented_obs = self.aug_trans(obs).squeeze()
+        self.obs_buf[self.ptr] = augmented_obs
         self.act_buf[self.ptr] = act
         self.rew_buf[self.ptr] = rew
         self.val_buf[self.ptr] = val
@@ -86,6 +97,7 @@ class ReplayBuffer():
         adv_mean = self.adv_buf.mean()
         adv_std = self.adv_buf.std()
         self.adv_buf = (self.adv_buf - adv_mean) / adv_std
+
         return self.obs_buf, self.act_buf, self.ret_buf, self.adv_buf, self.logp_buf
 
     def to(self, device):

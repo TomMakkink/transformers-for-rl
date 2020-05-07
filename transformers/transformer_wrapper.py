@@ -4,6 +4,7 @@ from transformers.transformer_gtr_xl import GTrXL
 from transformers.transformer import TransformerModel
 from transformers.transformer_xl import TransformerXL
 from transformers.re_zero import ReZero
+from reformer_pytorch import Reformer
 
 Tensor = torch.Tensor
 
@@ -79,6 +80,15 @@ class Transformer(nn.Module):
                 dim_mlp=dim_mlp, 
                 dropout=dropout,
             )
+        elif transformer_type.lower() == "reformer":
+            print("Using Reformer...")
+            self.transformer = Reformer(
+                dim=d_model, 
+                depth=num_layers, 
+                max_seq_len=4096, 
+                lsh_dropout=dropout, 
+                heads=num_heads, 
+            )
         else: 
             print("Vanilla Policy Gradient...")
             self.transformer = None
@@ -86,10 +96,10 @@ class Transformer(nn.Module):
     def forward(self, inputs:Tensor):
         """
         Args: 
-            inputs: input tensor, of shape: [source_seq_len, batch_size, features]
+            inputs: input tensor, of shape: [seq_len, batch_size, features]
 
         Returns: 
-            Transformer output, of shape: [source_seq_len, batch_size, output_dim]
+            Transformer output, of shape: [seq_len, batch_size, output_dim]
         """
         if self.transformer is None: return inputs
         if self.transformer_type == "xl" or self.transformer_type == "gtrxl":

@@ -1,11 +1,11 @@
 import torch 
 
 transformer_config = {
-    # "d_model": 4, 
-    # "output_dim": 4, 
+    "d_model": 3, 
+    "output_dim": 512, 
     "num_heads": 1, 
-    "num_layers": 2, 
-    "dim_mlp": 32, 
-    "dropout": 0.0, 
+    "num_layers": 8, 
+    "dim_mlp": 128, 
+    "dropout": 0.1, 
     "mem_len": 0.0, 
-    "transformer_type": "gtrxl"}
+    "transformer_type": "reformer"}

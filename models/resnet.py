@@ -21,7 +21,7 @@ class ResNetBlock(nn.Module):
             nn.ReLU(), 
             nn.Conv2d(output_channels, output_channels, 3, stride=1, padding=1),
             nn.ReLU(), 
-            nn.Conv2d(output_channels, output_channels, 3, stride=1, padding=1), 
+            nn.Conv2d(output_channels, output_channels, 3, stride=1, padding=1),  
         )
 
     def forward(self, obs):
