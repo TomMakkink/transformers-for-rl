@@ -10,7 +10,7 @@ from gym.wrappers import FrameStack, Monitor, ResizeObservation
 from optimisers.larc import LARC
 from torch.distributions import Beta
 from torch.optim import Adam
-from torch.utils.data.sampler import BatchSampler, SequentialSampler
+from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
 from torch.utils.tensorboard import SummaryWriter
 from utils.general import count_vars, plot_grad_flow
 
@@ -106,22 +106,21 @@ class PPO():
 
         # Train policy with multiple steps of gradient descent
         for i in range(self.train_ppo_iters):
-            for index in BatchSampler(SequentialSampler(range(len(obs_buf))), 250, False):
+            for index in BatchSampler(SubsetRandomSampler(range(len(obs_buf))), 250, False):
                 self.optimizer.zero_grad()
                 obs, act, adv, logp_old, ret = obs_buf[index], act_buf[index], adv_buf[index], logp_buf[index], ret_buf[index]
                 alpha, beta, value = self.actor_critic(obs)
                 dist = Beta(alpha, beta)
                 action = dist.sample() 
-                ent = dist.entropy().mean().item()
                 logp = dist.log_prob(action).sum(dim=1, keepdim=True)
 
                 loss_actor, actor_info = self.compute_loss_actor(adv, logp, logp_old)
                 loss_critic = self.compute_loss_critic(value, ret)
-                loss = loss_actor - ent * self.ent_coef + loss_critic * self.value_coef
+                loss = loss_actor + loss_critic * self.value_coef
                 loss.backward()
                 self.optimizer.step()
         
-        return loss, loss_actor, loss_critic, actor_info["kl"], ent
+        return loss, loss_actor, loss_critic, actor_info["kl"] #, ent
 
 
 def make_env(env_name="CarRacing-v0", max_ep_len=1000, num_stack=1, seed=43, monitor=True):
@@ -159,15 +158,19 @@ def train(epochs, steps_per_epoch, repeat_action, seed, ppo_config, env_config):
 
     # Main loop: collect experience in env and update/log each epoch
     for epoch in range(epochs):
-        episode_rewards = []
+        episode_returns = []
         episode_lengths = []
+        last_100_rewards = np.zeros(100)
+        count = 0 
         for t in range(steps_per_epoch):
             # Only update action every {repeat_action} number of steps 
             if t % repeat_action == 0: 
                 action, value, logp = agent.select_action(state)
             next_obs, reward, done, _ = env.step(action)
+            last_100_rewards[(count % 100)] = reward 
             ep_ret += reward
             ep_len += 1
+            count += 1
 
             # Log to the buffer 
             agent.store(state, action, reward, value, logp)
@@ -176,6 +179,7 @@ def train(epochs, steps_per_epoch, repeat_action, seed, ppo_config, env_config):
             state = process_frame(next_obs)
             
             timeout = ep_len == env_config['max_ep_len']
+            if last_100_rewards.mean() <= -0.1: done = True
             terminal = done or timeout 
             epoch_ended = t == steps_per_epoch-1
 
@@ -189,7 +193,7 @@ def train(epochs, steps_per_epoch, repeat_action, seed, ppo_config, env_config):
                 agent.finish_path(value)
                 if terminal: 
                     print("Episode ended in terminal state.")
-                    episode_rewards.append(ep_ret)
+                    episode_returns.append(ep_ret)
                     episode_lengths.append(ep_len)
                 env.stats_recorder.save_complete()
                 env.stats_recorder.done = True
@@ -197,18 +201,20 @@ def train(epochs, steps_per_epoch, repeat_action, seed, ppo_config, env_config):
                 state = process_frame(obs)
 
         # Perform PPO update
-        loss, loss_actor, loss_critic, kl, ent = agent.update()
+        # loss, loss_actor, loss_critic, kl, ent = agent.update()
+        loss, loss_actor, loss_critic, kl = agent.update()
+
 
         # Track mean episode return per epoch 
-        mean_episode_reward = sum(episode_rewards)/len(episode_rewards)
+        mean_episode_returns = sum(episode_returns)/len(episode_returns)
         mean_episode_length = sum(episode_lengths)/len(episode_lengths)
         writer.add_scalar('Mean Episode Length', mean_episode_length, epoch)
         writer.add_scalar('Actor Loss', loss_actor, epoch)
         writer.add_scalar('Critic Loss', loss_critic, epoch)
         writer.add_scalar('Kl', kl, epoch)
-        writer.add_scalar('Mean Episode Reward', mean_episode_reward, epoch) 
+        writer.add_scalar('Mean Episode Reward', mean_episode_returns, epoch) 
         writer.add_scalar('Loss', loss, epoch)
-        writer.add_scalar('Entropy', ent, epoch)
+        # writer.add_scalar('Entropy', ent, epoch)
         
     
     writer.close()
