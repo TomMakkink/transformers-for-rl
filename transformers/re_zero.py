@@ -38,7 +38,11 @@ class ReZero(nn.Module):
         self.pos_encoder = PositionalEncoding(encoding_type="absolute", d_model=d_model)
         encoder_layer = RZTXEncoderLayer(d_model, num_heads, dim_mlp, dropout)
         self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
-        self.out_layer = nn.Linear(d_model, output_dim, bias=False)
+        self.out_layer = nn.Sequential(
+            nn.Linear(d_model, output_dim, bias=False),
+            nn.ReLU(), 
+        )
+        
         self._reset_parameters()
 
 

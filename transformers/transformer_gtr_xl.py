@@ -55,7 +55,10 @@ class GTrXL(nn.Module):
             for k in range(num_layers)
         ])
 
-        self.output_layer = nn.Linear(d_model, output_dim, bias=False)
+        self.output_layer = nn.Sequential(
+            nn.Linear(d_model, output_dim, bias=False),
+            nn.ReLU(),
+        )
 
     
     def init_mem(self):
