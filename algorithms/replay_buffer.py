@@ -20,9 +20,10 @@ class ReplayBuffer():
         self.val_buf = np.zeros(size, dtype=np.float32)
         self.logp_buf = np.zeros(size, dtype=np.float32)
 
-        self.aug_trans = nn.Sequential(
-            nn.ReplicationPad2d(image_pad),
-            kornia.augmentation.RandomCrop((obs_dim[-1], obs_dim[-1])))
+        self.aug_obs = image_pad > 0
+        if self.aug_obs: self.aug_trans = nn.Sequential(
+                        nn.ReplicationPad2d(image_pad),
+                        kornia.augmentation.RandomCrop((obs_dim[-1], obs_dim[-1])))
 
         self.gamma, self.lam = gamma, lam
         self.ptr, self.path_start_idx, self.max_size = 0, 0, size
@@ -33,8 +34,11 @@ class ReplayBuffer():
         """
         assert self.ptr < self.max_size     # buffer has to have room so you can store
  
-        obs = obs.squeeze()
-        augmented_obs = self.aug_trans(obs)
+        if self.aug_obs:
+            obs = obs.squeeze()
+            augmented_obs = self.aug_trans(obs)
+        else: augmented_obs = obs
+        
         self.obs_buf[self.ptr] = augmented_obs
         self.act_buf[self.ptr] = act
         self.rew_buf[self.ptr] = rew
