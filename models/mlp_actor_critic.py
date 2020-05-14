@@ -14,7 +14,6 @@ class MLPGaussianActor(nn.Module):
             nn.Linear(64, 64),
             nn.ReLU(), 
             nn.Linear(64, act_dim),
-            nn.Tanh(), 
         )
 
     def forward(self, obs, act=None):

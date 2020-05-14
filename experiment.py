@@ -1,8 +1,8 @@
 import torch 
 import numpy as np
-from examples.cartpole_ppo import train
+from examples.cartpole_ppo_single_loss import train
 from env.cartpole import make_env
-from models.mlp_categorical_actor_critic import MLPActorCritic
+from models.mlp_categorical_actor_critic_single_loss import MLPActorCritic
 # from examples.cart_pole_ppo import ppo
 # from examples.cart_pole_single_loss import ppo
 from models.transformer_actor_critic import TransformerActorCritic
