@@ -10,15 +10,16 @@ from algorithms.ppo_single_loss import PPO
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using: {device}")
 
-# Summary Writer
-writer = SummaryWriter("runs/cart_pole/" + "single_loss_refactor_test")
 
-def train(env_fn=None, actor_critic=None, seed=0, 
+def train(name, env_fn=None, actor_critic=None, seed=0, 
         steps_per_epoch=5000, epochs=50, gamma=0.99, clip_ratio=0.2, lr=3e-4,
-        train_iters=80, lam=0.97, max_ep_len=500, target_kl=0.01, save_freq=10):
+        train_iters=80, lam=0.97, max_ep_len=500, target_kl=0.01, save_freq=10, frame_stack=0):
     
+    # Summary Writer
+    writer = SummaryWriter("runs/cart_pole/" + name)
+
     # Create the environment 
-    env = env_fn()
+    env = env_fn(seed=seed, frame_stack=frame_stack)
 
     agent = PPO(actor_critic, env.observation_space, env.action_space, buffer_size=steps_per_epoch, device=device)
 
@@ -30,15 +31,15 @@ def train(env_fn=None, actor_critic=None, seed=0,
         episode_returns = []
         episode_lengths = []
         for t in range(steps_per_epoch):
-            a, v, logp = agent.select_action(torch.as_tensor(obs, dtype=torch.float32))
+            a, v, logp = agent.select_action(obs)
             next_obs, r, d, _ = env.step(a)
             ep_ret += r
             ep_len += 1
 
             # save and log
-            agent.store(torch.as_tensor(obs, dtype=torch.float32), a, r, v, logp)
+            agent.store(obs, a, r, v, logp)
             
-            # Update obs (critical!)
+            # Update obs 
             obs = next_obs
 
             timeout = ep_len == max_ep_len
@@ -50,7 +51,7 @@ def train(env_fn=None, actor_critic=None, seed=0,
                     print('Warning: trajectory cut off by epoch at %d steps.'%ep_len, flush=True)
                 # if trajectory didn't reach terminal state, bootstrap value target
                 if timeout or epoch_ended:
-                    _, v, _ = agent.select_action(torch.as_tensor(obs, dtype=torch.float32))
+                    _, v, _ = agent.select_action(obs)
                 else:
                     v = 0
                 agent.finish_path(v)

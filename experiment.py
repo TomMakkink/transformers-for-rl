@@ -2,12 +2,8 @@ import torch
 import numpy as np
 from examples.cartpole_ppo_single_loss import train
 from env.cartpole import make_env
-from models.mlp_categorical_actor_critic_single_loss import MLPActorCritic
-# from examples.cart_pole_ppo import ppo
-# from examples.cart_pole_single_loss import ppo
-from models.transformer_actor_critic import TransformerActorCritic
-from configs.ppo_config import ppo_config 
-from configs.env_config import env_config
+# from models.mlp_categorical_actor_critic import MLPActorCritic
+from models.transformer_categorical_actor_critic import TransformerActorCritic
 
 
 def main():
@@ -17,10 +13,7 @@ def main():
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-    # config = {"actor_critic_model": TransformerActorCritic, **ppo_config}
-    # train(epochs=5000, steps_per_epoch=1000, repeat_action=4, seed=seed, ppo_config=config, env_config=env_config)
-    # ppo()
-    train(env_fn=make_env, actor_critic=MLPActorCritic, seed=seed)
+    train(name="ReZero (8)", env_fn=make_env, actor_critic=TransformerActorCritic, seed=seed, frame_stack=8)
 
 
 if __name__ == '__main__':

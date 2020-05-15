@@ -10,19 +10,26 @@ from algorithms.ppo import PPO
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using: {device}")
 
-# Summary Writer
-writer = SummaryWriter("runs/cart_pole/" + "ppo_refactor_test")
 
-
-def train(env_fn=None, actor_critic=None, seed=0, 
+def train(name, env_fn=None, actor_critic=None, seed=0, 
         steps_per_epoch=5000, epochs=50, gamma=0.99, clip_ratio=0.2, actor_lr=3e-4,
         critic_lr=1e-3, train_pi_iters=80, train_v_iters=80, lam=0.97, max_ep_len=500,
-        target_kl=0.01, save_freq=10):
+        target_kl=0.01, save_freq=10, frame_stack=0):
+
+    # Summary Writer
+    writer = SummaryWriter("runs/cart_pole/" + name)
     
     # Create the environment 
-    env = env_fn()
+    env = env_fn(seed=seed, frame_stack=frame_stack)
 
-    agent = PPO(actor_critic, env.observation_space, env.action_space, buffer_size=steps_per_epoch, device=device)
+    # Check if frames are stacked 
+    obs_dim = env.observation_space.shape
+    if frame_stack > 1:  
+        frames, features = obs_dim
+        obs_dim = (frames * features,)
+        agent = PPO(actor_critic, obs_dim, env.action_space, buffer_size=steps_per_epoch, device=device, frame_stack=frame_stack)
+    else: 
+        agent = PPO(actor_critic, obs_dim, env.action_space, buffer_size=steps_per_epoch, device=device)
 
     start_time = time.time()
     obs, ep_ret, ep_len = env.reset(), 0, 0
@@ -32,12 +39,12 @@ def train(env_fn=None, actor_critic=None, seed=0,
         episode_returns = []
         episode_lengths = []
         for t in range(steps_per_epoch):
-            a, v, logp = agent.step(torch.as_tensor(obs, dtype=torch.float32))
+            a, v, logp = agent.step(obs)
             next_obs, r, d, _ = env.step(a)
             ep_ret += r
             ep_len += 1
 
-            agent.store(torch.as_tensor(obs, dtype=torch.float32), a, r, v, logp)
+            agent.store(obs, a, r, v, logp)
             
             # Update obs 
             obs = next_obs

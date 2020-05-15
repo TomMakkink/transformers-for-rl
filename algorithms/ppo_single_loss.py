@@ -17,10 +17,11 @@ class PPO():
         buffer_size, 
         gamma=0.99, 
         clip_ratio=0.2,
-        lr=3e-4,
+        lr=0.001,               # 3e-4
         train_iters=80, 
         lam=0.97, 
-        target_kl=0.01, 
+        ent_coef=0.01, 
+        value_coef=0.5, 
         save_freq=10, 
         image_pad=0,
         device="cpu",
@@ -42,7 +43,8 @@ class PPO():
         self.clip_ratio = clip_ratio
         self.train_iters = train_iters
         self.lam = lam 
-        self.target_kl = target_kl
+        self.ent_coef = ent_coef
+        self.value_coef = value_coef
 
         self.device = device
 
@@ -90,8 +92,7 @@ class PPO():
             action, value, logp, ent = self.ac(obs, act)
             loss_actor, kl, clipfrac = self._compute_loss_actor(logp, logp_old, adv)
             loss_critic = self._compute_loss_critic(value, ret).item()
-            # loss = loss_actor + ent * ent_coef + loss_critic * value_coef
-            loss = loss_actor + ent * 0.01 + loss_critic * 0.5
+            loss = loss_actor + ent * self.ent_coef + loss_critic * self.value_coef
             loss.backward()
             self.optimizer.step()
 

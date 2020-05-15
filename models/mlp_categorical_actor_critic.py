@@ -47,12 +47,9 @@ class MLPCritic(nn.Module):
         
 
 class MLPActorCritic(nn.Module):
-    def __init__(self, observation_space, action_space, 
+    def __init__(self, obs_dim, action_space, 
                  hidden_sizes=(64,64), activation=nn.Tanh):
         super().__init__()
-
-        obs_dim = observation_space.shape[0]
-
         # policy builder depends on action space
         self.actor = MLPCategoricalActor(obs_dim, action_space.n, hidden_sizes, activation)
 

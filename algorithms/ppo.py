@@ -30,12 +30,12 @@ class PPO():
         Args:
         """
         super(PPO, self).__init__()
-        self.ac = actor_critic(observation_space, action_space)
+        self.ac = actor_critic(observation_space[0], action_space)
 
         # Get dimension for observation and action space
-        obs_dim = observation_space.shape
+        # obs_dim = observation_space.shape
         act_dim = action_space.shape
-        self.replay_buffer = ReplayBuffer(obs_dim, act_dim, buffer_size, 0, device, gamma, lam)
+        self.replay_buffer = ReplayBuffer(observation_space, act_dim, buffer_size, 0, device, gamma, lam)
 
         self.actor_optimizer = Adam(self.ac.actor.parameters(), lr=actor_lr)
         self.critic_optimizer = Adam(self.ac.critic.parameters(), lr=critic_lr)
@@ -56,7 +56,6 @@ class PPO():
 
     def finish_path(self, value):
         self.replay_buffer.finish_path(value)
-
 
     def step(self, obs):
         return self.ac.step(obs)
