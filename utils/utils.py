@@ -1,3 +1,6 @@
+import torch 
+import numpy as np
+
 import numpy as np
 import scipy.signal
 
@@ -37,6 +40,17 @@ def discount_cumsum(x, discount):
     return scipy.signal.lfilter([1], [1, float(-discount)], x[::-1], axis=0)[::-1]
 
 
+def set_random_seed(seed: int, use_cuda:bool = False) -> None:
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if use_cuda:
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+
+
+def get_device():
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    return device 
 
 
 

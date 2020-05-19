@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import kornia
 import numpy as np
-from utils.general import count_vars, combined_shape, discount_cumsum, plot_grad_flow
+from utils.utils import count_vars, combined_shape, discount_cumsum, plot_grad_flow
 
 class ReplayBuffer():
     """
@@ -12,7 +12,7 @@ class ReplayBuffer():
     for calculating the advantages of state-action pairs.
     """
     def __init__(self, obs_dim, act_dim, size, image_pad, device, gamma=0.99, lam=0.95):
-        self.obs_buf = torch.zeros(combined_shape(size, obs_dim), dtype=torch.float32, device=device)
+        self.obs_buf = np.zeros(combined_shape(size, obs_dim), dtype=np.float32)
         self.act_buf = np.zeros(combined_shape(size, act_dim), dtype=np.float32)
         self.adv_buf = np.zeros(size, dtype=np.float32)
         self.rew_buf = np.zeros(size, dtype=np.float32)
@@ -27,19 +27,15 @@ class ReplayBuffer():
 
         self.gamma, self.lam = gamma, lam
         self.ptr, self.path_start_idx, self.max_size = 0, 0, size
+        self.device = device
 
     def store(self, obs, act, rew, val, logp):
         """
         Append one timestep of agent-environment interaction to the buffer.
         """
         assert self.ptr < self.max_size     # buffer has to have room so you can store
- 
-        if self.aug_obs:
-            obs = obs.squeeze()
-            augmented_obs = self.aug_trans(obs)
-        else: augmented_obs = obs
         
-        self.obs_buf[self.ptr] = augmented_obs
+        self.obs_buf[self.ptr] = obs
         self.act_buf[self.ptr] = act
         self.rew_buf[self.ptr] = rew
         self.val_buf[self.ptr] = val
@@ -86,6 +82,17 @@ class ReplayBuffer():
         adv_std = self.adv_buf.std()
         self.adv_buf = (self.adv_buf - adv_mean) / adv_std
 
-        return self.obs_buf, self.act_buf, self.ret_buf, self.adv_buf, self.logp_buf
+        # TODO: Check the below works 
+        if self.aug_obs:
+            obs = obs.squeeze()
+            obs = self.aug_trans(obs)
+
+        obs = torch.as_tensor(self.obs_buf, dtype=torch.float32, device=self.device)
+        logp = torch.as_tensor(self.logp_buf, dtype=torch.float32, device=self.device)
+        adv = torch.as_tensor(self.adv_buf, dtype=torch.float32, device=self.device)
+        act = torch.as_tensor(self.act_buf, dtype=torch.float32, device=self.device)
+        ret = torch.as_tensor(self.ret_buf, dtype=torch.float32, device=self.device)
+
+        return obs, act, ret, adv, logp
 
     

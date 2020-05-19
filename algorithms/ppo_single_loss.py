@@ -1,7 +1,7 @@
 import torch
 from algorithms.replay_buffer import ReplayBuffer
 from torch.optim import Adam
-from utils.general import plot_grad_flow
+from utils.utils import plot_grad_flow
 # from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
 
 
@@ -81,10 +81,10 @@ class PPO():
     def update(self):
         obs, act, ret, adv, logp_old = self.replay_buffer.get()
         
-        logp_old = torch.as_tensor(logp_old, dtype=torch.float32, device=self.device)
-        adv = torch.as_tensor(adv, dtype=torch.float32, device=self.device)
-        act = torch.as_tensor(act, dtype=torch.float32, device=self.device)
-        ret = torch.as_tensor(ret, dtype=torch.float32, device=self.device)
+        # logp_old = torch.as_tensor(logp_old, dtype=torch.float32, device=self.device)
+        # adv = torch.as_tensor(adv, dtype=torch.float32, device=self.device)
+        # act = torch.as_tensor(act, dtype=torch.float32, device=self.device)
+        # ret = torch.as_tensor(ret, dtype=torch.float32, device=self.device)
 
         # Train with multiple steps of gradient descent 
         for i in range(self.train_iters):
