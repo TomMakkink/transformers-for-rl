@@ -1,6 +1,6 @@
 env_config = {
-    "env_name": "CarRacing-v0",
-    "max_ep_len": 1000, 
-    "num_stack":20, 
-    "monitor": True, 
+    "env_name": "Pendulum-v0",
+    "max_ep_len": 200, 
+    "frame_stack":0, 
+    "monitor": False, 
 }

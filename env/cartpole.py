@@ -3,7 +3,7 @@ from gym.wrappers import FrameStack, TransformObservation
 import numpy as np
 import torch
 
-def make_env(env_name='Pendulum-v0', max_episode_steps=500, frame_stack=0, seed=0, device="cpu"):
+def make_env(env_name='Pendulum-v0', max_episode_steps=500, frame_stack=0, monitor=False, seed=0, device="cpu"):
     env = gym.make(env_name)
     # env._max_episode_steps = max_episode_steps
     # if frame_stack > 1: 
