@@ -83,7 +83,7 @@ class Transformer(nn.Module):
         elif transformer_type.lower() == "reformer":
             print("Using Reformer...")
             self.transformer = Reformer(
-                dim=800, 
+                dim=d_model, 
                 depth=num_layers, 
                 max_seq_len=50, 
                 lsh_dropout=dropout, 

@@ -80,18 +80,13 @@ class PPO():
 
     def update(self):
         obs, act, ret, adv, logp_old = self.replay_buffer.get()
-        
-        # logp_old = torch.as_tensor(logp_old, dtype=torch.float32, device=self.device)
-        # adv = torch.as_tensor(adv, dtype=torch.float32, device=self.device)
-        # act = torch.as_tensor(act, dtype=torch.float32, device=self.device)
-        # ret = torch.as_tensor(ret, dtype=torch.float32, device=self.device)
 
         # Train with multiple steps of gradient descent 
         for i in range(self.train_iters):
             self.optimizer.zero_grad()
             action, value, logp, ent = self.ac(obs, act)
             loss_actor, kl, clipfrac = self._compute_loss_actor(logp, logp_old, adv)
-            loss_critic = self._compute_loss_critic(value, ret).item()
+            loss_critic = self._compute_loss_critic(value, ret)
             loss = loss_actor + ent * self.ent_coef + loss_critic * self.value_coef
             loss.backward()
             self.optimizer.step()

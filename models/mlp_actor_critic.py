@@ -16,20 +16,26 @@ class MLPActorCritic(nn.Module):
         obs_dim = observation_space.shape[0]
         act_dim = action_space.shape[0]
         self.shared_network = nn.Sequential(
-            nn.Linear(obs_dim, 64), 
+            nn.Linear(obs_dim, 128), 
             nn.ReLU(), 
-            nn.Linear(64, 64), 
+            nn.Linear(128, 64), 
             nn.ReLU()
         )
         self.alpha_head = nn.Sequential(
+            nn.Linear(64, 64), 
+            nn.ReLU(),
             nn.Linear(64, act_dim),
             nn.Softplus(), 
         )
         self.beta_head = nn.Sequential(
+            nn.Linear(64, 64), 
+            nn.ReLU(),
             nn.Linear(64, act_dim),
             nn.Softplus(), 
         )
         self.critic = nn.Sequential(
+            nn.Linear(64, 64), 
+            nn.ReLU(),
             nn.Linear(64, 1),
             nn.ReLU(),
         )
@@ -57,6 +63,6 @@ class MLPActorCritic(nn.Module):
             logp = action_dist.log_prob(action)
             
             value = torch.squeeze(self.critic(x), -1)
-        return action.numpy(), value.numpy(), logp.numpy()
+        return action.cpu().numpy(), value.cpu().numpy(), logp.cpu().numpy()
         
 

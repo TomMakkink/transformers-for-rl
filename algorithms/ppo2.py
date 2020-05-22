@@ -3,7 +3,7 @@ import torch
 from torch.optim import Adam
 from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
 from torch.utils.tensorboard import SummaryWriter
-
+from utils.utils import plot_grad_flow
 from algorithms.replay_buffer import ReplayBuffer
 
 class PPO2():
@@ -18,7 +18,7 @@ class PPO2():
         steps_per_epoch, 
         batch_size, 
         device, 
-        lr=0.001,              
+        lr,              
         gamma=0.99, 
         clip_ratio=0.2,
         train_iters=80, 
@@ -57,7 +57,7 @@ class PPO2():
         episode_returns = []
         episode_lengths = []
         for t in range(self.steps_per_epoch):
-            action, value, logp = self.ac.select_action(torch.as_tensor(obs, dtype=torch.float32))
+            action, value, logp = self.ac.select_action(torch.as_tensor(obs, dtype=torch.float32, device=self.device))
             next_obs, reward, done, _ = self.env.step(action * np.array([4] - np.array([2])))
             ep_ret += reward
             ep_len += 1
@@ -77,7 +77,7 @@ class PPO2():
                     print(f'Warning: trajectory cut off by epoch at {ep_len} steps.')
                 # if trajectory didn't reach terminal state, bootstrap value target
                 if timeout or epoch_ended:
-                    _, value, _ = self.ac.select_action(torch.as_tensor(obs, dtype=torch.float32))
+                    _, value, _ = self.ac.select_action(torch.as_tensor(obs, dtype=torch.float32, device=self.device))
                 else:
                     value = 0
                 self.replay_buffer.finish_path(value)
@@ -114,14 +114,16 @@ class PPO2():
         obs, act, ret, adv, logp_old = self.replay_buffer.get()
 
         # Train with multiple steps of gradient descent 
-        for i in range(self.train_iters):
-            self.optimizer.zero_grad()
-            action, value, logp, ent = self.ac(obs, act)
-            loss_actor, kl, clipfrac = self._compute_loss_actor(logp, logp_old, adv)
-            loss_critic = self._compute_loss_critic(value, ret).item()
-            loss = loss_actor + ent * self.ent_coef + loss_critic * self.value_coef
-            loss.backward()
-            self.optimizer.step()
+        for _ in range(self.train_iters):
+            for index in BatchSampler(SubsetRandomSampler(range(self.steps_per_epoch)), self.batch_size, False):
+                self.optimizer.zero_grad()
+                action, value, logp, ent = self.ac(obs[index], act[index])
+                loss_actor, kl, clipfrac = self._compute_loss_actor(logp, logp_old[index], adv[index])
+                loss_critic = self._compute_loss_critic(value, ret[index])
+                loss = loss_actor + ent * self.ent_coef + loss_critic * self.value_coef
+                loss.backward()
+                # plot_grad_flow(self.ac.named_parameters())
+                self.optimizer.step()
 
         return loss_actor, loss_critic, loss, ent, kl
 
@@ -136,12 +138,25 @@ class PPO2():
         self.writer.add_scalar('Entropy', ent, epoch)
 
 
+    def log_to_screen(self, mean_episode_returns, mean_episode_length, loss_actor, loss_critic, loss, ent, kl, epoch):
+        print("------------------------------")
+        print(f"Mean episode returns: {mean_episode_returns:.2f}")
+        print(f"Mean episode length: {mean_episode_length}")
+        print(f"Loss actor: {loss_actor:.2f}")
+        print(f"Loss critic: {loss_critic:.2f}")
+        print(f"Loss: {loss:.2f}")
+        print(f"Ent: {ent:.2f}")
+        print(f"KL: {kl:.2f}")
+        print(f"Epoch: {epoch}")
+        print("------------------------------")
+
 
     # May implement total timesteps later on
     def learn(self, epochs):  
         for epoch in range(epochs): 
             mean_episode_returns, mean_episode_length = self.collect_rollouts()
             loss_actor, loss_critic, loss, ent, kl = self.train()
+            self.log_to_screen(mean_episode_returns, mean_episode_length, loss_actor, loss_critic, loss, ent, kl, epoch)
             self.log_to_tensorboard(mean_episode_returns, mean_episode_length, loss_actor, loss_critic, loss, ent, kl, epoch)
 
     

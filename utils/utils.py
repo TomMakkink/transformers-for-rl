@@ -9,6 +9,7 @@ def plot_grad_flow(named_parameters):
     layers = []
     for n, p in named_parameters:
         if(p.requires_grad) and ("bias" not in n) and p is not None:
+            print(f"Layer name: {n}")
             layers.append(n)
             ave_grads.append(p.grad.abs().mean())
     print(f"Average grads: {ave_grads}")
