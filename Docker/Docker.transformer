@@ -6,5 +6,5 @@ RUN python -m pip install gym['Box2D']
 RUN python -m pip install torchvision
 RUN python -m pip install git+https://github.com/kornia/kornia 
 RUN python -m pip install reformer_pytorch
-RUN python -m pip install stable_baselines3
+RUN python -m pip install bsuite
 

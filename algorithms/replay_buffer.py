@@ -82,7 +82,6 @@ class ReplayBuffer():
         adv_std = self.adv_buf.std()
         self.adv_buf = (self.adv_buf - adv_mean) / adv_std
 
-        # TODO: Check the below works 
         if self.aug_obs:
             obs = obs.squeeze()
             obs = self.aug_trans(obs)

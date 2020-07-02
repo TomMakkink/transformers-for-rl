@@ -18,27 +18,34 @@ class MLPActorCritic(nn.Module):
         self.shared_network = nn.Sequential(
             nn.Linear(obs_dim, 128), 
             nn.ReLU(), 
-            nn.Linear(128, 64), 
+            nn.Linear(128, 256), 
             nn.ReLU()
         )
         self.alpha_head = nn.Sequential(
-            nn.Linear(64, 64), 
+            nn.Linear(256, 64), 
             nn.ReLU(),
             nn.Linear(64, act_dim),
             nn.Softplus(), 
         )
         self.beta_head = nn.Sequential(
-            nn.Linear(64, 64), 
+            nn.Linear(256, 64), 
             nn.ReLU(),
             nn.Linear(64, act_dim),
             nn.Softplus(), 
         )
         self.critic = nn.Sequential(
-            nn.Linear(64, 64), 
+            nn.Linear(256, 64), 
             nn.ReLU(),
             nn.Linear(64, 1),
             nn.ReLU(),
         )
+
+        self._reset_parameters()
+
+    def _reset_parameters(self, gain=1):
+        for p in self.parameters():
+            if p.dim() > 1:
+                nn.init.orthogonal_(p, gain=gain)
 
     def forward(self, obs, action):
         x = self.shared_network(obs)

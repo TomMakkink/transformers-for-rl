@@ -12,7 +12,6 @@ class MLPActorCritic(nn.Module):
     ):
         super().__init__()
         obs_dim = observation_space.shape[0]
-        # print(action_space[0])
         act_dim = action_space.n
         self.actor = nn.Sequential(
             nn.Linear(obs_dim, 64), 
@@ -26,6 +25,13 @@ class MLPActorCritic(nn.Module):
             nn.Linear(64, 1),
             nn.ReLU(),
         )
+        
+        self._reset_parameters()
+
+    def _reset_parameters(self, gain=1):
+        for p in self.parameters():
+            if p.dim() > 1:
+                nn.init.orthogonal_(p, gain=gain)
 
     def forward(self, obs, action):
         logits = self.actor(obs)

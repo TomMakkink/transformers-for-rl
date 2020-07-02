@@ -51,6 +51,7 @@ def set_random_seed(seed: int, use_cuda:bool = False) -> None:
 
 def get_device():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using {device}")
     return device 
 
 

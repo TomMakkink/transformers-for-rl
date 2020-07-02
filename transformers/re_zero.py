@@ -39,7 +39,7 @@ class ReZero(nn.Module):
         encoder_layer = RZTXEncoderLayer(d_model, num_heads, dim_mlp, dropout)
         self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
         self.out_layer = nn.Sequential(
-            nn.Linear(d_model, output_dim, bias=False),
+            nn.Linear(d_model, output_dim),
             nn.ReLU(), 
         )
         
