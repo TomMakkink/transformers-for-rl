@@ -139,12 +139,12 @@ class PPO():
     
     def log_to_tensorboard(self, mean_episode_returns, mean_episode_length, loss_actor, loss_critic, loss, ent, kl):
         self.writer.add_scalar('Mean Episode Reward', mean_episode_returns, self.total_time_steps) 
-        self.writer.add_scalar('Loss', loss, self.total_time_steps)
         self.writer.add_scalar('Mean Episode Length', mean_episode_length, self.total_time_steps)
-        self.writer.add_scalar('Actor Loss', loss_actor, self.total_time_steps)
-        self.writer.add_scalar('Critic Loss', loss_critic, self.total_time_steps)
-        self.writer.add_scalar('Kl', kl, self.total_time_steps)
-        self.writer.add_scalar('Entropy', ent, self.total_time_steps)
+        self.writer.add_scalar('Loss/Loss', loss, self.total_time_steps)
+        self.writer.add_scalar('Loss/Actor Loss', loss_actor, self.total_time_steps)
+        self.writer.add_scalar('Loss/Critic Loss', loss_critic, self.total_time_steps)
+        self.writer.add_scalar('Extra/Kl', kl, self.total_time_steps)
+        self.writer.add_scalar('Extra/Entropy', ent, self.total_time_steps)
 
 
     def log_to_screen(self, mean_episode_returns, mean_episode_length, loss_actor, loss_critic, loss, ent, kl):
