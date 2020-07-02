@@ -26,7 +26,7 @@ class PPO():
         ent_coef=0.0, 
         value_coef=0.5, 
         target_kl=0.01, 
-        # max_ep_len=500, 
+        max_ep_len=500, 
         # save_freq=10, 
         # image_pad=0,
     ):
@@ -49,6 +49,7 @@ class PPO():
         self.value_coef = value_coef
         self.target_kl = target_kl
         self.total_time_steps = 0
+        self.max_ep_len = max_ep_len
 
         self.optimizer = Adam(self.ac.parameters(), lr=lr)
 
@@ -72,7 +73,8 @@ class PPO():
             # Update obs 
             obs = next_obs
 
-            timeout = ep_len == self.env._max_episode_steps
+            # timeout = ep_len == self.env._max_episode_steps
+            timeout = ep_len == self.max_ep_len
             terminal = done or timeout
             epoch_ended = t == self.steps_per_epoch - 1
 

@@ -4,8 +4,6 @@ from configs.ppo_config import ppo_config
 from env.cartpole import make_env
 from utils.utils import set_random_seed, get_device
 from models.mlp_actor_critic import MLPActorCritic
-import gym
-
 
 def main(name, total_timesteps, seed):
         device = get_device()

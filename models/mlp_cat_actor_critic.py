@@ -11,7 +11,9 @@ class MLPActorCritic(nn.Module):
         action_space: gym.spaces.Space,
     ):
         super().__init__()
-        obs_dim = observation_space.shape[0]
+        # print(f"Obs space: {observation_space}") --> Box(1, 6)
+        # print(f"Obs shape: {observation_space.shape}") --> Obs shape: (1, 6)
+        obs_dim = observation_space.shape[1]
         act_dim = action_space.n
         self.actor = nn.Sequential(
             nn.Linear(obs_dim, 64), 
@@ -24,8 +26,7 @@ class MLPActorCritic(nn.Module):
             nn.ReLU(),
             nn.Linear(64, 1),
             nn.ReLU(),
-        )
-        
+        ) 
         self._reset_parameters()
 
     def _reset_parameters(self, gain=1):
@@ -34,7 +35,7 @@ class MLPActorCritic(nn.Module):
                 nn.init.orthogonal_(p, gain=gain)
 
     def forward(self, obs, action):
-        logits = self.actor(obs)
+        logits = self.actor(obs
         action_dist = Categorical(logits=logits)
         logp = action_dist.log_prob(action)
         value = torch.squeeze(self.critic(obs), -1)

@@ -1,7 +1,7 @@
 # PPO buffer implementation derived from openai ppo: https://github.com/openai/spinningup/blob/master/spinup/algos/pytorch/ppo/ppo.py
 import torch 
 import torch.nn as nn
-import kornia
+# import kornia
 import numpy as np
 from utils.utils import count_vars, combined_shape, discount_cumsum, plot_grad_flow
 
@@ -20,10 +20,10 @@ class ReplayBuffer():
         self.val_buf = np.zeros(size, dtype=np.float32)
         self.logp_buf = np.zeros(size, dtype=np.float32)
 
-        self.aug_obs = image_pad > 0
-        if self.aug_obs: self.aug_trans = nn.Sequential(
-                        nn.ReplicationPad2d(image_pad),
-                        kornia.augmentation.RandomCrop((obs_dim[-1], obs_dim[-1])))
+        # self.aug_obs = image_pad > 0
+        # if self.aug_obs: self.aug_trans = nn.Sequential(
+        #                 nn.ReplicationPad2d(image_pad),
+        #                 kornia.augmentation.RandomCrop((obs_dim[-1], obs_dim[-1])))
 
         self.gamma, self.lam = gamma, lam
         self.ptr, self.path_start_idx, self.max_size = 0, 0, size
@@ -82,9 +82,9 @@ class ReplayBuffer():
         adv_std = self.adv_buf.std()
         self.adv_buf = (self.adv_buf - adv_mean) / adv_std
 
-        if self.aug_obs:
-            obs = obs.squeeze()
-            obs = self.aug_trans(obs)
+        # if self.aug_obs:
+        #     obs = obs.squeeze()
+        #     obs = self.aug_trans(obs)
 
         obs = torch.as_tensor(self.obs_buf, dtype=torch.float32, device=self.device)
         logp = torch.as_tensor(self.logp_buf, dtype=torch.float32, device=self.device)
