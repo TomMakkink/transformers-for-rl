@@ -1,4 +1,5 @@
-from experiments.cartpole import main
+from experiments.cartpole import cartpole_test
+# from experiments.ppo_test import ppo_test
 
 if __name__ == '__main__':
-    main("CartPole/PPO_Test", total_timesteps=500000, seed=10)
+    cartpole_test("CartPole/PPO_Baseline", total_timesteps=50000, seed=10)

@@ -13,7 +13,7 @@ from bsuite.utils import gym_wrapper
 #   pole close to upright. Episodes end when the pole falls, the cart falls off
 #   the table, or the max_time is reached.
 
-def main(name, total_timesteps, seed):
+def cartpole_test(name, total_timesteps, seed):
         device = get_device()
         set_random_seed(seed)
         raw_env = bsuite.load_from_id(bsuite_id='cartpole/0')

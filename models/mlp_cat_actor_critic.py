@@ -18,11 +18,19 @@ class MLPActorCritic(nn.Module):
         self.actor = nn.Sequential(
             nn.Linear(obs_dim, 64), 
             nn.ReLU(),
+            nn.Linear(64, 64), 
+            nn.ReLU(), 
+            nn.Linear(64, 64), 
+            nn.ReLU(),
             nn.Linear(64, act_dim), 
             nn.ReLU(), 
         )
         self.critic = nn.Sequential(
             nn.Linear(obs_dim, 64),
+            nn.ReLU(),
+            nn.Linear(64, 64), 
+            nn.ReLU(), 
+            nn.Linear(64, 64), 
             nn.ReLU(),
             nn.Linear(64, 1),
             nn.ReLU(),
@@ -35,6 +43,7 @@ class MLPActorCritic(nn.Module):
                 nn.init.orthogonal_(p, gain=gain)
 
     def forward(self, obs, action):
+        obs = obs.squeeze()
         logits = self.actor(obs)
         action_dist = Categorical(logits=logits)
         logp = action_dist.log_prob(action)
@@ -44,6 +53,7 @@ class MLPActorCritic(nn.Module):
     
     def select_action(self, obs):
         with torch.no_grad():
+            obs = obs.squeeze()
             logits = self.actor(obs)
             action_dist = Categorical(logits=logits)
             action = action_dist.sample()
