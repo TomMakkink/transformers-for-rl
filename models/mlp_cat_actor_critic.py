@@ -35,7 +35,7 @@ class MLPActorCritic(nn.Module):
                 nn.init.orthogonal_(p, gain=gain)
 
     def forward(self, obs, action):
-        logits = self.actor(obs
+        logits = self.actor(obs)
         action_dist = Categorical(logits=logits)
         logp = action_dist.log_prob(action)
         value = torch.squeeze(self.critic(obs), -1)
