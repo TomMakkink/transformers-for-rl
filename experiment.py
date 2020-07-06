@@ -16,9 +16,6 @@ parser.add_argument('--seed', type=int, default=10)
 args = parser.parse_args()
 
 if __name__ == '__main__':
-<<<<<<< HEAD
-    cartpole_test(args.name, total_timesteps=5000, seed=10)
-=======
     experiment = comet_ml.Experiment(project_name="transformers-for-rl", log_code=False,
                                      log_git_metadata=False, log_git_patch=False, log_env_host=False)
     experiment.add_tag(args.name)
@@ -27,7 +24,6 @@ if __name__ == '__main__':
 
     cartpole_test(args.name, experiment, total_timesteps=500000, seed=10)
 
->>>>>>> f037699e9a0ce91bed72bebfa5c45684f80f87bb
     # transformer_config.update({"transformer_type": args.transformer})
     # transformer_cartpole(args.name, total_timesteps=args.t_steps, seeds=args.seed) 
 

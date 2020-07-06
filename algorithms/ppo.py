@@ -61,18 +61,11 @@ class PPO():
 
     def collect_rollouts(self):
         obs, ep_ret, ep_len = self.env.reset(), 0, 0
-        print(f"Raw obs: {obs}")
         episode_returns, episode_lengths = [], []
         obs_buf, actions_buf, rewards_buf, values_buf, logp_buf = [], [], [], [], []
         for t in range(self.steps_per_epoch):
             self.total_time_steps += 1
-<<<<<<< HEAD
             action, value, logp = self.ac.select_action(torch.as_tensor(obs, dtype=torch.float32, device=self.device))
-            # action, value, logp = self.ac.select_action(obs)
-=======
-            action, value, logp = self.ac.select_action(
-                torch.as_tensor(obs, dtype=torch.float32, device=self.device))
->>>>>>> f037699e9a0ce91bed72bebfa5c45684f80f87bb
             next_obs, reward, done, _ = self.env.step(action)
             ep_ret += reward
             ep_len += 1
@@ -96,13 +89,8 @@ class PPO():
                         f'Warning: trajectory cut off by epoch at {ep_len} steps.')
                 # if trajectory didn't reach terminal state, bootstrap value target
                 if timeout or epoch_ended:
-<<<<<<< HEAD
                     _, value, _ = self.ac.select_action(torch.as_tensor(obs, dtype=torch.float32, device=self.device))
                     # _, value, _ = self.ac.select_action(obs)
-=======
-                    _, value, _ = self.ac.select_action(torch.as_tensor(
-                        obs, dtype=torch.float32, device=self.device))
->>>>>>> f037699e9a0ce91bed72bebfa5c45684f80f87bb
                 else:
                     value = 0
                 self.replay_buffer.store(obs_buf, actions_buf, rewards_buf, values_buf, logp_buf, value)
@@ -110,11 +98,7 @@ class PPO():
                     # only save Episode Returns / Episode Length if trajectory finished
                     episode_returns.append(ep_ret)
                     episode_lengths.append(ep_len)
-<<<<<<< HEAD
                     self.replay_buffer.create_new_epi() 
-=======
-                    self.replay_buffer.create_new_epi()  # TODO: Check with Shahil if this is the right place
->>>>>>> f037699e9a0ce91bed72bebfa5c45684f80f87bb
 
                 # Reset the episode and buffers
                 obs, ep_ret, ep_len = self.env.reset(), 0, 0
@@ -192,7 +176,6 @@ class PPO():
             # Sample episodes sequentially
             for episode_index in range(replay_buffer_size):
                 obs, act, ret, adv, logp_old = self.replay_buffer.get(episode_index)
-                # print(f"shape of obs: {obs.shape}")
                 self.optimizer.zero_grad()
                 action, value, logp, ent = self.ac(obs, act)
                 loss_actor, kl, clipfrac = self._compute_loss_actor(logp, logp_old, adv)
