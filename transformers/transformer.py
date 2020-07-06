@@ -39,7 +39,7 @@ class TransformerModel(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.d_model = d_model
         
-        self.Transformers = [
+        self.Transformers = nn.ModuleList([
             TransformerBlock(
                 num_heads=num_heads,
                 d_model=d_model,
@@ -47,7 +47,7 @@ class TransformerModel(nn.Module):
                 dropout=dropout, 
             )
             for k in range(num_layers)
-        ]
+        ])
 
         self.out_layer = nn.Linear(d_model, output_dim, bias=False)
         self._reset_parameters()
@@ -63,10 +63,10 @@ class TransformerModel(nn.Module):
     def forward(self, inputs:Tensor):
         """
         Args: 
-            inputs: input tensor, of shape: [source_seq_len, batch_size, features]
+            inputs: input tensor, of shape: [seq_len, batch_size, features]
 
         Returns: 
-            Transformer output, of shape: [output_dim]
+            Transformer output, of shape: [seq_len, batch_size, output_dim]
         """
         x = self.pos_encoder(inputs * math.sqrt(self.d_model))
         for layer in self.Transformers:

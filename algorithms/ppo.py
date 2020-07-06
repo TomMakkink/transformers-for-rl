@@ -29,8 +29,6 @@ class PPO():
             value_coef=0.5,
             target_kl=0.01,
             max_ep_len=500,
-            # save_freq=10,
-            # image_pad=0,
             experiment=None
     ):
         """
@@ -65,15 +63,14 @@ class PPO():
         obs_buf, actions_buf, rewards_buf, values_buf, logp_buf = [], [], [], [], []
         for t in range(self.steps_per_epoch):
             self.total_time_steps += 1
-            action, value, logp = self.ac.select_action(torch.as_tensor(obs, dtype=torch.float32, device=self.device))
-            # obs_buf.append(obs)
-            # action, value, logp = self.ac.select_action(torch.as_tensor(obs_buf, dtype=torch.float32, device=self.device))
+            obs_buf.append(obs)
+            action, value, logp = self.ac.select_action(torch.as_tensor(obs_buf, dtype=torch.float32, device=self.device))
             next_obs, reward, done, _ = self.env.step(action)
             ep_ret += reward
             ep_len += 1
 
             # save
-            obs_buf.append(obs)
+            # obs_buf.append(obs)
             actions_buf.append(action)
             rewards_buf.append(reward)
             values_buf.append(value)
@@ -160,5 +157,5 @@ class PPO():
                                loss_actor, loss_critic, loss, ent, kl)
             log_to_tensorboard(self.writer, self.total_time_steps, mean_episode_returns, mean_episode_length, 
                                 loss_actor, loss_critic, loss, ent, kl)
-            log_to_comet_ml(self.experiment, self.total_time_steps, mean_episode_returns, mean_episode_length,
-                            loss_actor, loss_critic, loss, ent, kl)
+            # log_to_comet_ml(self.experiment, self.total_time_steps, mean_episode_returns, mean_episode_length,
+            #                 loss_actor, loss_critic, loss, ent, kl)

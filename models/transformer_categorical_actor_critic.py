@@ -37,13 +37,12 @@ class TransformerActorCritic(nn.Module):
     def forward(self, obs, action):
         """
         Args: 
-            obs: [batch_size, seg_len, dim],   # TODO: Update 
-            action: [batch_size]               
+            obs: [seq_len, features],
+            action: [seq_len]               
         """
-        # [seq_len, dim] -> [batch_size]
-        print(f"Obs shape: {obs.shape}")
+        # [seq_len, batch_size, features]
+        obs = obs.unsqueeze(1)
         obs = self.transformer(obs)
-        
         logits = self.actor(obs)
         action_dist = Categorical(logits=logits)
         logp = action_dist.log_prob(action)
@@ -57,11 +56,13 @@ class TransformerActorCritic(nn.Module):
             obs: [seq_len, features]
         """
         with torch.no_grad():
+            # [seq_len, batch_size, features]
+            obs = obs.unsqueeze(1)
             obs = self.transformer(obs)
             logits = self.actor(obs)
             action_dist = Categorical(logits=logits)
             action = action_dist.sample()
             logp = action_dist.log_prob(action)
             value = torch.squeeze(self.critic(obs), -1)
-            # Only return last action/value/logp
+        # Only return last action/value/logp
         return action.cpu().numpy()[-1], value.cpu().numpy()[-1], logp.cpu().numpy()[-1]

@@ -22,10 +22,10 @@ if __name__ == '__main__':
     experiment.add_tag(args.transformer)
     experiment.add_tag(args.seed)
 
-    cartpole_test(args.name, experiment, total_timesteps=500000, seed=10)
+    # cartpole_test(args.name, experiment, total_timesteps=500000, seed=10)
 
-    # transformer_config.update({"transformer_type": args.transformer})
-    # transformer_cartpole(args.name, experiment, total_timesteps=5000, seed=args.seed) 
+    transformer_config.update({"transformer_type": args.transformer})
+    transformer_cartpole(args.name, experiment, total_timesteps=args.t_steps, seed=args.seed) 
 
     # transformer_config.update({"transformer_type": "vanilla"})
     # transformer_cartpole("CartPole/PPO/Canoncial", total_timesteps=50000, seed=10)
