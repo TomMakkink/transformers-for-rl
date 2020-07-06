@@ -1,4 +1,7 @@
+import comet_ml
+
 from experiments.cartpole import cartpole_test
+
 # from experiments.ppo_test import ppo_test
 from experiments.transformer_cartpole import transformer_cartpole
 from configs.transformer_config import transformer_config
@@ -25,5 +28,3 @@ if __name__ == '__main__':
 
     # transformer_config.update({"transformer_type": "rezero"})
     # transformer_cartpole("CartPole/PPO/ReZero", total_timesteps=50000, seed=10)
-
-
