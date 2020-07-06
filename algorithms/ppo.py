@@ -184,9 +184,9 @@ class PPO():
                 loss.backward()
                 # plot_grad_flow(self.ac.named_parameters())
                 self.optimizer.step()
-                if kl > 1.5 * self.target_kl:
-                    print('Early stopping at step %d due to reaching max kl.' % i)
-                    break
+            if kl > 1.5 * self.target_kl:
+                print('Early stopping at step %d due to reaching max kl.' % i)
+                break
 
         return loss_actor, loss_critic, loss, ent, kl
 
