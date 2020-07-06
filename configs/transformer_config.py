@@ -1,11 +1,9 @@
-import torch 
-
 transformer_config = {
     "d_model": 3, 
-    "output_dim": 512, 
+    "output_dim": 64, 
     "num_heads": 1, 
-    "num_layers": 8, 
-    "dim_mlp": 128, 
+    "num_layers": 6, 
+    "dim_mlp": 32, 
     "dropout": 0.1, 
-    "mem_len": 0.0, 
-    "transformer_type": "reformer"}
+    "mem_len": 512, 
+    "transformer_type": "vanilla"}

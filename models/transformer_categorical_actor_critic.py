@@ -3,6 +3,7 @@ import torch.nn as nn
 import numpy as np 
 from torch.distributions import Categorical
 from transformers.transformer_wrapper import Transformer
+from configs.transformer_config import transformer_config
 
 
 class TransformerActorCritic(nn.Module):
@@ -10,15 +11,23 @@ class TransformerActorCritic(nn.Module):
         super().__init__()
         # Observation_space shape: [seq_len, features]
         obs_dim = observation_space.shape[1]
-        self.transformer = Transformer(obs_dim, 8, "rezero", 2, 2, 32, 0.1, 0)
+        self.transformer = Transformer(**transformer_config)
         self.actor = nn.Sequential(
-            nn.Linear(64, action_space.n), 
+            nn.Linear(64, 64), 
+            nn.ReLU(), 
+            nn.Linear(64, 64), 
+            nn.ReLU(),
+            nn.Linear(64, act_dim), 
             nn.ReLU(), 
         )
         self.critic = nn.Sequential(
+            nn.Linear(64, 64), 
+            nn.ReLU(), 
+            nn.Linear(64, 64), 
+            nn.ReLU(),
             nn.Linear(64, 1),
             nn.ReLU(),
-        )
+        ) 
 
     def forward(self, obs, action):
         """
@@ -26,7 +35,6 @@ class TransformerActorCritic(nn.Module):
             obs: [batch_size, seg_len, dim], 
             action: [batch_size]
         """
-        obs = obs.permute(1, 0, 2)
         obs = self.transformer(obs)
         seq_len, batch_size, output_dim = obs.shape
         obs = obs.reshape(batch_size, seq_len * output_dim)
@@ -42,7 +50,7 @@ class TransformerActorCritic(nn.Module):
         Args: 
             obs: [seq_len, features]
         """
-        obs = obs.unsqueeze(1)
+        print(f"Obs: obs")
         with torch.no_grad():
             obs = self.transformer(obs)
             obs = obs.view(-1)

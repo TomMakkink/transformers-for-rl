@@ -43,7 +43,6 @@ class MLPActorCritic(nn.Module):
                 nn.init.orthogonal_(p, gain=gain)
 
     def forward(self, obs, action):
-        obs = obs.squeeze()
         logits = self.actor(obs)
         action_dist = Categorical(logits=logits)
         logp = action_dist.log_prob(action)
@@ -53,7 +52,6 @@ class MLPActorCritic(nn.Module):
     
     def select_action(self, obs):
         with torch.no_grad():
-            obs = obs.squeeze()
             logits = self.actor(obs)
             action_dist = Categorical(logits=logits)
             action = action_dist.sample()
