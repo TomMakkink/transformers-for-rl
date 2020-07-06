@@ -98,9 +98,9 @@ class PPO():
                     # only save Episode Returns / Episode Length if trajectory finished
                     episode_returns.append(ep_ret)
                     episode_lengths.append(ep_len)
-                    self.replay_buffer.create_new_epi() 
+                    self.replay_buffer.create_new_epi()
 
-                # Reset the episode and buffers
+                    # Reset the episode and buffers
                 obs, ep_ret, ep_len = self.env.reset(), 0, 0
                 obs_buf, actions_buf, rewards_buf, values_buf, logp_buf = [], [], [], [], []
                 self.total_episodes += 1
@@ -181,12 +181,12 @@ class PPO():
                 loss_actor, kl, clipfrac = self._compute_loss_actor(logp, logp_old, adv)
                 loss_critic = self._compute_loss_critic(value, ret)
                 loss = loss_actor + ent * self.ent_coef + loss_critic * self.value_coef
-                if kl > 1.5 * self.target_kl:
-                    print('Early stopping at step %d due to reaching max kl.' % i)
-                    break
                 loss.backward()
                 # plot_grad_flow(self.ac.named_parameters())
                 self.optimizer.step()
+                if kl > 1.5 * self.target_kl:
+                    print('Early stopping at step %d due to reaching max kl.' % i)
+                    break
 
         return loss_actor, loss_critic, loss, ent, kl
 
