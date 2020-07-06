@@ -8,7 +8,7 @@ from models.mlp_cat_actor_critic import MLPActorCritic
 import bsuite
 from bsuite.utils import gym_wrapper
 from gym.wrappers import TransformObservation
-import torch
+
 
 # Cart pole environment
 #   The observation is a vector representing:

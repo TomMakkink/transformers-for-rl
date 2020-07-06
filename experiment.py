@@ -10,7 +10,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--name', type=str, default="Test")
 parser.add_argument('--transformer', type=str, default='vanilla')
-parser.add_argument('--t_steps', type=int, default=500000)
+parser.add_argument('--t_steps', type=int, default=10000)
 parser.add_argument('--seed', type=int, default=10)
 
 args = parser.parse_args()
@@ -25,7 +25,7 @@ if __name__ == '__main__':
     cartpole_test(args.name, experiment, total_timesteps=500000, seed=10)
 
     # transformer_config.update({"transformer_type": args.transformer})
-    # transformer_cartpole(args.name, total_timesteps=args.t_steps, seeds=args.seed) 
+    # transformer_cartpole(args.name, experiment, total_timesteps=5000, seed=args.seed) 
 
     # transformer_config.update({"transformer_type": "vanilla"})
     # transformer_cartpole("CartPole/PPO/Canoncial", total_timesteps=50000, seed=10)

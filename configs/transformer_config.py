@@ -1,5 +1,5 @@
 transformer_config = {
-    "d_model": 3, 
+    "d_model": 6, 
     "output_dim": 64, 
     "num_heads": 1, 
     "num_layers": 6, 

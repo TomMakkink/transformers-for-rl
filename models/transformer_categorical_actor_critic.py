@@ -4,13 +4,18 @@ import numpy as np
 from torch.distributions import Categorical
 from transformers.transformer_wrapper import Transformer
 from configs.transformer_config import transformer_config
+import gym
 
 
 class TransformerActorCritic(nn.Module):
-    def __init__(self, observation_space, action_space):
+    def __init__(
+        self,
+        observation_space: gym.spaces.Space, 
+        action_space: gym.spaces.Space,
+    ):
         super().__init__()
-        # Observation_space shape: [seq_len, features]
         obs_dim = observation_space.shape[1]
+        act_dim = action_space.n
         self.transformer = Transformer(**transformer_config)
         self.actor = nn.Sequential(
             nn.Linear(64, 64), 
@@ -32,12 +37,13 @@ class TransformerActorCritic(nn.Module):
     def forward(self, obs, action):
         """
         Args: 
-            obs: [batch_size, seg_len, dim], 
-            action: [batch_size]
+            obs: [batch_size, seg_len, dim],   # TODO: Update 
+            action: [batch_size]               
         """
+        # [seq_len, dim] -> [batch_size]
+        print(f"Obs shape: {obs.shape}")
         obs = self.transformer(obs)
-        seq_len, batch_size, output_dim = obs.shape
-        obs = obs.reshape(batch_size, seq_len * output_dim)
+        
         logits = self.actor(obs)
         action_dist = Categorical(logits=logits)
         logp = action_dist.log_prob(action)
@@ -50,13 +56,12 @@ class TransformerActorCritic(nn.Module):
         Args: 
             obs: [seq_len, features]
         """
-        print(f"Obs: obs")
         with torch.no_grad():
             obs = self.transformer(obs)
-            obs = obs.view(-1)
             logits = self.actor(obs)
             action_dist = Categorical(logits=logits)
             action = action_dist.sample()
             logp = action_dist.log_prob(action)
             value = torch.squeeze(self.critic(obs), -1)
-        return action.numpy(), value.numpy(), logp.numpy()
+            # Only return last action/value/logp
+        return action.cpu().numpy()[-1], value.cpu().numpy()[-1], logp.cpu().numpy()[-1]

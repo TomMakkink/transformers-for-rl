@@ -11,8 +11,6 @@ class MLPActorCritic(nn.Module):
         action_space: gym.spaces.Space,
     ):
         super().__init__()
-        # print(f"Obs space: {observation_space}") --> Box(1, 6)
-        # print(f"Obs shape: {observation_space.shape}") --> Obs shape: (1, 6)
         obs_dim = observation_space.shape[1]
         act_dim = action_space.n
         self.actor = nn.Sequential(
