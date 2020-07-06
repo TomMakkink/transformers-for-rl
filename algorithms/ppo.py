@@ -1,3 +1,4 @@
+import comet_ml
 import numpy as np
 import torch
 from torch.optim import Adam
@@ -5,6 +6,7 @@ from torch.utils.data.sampler import BatchSampler, SequentialSampler
 from torch.utils.tensorboard import SummaryWriter
 from utils.utils import plot_grad_flow
 from algorithms.replay_buffer import ReplayBuffer
+
 
 class PPO():
     """
@@ -55,6 +57,9 @@ class PPO():
 
         self.writer = SummaryWriter("runs/" + name)
 
+        self.experiment = comet_ml.Experiment(project_name="transformers-for-rl",log_code=False, 
+                                                log_git_metadata=False, log_git_patch=False, log_env_host=False)
+        self.experiment.add_tag(name)
  
     def collect_rollouts(self):
         obs, ep_ret, ep_len = self.env.reset(), 0, 0
@@ -210,6 +215,16 @@ class PPO():
         # return loss_actor, loss_critic, loss, ent, kl
 
     
+    def log_to_comet_ml(self, mean_episode_returns, mean_episode_length, loss_actor, loss_critic, loss, entropy, kl):
+        self.experiment.log_metric('Mean Episode Reward', mean_episode_returns, step=self.total_time_steps)
+        self.experiment.log_metric('Mean Episode Length', mean_episode_length, step=self.total_time_steps)
+        self.experiment.log_metric('Actor Loss', loss_actor.item(), step=self.total_time_steps)
+        self.experiment.log_metric('Critic Loss', loss_critic.item(), step=self.total_time_steps)
+        self.experiment.log_metric('Loss', loss.item(), step=self.total_time_steps)
+        self.experiment.log_metric('Entropy', entropy, step=self.total_time_steps)
+        self.experiment.log_metric('Kl', kl, step=self.total_time_steps)
+        
+
     def log_to_tensorboard(self, mean_episode_returns, mean_episode_length, loss_actor, loss_critic, loss, ent, kl):
         self.writer.add_scalar('Mean Episode Reward', mean_episode_returns, self.total_time_steps) 
         self.writer.add_scalar('Mean Episode Length', mean_episode_length, self.total_time_steps)
@@ -240,6 +255,7 @@ class PPO():
             loss_actor, loss_critic, loss, ent, kl = self.train()
             self.log_to_screen(mean_episode_returns, mean_episode_length, loss_actor, loss_critic, loss, ent, kl)
             self.log_to_tensorboard(mean_episode_returns, mean_episode_length, loss_actor, loss_critic, loss, ent, kl)
+            self.log_to_comet_ml(mean_episode_returns, mean_episode_length, loss_actor, loss_critic, loss, ent, kl)
 
     
 
