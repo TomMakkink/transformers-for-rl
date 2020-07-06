@@ -4,6 +4,7 @@ from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
 from torch.utils.tensorboard import SummaryWriter
 
 from algorithms.replay_buffer import ReplayBuffer
+from utils.utils import log_to_comet_ml
 
 
 class PPO():
@@ -36,7 +37,8 @@ class PPO():
         Args: 
         """
         super(PPO, self).__init__()
-        self.ac = actor_critic(env.observation_space, env.action_space).to(device)
+        self.ac = actor_critic(env.observation_space,
+                               env.action_space).to(device)
         self.env = env
         self.replay_buffer = ReplayBuffer(env.observation_space.shape, env.action_space.shape,
                                           steps_per_epoch, 0, device, gamma, lam)
@@ -64,7 +66,8 @@ class PPO():
         episode_lengths = []
         for t in range(self.steps_per_epoch):
             self.total_time_steps += 1
-            action, value, logp = self.ac.select_action(torch.as_tensor(obs, dtype=torch.float32, device=self.device))
+            action, value, logp = self.ac.select_action(
+                torch.as_tensor(obs, dtype=torch.float32, device=self.device))
             next_obs, reward, done, _ = self.env.step(action)
             ep_ret += reward
             ep_len += 1
@@ -72,7 +75,7 @@ class PPO():
             # save and log
             self.replay_buffer.store(obs, action, reward, value, logp)
 
-            # Update obs 
+            # Update obs
             obs = next_obs
 
             # timeout = ep_len == self.env._max_episode_steps
@@ -82,10 +85,12 @@ class PPO():
 
             if terminal or epoch_ended:
                 if epoch_ended and not (terminal):
-                    print(f'Warning: trajectory cut off by epoch at {ep_len} steps.')
+                    print(
+                        f'Warning: trajectory cut off by epoch at {ep_len} steps.')
                 # if trajectory didn't reach terminal state, bootstrap value target
                 if timeout or epoch_ended:
-                    _, value, _ = self.ac.select_action(torch.as_tensor(obs, dtype=torch.float32, device=self.device))
+                    _, value, _ = self.ac.select_action(torch.as_tensor(
+                        obs, dtype=torch.float32, device=self.device))
                 else:
                     value = 0
                 self.replay_buffer.finish_path(value)
@@ -102,7 +107,8 @@ class PPO():
 
     def _compute_loss_actor(self, logp, logp_old, adv):
         ratio = torch.exp(logp - logp_old)
-        clip_adv = torch.clamp(ratio, 1 - self.clip_ratio, 1 + self.clip_ratio) * adv
+        clip_adv = torch.clamp(ratio, 1 - self.clip_ratio,
+                               1 + self.clip_ratio) * adv
         loss_actor = -(torch.min(ratio * adv, clip_adv)).mean()
 
         # Useful extra info
@@ -118,12 +124,13 @@ class PPO():
     def train(self):
         obs, act, ret, adv, logp_old = self.replay_buffer.get()
 
-        # Train with multiple steps of gradient descent 
+        # Train with multiple steps of gradient descent
         for i in range(self.train_iters):
             for index in BatchSampler(SubsetRandomSampler(range(self.steps_per_epoch)), self.batch_size, False):
                 self.optimizer.zero_grad()
                 action, value, logp, ent = self.ac(obs[index], act[index])
-                loss_actor, kl, clipfrac = self._compute_loss_actor(logp, logp_old[index], adv[index])
+                loss_actor, kl, clipfrac = self._compute_loss_actor(
+                    logp, logp_old[index], adv[index])
                 loss_critic = self._compute_loss_critic(value, ret[index])
                 if kl > 1.5 * self.target_kl:
                     print('Early stopping at step %d due to reaching max kl.' % i)
@@ -135,21 +142,16 @@ class PPO():
 
         return loss_actor, loss_critic, loss, ent, kl
 
-    def log_to_comet_ml(self, mean_episode_returns, mean_episode_length, loss_actor, loss_critic, loss, entropy, kl):
-        self.experiment.log_metric('Mean Episode Reward', mean_episode_returns, step=self.total_time_steps)
-        self.experiment.log_metric('Mean Episode Length', mean_episode_length, step=self.total_time_steps)
-        self.experiment.log_metric('Actor Loss', loss_actor.item(), step=self.total_time_steps)
-        self.experiment.log_metric('Critic Loss', loss_critic.item(), step=self.total_time_steps)
-        self.experiment.log_metric('Loss', loss.item(), step=self.total_time_steps)
-        self.experiment.log_metric('Entropy', entropy, step=self.total_time_steps)
-        self.experiment.log_metric('Kl', kl, step=self.total_time_steps)
-
     def log_to_tensorboard(self, mean_episode_returns, mean_episode_length, loss_actor, loss_critic, loss, ent, kl):
-        self.writer.add_scalar('Mean Episode Reward', mean_episode_returns, self.total_time_steps)
-        self.writer.add_scalar('Mean Episode Length', mean_episode_length, self.total_time_steps)
+        self.writer.add_scalar('Mean Episode Reward',
+                               mean_episode_returns, self.total_time_steps)
+        self.writer.add_scalar('Mean Episode Length',
+                               mean_episode_length, self.total_time_steps)
         self.writer.add_scalar('Loss/Loss', loss, self.total_time_steps)
-        self.writer.add_scalar('Loss/Actor Loss', loss_actor, self.total_time_steps)
-        self.writer.add_scalar('Loss/Critic Loss', loss_critic, self.total_time_steps)
+        self.writer.add_scalar(
+            'Loss/Actor Loss', loss_actor, self.total_time_steps)
+        self.writer.add_scalar(
+            'Loss/Critic Loss', loss_critic, self.total_time_steps)
         self.writer.add_scalar('Extra/Kl', kl, self.total_time_steps)
         self.writer.add_scalar('Extra/Entropy', ent, self.total_time_steps)
 
@@ -169,6 +171,9 @@ class PPO():
         while self.total_time_steps < total_timesteps:
             mean_episode_returns, mean_episode_length = self.collect_rollouts()
             loss_actor, loss_critic, loss, ent, kl = self.train()
-            self.log_to_screen(mean_episode_returns, mean_episode_length, loss_actor, loss_critic, loss, ent, kl)
-            self.log_to_tensorboard(mean_episode_returns, mean_episode_length, loss_actor, loss_critic, loss, ent, kl)
-            self.log_to_comet_ml(mean_episode_returns, mean_episode_length, loss_actor, loss_critic, loss, ent, kl)
+            self.log_to_screen(mean_episode_returns, mean_episode_length,
+                               loss_actor, loss_critic, loss, ent, kl)
+            self.log_to_tensorboard(
+                mean_episode_returns, mean_episode_length, loss_actor, loss_critic, loss, ent, kl)
+            log_to_comet_ml(self.experiment, self.total_time_steps, mean_episode_returns, mean_episode_length,
+                            loss_actor, loss_critic, loss, ent, kl)
