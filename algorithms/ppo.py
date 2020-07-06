@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from torch.optim import Adam
-from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
+from torch.utils.data.sampler import BatchSampler, SequentialSampler
 from torch.utils.tensorboard import SummaryWriter
 from utils.utils import plot_grad_flow
 from algorithms.replay_buffer import ReplayBuffer
@@ -36,8 +36,7 @@ class PPO():
         super(PPO, self).__init__()
         self.ac = actor_critic(env.observation_space, env.action_space).to(device)
         self.env = env 
-        self.replay_buffer = ReplayBuffer(env.observation_space.shape, env.action_space.shape, 
-                                        steps_per_epoch, 0, device, gamma, lam)
+        self.replay_buffer = ReplayBuffer(device)
         self.steps_per_epoch = steps_per_epoch
         self.batch_size = batch_size
         self.device = device 
@@ -48,6 +47,7 @@ class PPO():
         self.ent_coef = ent_coef
         self.value_coef = value_coef
         self.target_kl = target_kl
+        self.total_episodes = 0
         self.total_time_steps = 0
         self.max_ep_len = max_ep_len
 
@@ -58,8 +58,8 @@ class PPO():
  
     def collect_rollouts(self):
         obs, ep_ret, ep_len = self.env.reset(), 0, 0
-        episode_returns = []
-        episode_lengths = []
+        episode_returns, episode_lengths = [], []
+        obs_buf, actions_buf, rewards_buf, values_buf, logp_buf = [], [], [], [], []
         for t in range(self.steps_per_epoch):
             self.total_time_steps += 1
             action, value, logp = self.ac.select_action(torch.as_tensor(obs, dtype=torch.float32, device=self.device))
@@ -67,13 +67,16 @@ class PPO():
             ep_ret += reward
             ep_len += 1
 
-            # save and log
-            self.replay_buffer.store(obs, action, reward, value, logp)
-            
+            # save
+            obs_buf.append(obs)
+            actions_buf.append(action)
+            rewards_buf.append(reward)
+            values_buf.append(value)
+            logp_buf.append(logp)
+        
             # Update obs 
             obs = next_obs
 
-            # timeout = ep_len == self.env._max_episode_steps
             timeout = ep_len == self.max_ep_len
             terminal = done or timeout
             epoch_ended = t == self.steps_per_epoch - 1
@@ -86,17 +89,66 @@ class PPO():
                     _, value, _ = self.ac.select_action(torch.as_tensor(obs, dtype=torch.float32, device=self.device))
                 else:
                     value = 0
-                self.replay_buffer.finish_path(value)
+                self.replay_buffer.store(obs_buf, actions_buf, rewards_buf, values_buf, logp_buf, value)
                 if terminal:
-                    # only save EpRet / EpLen if trajectory finished
+                    # only save Episode Returns / Episode Length if trajectory finished
                     episode_returns.append(ep_ret)
                     episode_lengths.append(ep_len)
+                    self.replay_buffer.create_new_epi() # TODO: Check with Shahil if this is the right place 
+
+                # Reset the episode and buffers
                 obs, ep_ret, ep_len = self.env.reset(), 0, 0
-        
+                obs_buf, actions_buf, rewards_buf, values_buf, logp_buf = [], [], [], [], []
+                self.total_episodes += 1
+
         mean_episode_returns = sum(episode_returns)/len(episode_returns)
         mean_episode_length = sum(episode_lengths)/len(episode_lengths)
         
         return mean_episode_returns, mean_episode_length
+
+
+        # for t in range(self.steps_per_epoch):
+        #     self.total_time_steps += 1
+        #     action, value, logp = self.ac.select_action(torch.as_tensor(obs, dtype=torch.float32, device=self.device))
+        #     next_obs, reward, done, _ = self.env.step(action)
+        #     ep_ret += reward
+        #     ep_len += 1
+
+        #     # save
+        #     obs_buf.append(obs)
+        #     actions_buf.append(action)
+        #     rewards_buf.append(reward)
+        #     values_buf.append(value)
+        #     logp_buf.append(logp)
+        #     # self.replay_buffer.store(obs, action, reward, value, logp)
+            
+        #     # Update obs 
+        #     obs = next_obs
+
+        #     timeout = ep_len == self.max_ep_len
+        #     terminal = done or timeout
+        #     epoch_ended = t == self.steps_per_epoch - 1
+
+        #     if terminal or epoch_ended:
+        #         if epoch_ended and not(terminal):
+        #             print(f'Warning: trajectory cut off by epoch at {ep_len} steps.')
+        #         # if trajectory didn't reach terminal state, bootstrap value target
+        #         if timeout or epoch_ended:
+        #             _, value, _ = self.ac.select_action(torch.as_tensor(obs, dtype=torch.float32, device=self.device))
+        #         else:
+        #             value = 0
+        #         # self.replay_buffer.finish_path(value)
+        #         self.replay_buffer.store(obs_buf, actions_buf, rewards_buf, values_buf, logp)
+        #         if terminal:
+        #             # only save EpRet / EpLen if trajectory finished
+        #             episode_returns.append(ep_ret)
+        #             episode_lengths.append(ep_len)
+        #         obs, ep_ret, ep_len = self.env.reset(), 0, 0
+        
+        # mean_episode_returns = sum(episode_returns)/len(episode_returns)
+        # mean_episode_length = sum(episode_lengths)/len(episode_lengths)
+        
+        # return mean_episode_returns, mean_episode_length
 
  
     def _compute_loss_actor(self, logp, logp_old, adv):
@@ -117,24 +169,45 @@ class PPO():
 
 
     def train(self):
-        obs, act, ret, adv, logp_old = self.replay_buffer.get()
-
+        replay_buffer_size = self.replay_buffer.size()
         # Train with multiple steps of gradient descent 
         for i in range(self.train_iters):
-            for index in BatchSampler(SubsetRandomSampler(range(self.steps_per_epoch)), self.batch_size, False):
+            # Sample episodes sequentially
+            for episode_index in range(replay_buffer_size): 
+                obs, act, ret, adv, logp_old = self.replay_buffer.get(episode_index)
+                # print(f"shape of obs: {obs.shape}")
                 self.optimizer.zero_grad()
-                action, value, logp, ent = self.ac(obs[index], act[index])
-                loss_actor, kl, clipfrac = self._compute_loss_actor(logp, logp_old[index], adv[index])
-                loss_critic = self._compute_loss_critic(value, ret[index])
-                if kl > 1.5 * self.target_kl:
-                    print('Early stopping at step %d due to reaching max kl.'%i)
-                    break
+                action, value, logp, ent = self.ac(obs, act)
+                loss_actor, kl, clipfrac = self._compute_loss_actor(logp, logp_old, adv)
+                loss_critic = self._compute_loss_critic(value, ret)
                 loss = loss_actor + ent * self.ent_coef + loss_critic * self.value_coef
                 loss.backward()
                 # plot_grad_flow(self.ac.named_parameters())
                 self.optimizer.step()
+                if kl > 1.5 * self.target_kl:
+                    print('Early stopping at step %d due to reaching max kl.'%i)
+                    break
 
         return loss_actor, loss_critic, loss, ent, kl
+
+        # obs, act, ret, adv, logp_old = self.replay_buffer.get()
+
+        # # Train with multiple steps of gradient descent 
+        # for i in range(self.train_iters):
+        #     for index in BatchSampler(SubsetRandomSampler(range(self.steps_per_epoch)), self.batch_size, False):
+        #         self.optimizer.zero_grad()
+        #         action, value, logp, ent = self.ac(obs[index], act[index])
+        #         loss_actor, kl, clipfrac = self._compute_loss_actor(logp, logp_old[index], adv[index])
+        #         loss_critic = self._compute_loss_critic(value, ret[index])
+        #         if kl > 1.5 * self.target_kl:
+        #             print('Early stopping at step %d due to reaching max kl.'%i)
+        #             break
+        #         loss = loss_actor + ent * self.ent_coef + loss_critic * self.value_coef
+        #         loss.backward()
+        #         # plot_grad_flow(self.ac.named_parameters())
+        #         self.optimizer.step()
+
+        # return loss_actor, loss_critic, loss, ent, kl
 
     
     def log_to_tensorboard(self, mean_episode_returns, mean_episode_length, loss_actor, loss_critic, loss, ent, kl):
@@ -157,6 +230,7 @@ class PPO():
         print(f"Ent: {ent:.2f}")
         print(f"KL: {kl:.2f}")
         print(f"Timestep: {self.total_time_steps}")
+        print(f"Episodes: {self.total_episodes}")
         print("------------------------------")
 
 

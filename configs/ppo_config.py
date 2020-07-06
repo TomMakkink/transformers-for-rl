@@ -8,6 +8,4 @@ ppo_config = {
     "lam":0.97, 
     "ent_coef":0.00, 
     "value_coef":0.5, 
-    # "save_freq":10,
-    # "image_pad": 4, 
 } 
