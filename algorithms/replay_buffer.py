@@ -72,7 +72,8 @@ class ReplayBuffer():
         episode = self.memory[episode_index]
         obs, actions, returns, advantages, logp = episode[0][0], episode[0][1], episode[0][2], episode[0][3], episode[0][4]
         
-        # Convert from numpy arrays to pytorch tensors 
+        # Convert from numpy arrays to pytorch tensors
+        print(f"Obs before conversion: {obs}") 
         obs = torch.as_tensor(obs, dtype=torch.float32, device=self.device)
         logp = torch.as_tensor(logp, dtype=torch.float32, device=self.device)
         advantages = torch.as_tensor(advantages, dtype=torch.float32, device=self.device)

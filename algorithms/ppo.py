@@ -63,11 +63,13 @@ class PPO():
  
     def collect_rollouts(self):
         obs, ep_ret, ep_len = self.env.reset(), 0, 0
+        print(f"Raw obs: {obs}")
         episode_returns, episode_lengths = [], []
         obs_buf, actions_buf, rewards_buf, values_buf, logp_buf = [], [], [], [], []
         for t in range(self.steps_per_epoch):
             self.total_time_steps += 1
             action, value, logp = self.ac.select_action(torch.as_tensor(obs, dtype=torch.float32, device=self.device))
+            # action, value, logp = self.ac.select_action(obs)
             next_obs, reward, done, _ = self.env.step(action)
             ep_ret += reward
             ep_len += 1
@@ -92,6 +94,7 @@ class PPO():
                 # if trajectory didn't reach terminal state, bootstrap value target
                 if timeout or epoch_ended:
                     _, value, _ = self.ac.select_action(torch.as_tensor(obs, dtype=torch.float32, device=self.device))
+                    # _, value, _ = self.ac.select_action(obs)
                 else:
                     value = 0
                 self.replay_buffer.store(obs_buf, actions_buf, rewards_buf, values_buf, logp_buf, value)
@@ -99,7 +102,7 @@ class PPO():
                     # only save Episode Returns / Episode Length if trajectory finished
                     episode_returns.append(ep_ret)
                     episode_lengths.append(ep_len)
-                    self.replay_buffer.create_new_epi() # TODO: Check with Shahil if this is the right place 
+                    self.replay_buffer.create_new_epi() 
 
                 # Reset the episode and buffers
                 obs, ep_ret, ep_len = self.env.reset(), 0, 0
@@ -186,12 +189,12 @@ class PPO():
                 loss_actor, kl, clipfrac = self._compute_loss_actor(logp, logp_old, adv)
                 loss_critic = self._compute_loss_critic(value, ret)
                 loss = loss_actor + ent * self.ent_coef + loss_critic * self.value_coef
-                loss.backward()
-                # plot_grad_flow(self.ac.named_parameters())
-                self.optimizer.step()
                 if kl > 1.5 * self.target_kl:
                     print('Early stopping at step %d due to reaching max kl.'%i)
                     break
+                loss.backward()
+                # plot_grad_flow(self.ac.named_parameters())
+                self.optimizer.step()
 
         return loss_actor, loss_critic, loss, ent, kl
 

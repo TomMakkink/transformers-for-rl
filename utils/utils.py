@@ -55,4 +55,9 @@ def get_device():
     return device 
 
 
+def process_obs(obs, device):
+    obs = obs.squeeze()
+    return torch.as_tensor(obs, dtype=torch.float32, device=device)
+
+
 
