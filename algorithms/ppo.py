@@ -38,7 +38,7 @@ class PPO():
         """
         super(PPO, self).__init__()
         self.ac = actor_critic(env.observation_space, env.action_space).to(device)
-        self.env = env 
+        self.env = env
         self.replay_buffer = ReplayBuffer(device)
         self.steps_per_epoch = steps_per_epoch
         self.batch_size = batch_size
@@ -76,7 +76,7 @@ class PPO():
             rewards_buf.append(reward)
             values_buf.append(value)
             logp_buf.append(logp)
-        
+
             # Update obs 
             obs = next_obs
 
@@ -99,18 +99,17 @@ class PPO():
                     # only save Episode Returns / Episode Length if trajectory finished
                     episode_returns.append(ep_ret)
                     episode_lengths.append(ep_len)
-                    self.replay_buffer.create_new_epi() # TODO: Check with Shahil if this is the right place 
+                    self.replay_buffer.create_new_epi()  # TODO: Check with Shahil if this is the right place
 
                 # Reset the episode and buffers
                 obs, ep_ret, ep_len = self.env.reset(), 0, 0
                 obs_buf, actions_buf, rewards_buf, values_buf, logp_buf = [], [], [], [], []
                 self.total_episodes += 1
 
-        mean_episode_returns = sum(episode_returns)/len(episode_returns)
-        mean_episode_length = sum(episode_lengths)/len(episode_lengths)
-        
-        return mean_episode_returns, mean_episode_length
+        mean_episode_returns = sum(episode_returns) / len(episode_returns)
+        mean_episode_length = sum(episode_lengths) / len(episode_lengths)
 
+        return mean_episode_returns, mean_episode_length
 
         # for t in range(self.steps_per_epoch):
         #     self.total_time_steps += 1
@@ -126,7 +125,7 @@ class PPO():
         #     values_buf.append(value)
         #     logp_buf.append(logp)
         #     # self.replay_buffer.store(obs, action, reward, value, logp)
-            
+
         #     # Update obs 
         #     obs = next_obs
 
@@ -149,10 +148,10 @@ class PPO():
         #             episode_returns.append(ep_ret)
         #             episode_lengths.append(ep_len)
         #         obs, ep_ret, ep_len = self.env.reset(), 0, 0
-        
+
         # mean_episode_returns = sum(episode_returns)/len(episode_returns)
         # mean_episode_length = sum(episode_lengths)/len(episode_lengths)
-        
+
         # return mean_episode_returns, mean_episode_length
 
     def _compute_loss_actor(self, logp, logp_old, adv):
@@ -176,7 +175,7 @@ class PPO():
         # Train with multiple steps of gradient descent 
         for i in range(self.train_iters):
             # Sample episodes sequentially
-            for episode_index in range(replay_buffer_size): 
+            for episode_index in range(replay_buffer_size):
                 obs, act, ret, adv, logp_old = self.replay_buffer.get(episode_index)
                 # print(f"shape of obs: {obs.shape}")
                 self.optimizer.zero_grad()
@@ -188,7 +187,7 @@ class PPO():
                 # plot_grad_flow(self.ac.named_parameters())
                 self.optimizer.step()
                 if kl > 1.5 * self.target_kl:
-                    print('Early stopping at step %d due to reaching max kl.'%i)
+                    print('Early stopping at step %d due to reaching max kl.' % i)
                     break
 
         return loss_actor, loss_critic, loss, ent, kl
@@ -211,17 +210,6 @@ class PPO():
         #         self.optimizer.step()
 
         # return loss_actor, loss_critic, loss, ent, kl
-
-    
-    def log_to_comet_ml(self, mean_episode_returns, mean_episode_length, loss_actor, loss_critic, loss, entropy, kl):
-        self.experiment.log_metric('Mean Episode Reward', mean_episode_returns, step=self.total_time_steps)
-        self.experiment.log_metric('Mean Episode Length', mean_episode_length, step=self.total_time_steps)
-        self.experiment.log_metric('Actor Loss', loss_actor.item(), step=self.total_time_steps)
-        self.experiment.log_metric('Critic Loss', loss_critic.item(), step=self.total_time_steps)
-        self.experiment.log_metric('Loss', loss.item(), step=self.total_time_steps)
-        self.experiment.log_metric('Entropy', entropy, step=self.total_time_steps)
-        self.experiment.log_metric('Kl', kl, step=self.total_time_steps)
-        
 
     def log_to_tensorboard(self, mean_episode_returns, mean_episode_length, loss_actor, loss_critic, loss, ent, kl):
         self.writer.add_scalar('Mean Episode Reward',
