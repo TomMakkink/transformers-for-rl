@@ -101,9 +101,9 @@ class PPO():
                     # only save Episode Returns / Episode Length if trajectory finished
                     episode_returns.append(ep_ret)
                     episode_lengths.append(ep_len)
-                    self.replay_buffer.create_new_epi() 
+                    self.replay_buffer.create_new_epi()
 
-                # Reset the episode and buffers
+                    # Reset the episode and buffers
                 obs, ep_ret, ep_len = self.env.reset(), 0, 0
                 obs_buf, actions_buf, rewards_buf, values_buf, logp_buf = [], [], [], [], []
                 self.total_episodes += 1
