@@ -89,7 +89,7 @@ class PPO():
                         f'Warning: trajectory cut off by epoch at {ep_len} steps.')
                 # if trajectory didn't reach terminal state, bootstrap value target
                 if timeout or epoch_ended:
-                    _, value, _ = self.ac.select_action(torch.as_tensor(obs, dtype=torch.float32, device=self.device))
+                    _, value, _ = self.ac.select_action(torch.as_tensor(obs_buf, dtype=torch.float32, device=self.device))
                     # _, value, _ = self.ac.select_action(obs)
                 else:
                     value = 0

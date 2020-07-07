@@ -39,7 +39,7 @@ class GTrXL(nn.Module):
         dim_head = d_model // num_heads
         self.mem_len = mem_len
         self.num_layers = num_layers
-        self.positional_encoding_layer = PositionalEncoding(encoding_type= "relative", d_model=d_model)
+        self.positional_encoding_layer = PositionalEncoding(encoding_type="relative", d_model=d_model)
         self.u = nn.Parameter(torch.Tensor(num_heads, dim_head))
         self.v = nn.Parameter(torch.Tensor(num_heads, dim_head))
         self.dropout = nn.Dropout(dropout)
