@@ -13,5 +13,5 @@ def transformer_cartpole(name, experiment, total_timesteps, seed):
         env = gym_wrapper.GymFromDMEnv(raw_env)
         env = TransformObservation(env, lambda obs: obs.squeeze())
         experiment.log_parameters(ppo_config)
-        model = PPO(**ppo_config, name=name, actor_critic=TransformerActorCritic, env=env, device=device)
+        model = PPO(**ppo_config, name=name, actor_critic=TransformerActorCritic, env=env, device=device, experiment=experiment)
         model.learn(total_timesteps)

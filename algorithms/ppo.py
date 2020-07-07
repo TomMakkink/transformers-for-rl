@@ -157,5 +157,5 @@ class PPO():
                                loss_actor, loss_critic, loss, ent, kl)
             log_to_tensorboard(self.writer, self.total_time_steps, mean_episode_returns, mean_episode_length, 
                                 loss_actor, loss_critic, loss, ent, kl)
-            # log_to_comet_ml(self.experiment, self.total_time_steps, mean_episode_returns, mean_episode_length,
-            #                 loss_actor, loss_critic, loss, ent, kl)
+            log_to_comet_ml(self.experiment, self.total_time_steps, mean_episode_returns, mean_episode_length,
+                            loss_actor, loss_critic, loss, ent, kl)
