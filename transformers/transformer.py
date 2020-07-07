@@ -49,7 +49,7 @@ class TransformerModel(nn.Module):
             for k in range(num_layers)
         ])
 
-        self.out_layer = nn.Linear(d_model, output_dim, bias=False)
+        self.out_layer = nn.Linear(d_model, output_dim)
         self._reset_parameters()
 
 

@@ -35,14 +35,13 @@ class ReZero(nn.Module):
         """
         super(ReZero, self).__init__() 
         self.d_model = d_model
-        # self.pos_encoder = PositionalEncoding(encoding_type="absolute", d_model=d_model)
+        self.pos_encoder = PositionalEncoding(encoding_type="absolute", d_model=d_model)
         encoder_layer = RZTXEncoderLayer(d_model, num_heads, dim_mlp, dropout)
         self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
         self.out_layer = nn.Sequential(
             nn.Linear(d_model, output_dim),
             nn.ReLU(), 
         )
-        
         self._reset_parameters()
 
 
@@ -61,6 +60,6 @@ class ReZero(nn.Module):
         Returns: 
             Transformer output, of shape: [source_seq_len, batch_size, output_dim]
         """
-        # x = self.pos_encoder(inputs * math.sqrt(self.d_model))
-        x = self.transformer_encoder(inputs)
+        x = self.pos_encoder(inputs * math.sqrt(self.d_model))
+        x = self.transformer_encoder(x)
         return self.out_layer(x)
