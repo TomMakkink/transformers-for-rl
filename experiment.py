@@ -19,12 +19,11 @@ args = parser.parse_args()
 if __name__ == '__main__':
     experiment = comet_ml.Experiment(project_name="transformers-for-rl", log_code=False,
                                      log_git_metadata=False, log_git_patch=False, log_env_host=False)
-    experiment.add_tag(args.name)
-    experiment.add_tag(args.transformer)
+    experiment.set_name(args.name)
     experiment.add_tag(args.seed)
     experiment.add_tag(args.environment)
-
-    # cartpole_test(args.name, experiment, env=args.environment, total_timesteps=args.t_steps, seed=args.seed)
+    # experiment.add_tag(args.name)
+    experiment.add_tag(args.transformer)
 
     transformer_config.update({"transformer_type": args.transformer})
     transformer_cartpole(args.name, experiment, env=args.environment, total_timesteps=args.t_steps, seed=args.seed) 

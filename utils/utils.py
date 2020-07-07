@@ -1,6 +1,9 @@
 import numpy as np
 import scipy.signal
 import torch
+import bsuite
+from bsuite.utils import gym_wrapper
+from gym.wrappers import TransformObservation
 
 
 def plot_grad_flow(named_parameters):
@@ -56,6 +59,12 @@ def get_device():
 def process_obs(obs, device):
     obs = obs.squeeze()
     return torch.as_tensor(obs, dtype=torch.float32, device=device)
+
+def create_environment(env):
+    raw_env = bsuite.load_from_id(bsuite_id=env)
+    env = gym_wrapper.GymFromDMEnv(raw_env)
+    env = TransformObservation(env, lambda obs: obs.squeeze())
+    return env 
 
 
 def log_to_comet_ml(experiment, total_time_steps, mean_episode_returns, mean_episode_length, loss_actor, loss_critic,
