@@ -12,6 +12,7 @@ parser.add_argument('--name', type=str, default="Test")
 parser.add_argument('--transformer', type=str, default='vanilla')
 parser.add_argument('--t_steps', type=int, default=100000)
 parser.add_argument('--seed', type=int, default=10)
+parser.add_argument('--environment', type=str, default='cartpole/0')
 
 args = parser.parse_args()
 
@@ -21,8 +22,9 @@ if __name__ == '__main__':
     experiment.add_tag(args.name)
     experiment.add_tag(args.transformer)
     experiment.add_tag(args.seed)
+    experiment.add_tag(args.environment)
 
-    # cartpole_test(args.name, experiment, total_timesteps=500000, seed=10)
+    # cartpole_test(args.name, experiment, env=args.environment, total_timesteps=args.t_steps, seed=args.seed)
 
     transformer_config.update({"transformer_type": args.transformer})
-    transformer_cartpole(args.name, experiment, total_timesteps=args.t_steps, seed=args.seed) 
+    transformer_cartpole(args.name, experiment, env=args.environment, total_timesteps=args.t_steps, seed=args.seed) 

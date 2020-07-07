@@ -5,5 +5,5 @@ transformer_config = {
     "num_layers": 2, #6, 
     "dim_mlp": 6, 
     "dropout": 0.1, 
-    "mem_len": 512, 
+    "mem_len": 10, #512, 
     "transformer_type": "vanilla"}

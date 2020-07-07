@@ -45,7 +45,7 @@ class TransformerXL(nn.Module):
         self.mem_len = mem_len
         self.tgt_len = tgt_len
         self.num_layers = num_layers
-        self.positional_encoding_layer = PositionalEncoding(d_model=d_model)
+        self.positional_encoding_layer = PositionalEncoding(encoding_type="relative", d_model=d_model)
         self.u = nn.Parameter(torch.Tensor(num_heads, dim_head))
         self.v = nn.Parameter(torch.Tensor(num_heads, dim_head))
 

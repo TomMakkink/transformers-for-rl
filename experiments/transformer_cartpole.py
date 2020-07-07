@@ -6,10 +6,10 @@ import bsuite
 from bsuite.utils import gym_wrapper
 from gym.wrappers import TransformObservation
 
-def transformer_cartpole(name, experiment, total_timesteps, seed):
+def transformer_cartpole(name, experiment, env, total_timesteps, seed):
         device = get_device()
         set_random_seed(seed)
-        raw_env = bsuite.load_from_id(bsuite_id='cartpole/0')
+        raw_env = bsuite.load_from_id(bsuite_id=env)
         env = gym_wrapper.GymFromDMEnv(raw_env)
         env = TransformObservation(env, lambda obs: obs.squeeze())
         experiment.log_parameters(ppo_config)
