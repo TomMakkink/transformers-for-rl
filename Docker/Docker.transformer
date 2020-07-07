@@ -8,3 +8,4 @@ RUN python -m pip install git+https://github.com/kornia/kornia
 RUN python -m pip install reformer_pytorch
 RUN python -m pip install bsuite
 RUN python -m pip install comet-ml
+RUN python -m pip install --user pytorch-fast-transformers

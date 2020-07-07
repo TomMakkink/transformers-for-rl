@@ -1,3 +1,5 @@
+from collections import deque 
+
 import torch
 from torch.optim import Adam
 from torch.utils.data.sampler import BatchSampler, SequentialSampler
@@ -59,18 +61,19 @@ class PPO():
 
     def collect_rollouts(self):
         obs, ep_ret, ep_len = self.env.reset(), 0, 0
+        obs_batch = deque(maxlen=self.batch_size)  
         episode_returns, episode_lengths = [], []
         obs_buf, actions_buf, rewards_buf, values_buf, logp_buf = [], [], [], [], []
         for t in range(self.steps_per_epoch):
             self.total_time_steps += 1
-            obs_buf.append(obs)
-            action, value, logp = self.ac.select_action(torch.as_tensor(obs_buf, dtype=torch.float32, device=self.device))
+            obs_batch.append(obs)
+            action, value, logp = self.ac.select_action(torch.as_tensor(obs_batch, dtype=torch.float32, device=self.device))
             next_obs, reward, done, _ = self.env.step(action)
             ep_ret += reward
             ep_len += 1
 
             # save
-            # obs_buf.append(obs)
+            obs_buf.append(obs)
             actions_buf.append(action)
             rewards_buf.append(reward)
             values_buf.append(value)
@@ -89,8 +92,7 @@ class PPO():
                         f'Warning: trajectory cut off by epoch at {ep_len} steps.')
                 # if trajectory didn't reach terminal state, bootstrap value target
                 if timeout or epoch_ended:
-                    _, value, _ = self.ac.select_action(torch.as_tensor(obs_buf, dtype=torch.float32, device=self.device))
-                    # _, value, _ = self.ac.select_action(obs)
+                    _, value, _ = self.ac.select_action(torch.as_tensor(obs_batch, dtype=torch.float32, device=self.device))
                 else:
                     value = 0
                 self.replay_buffer.store(obs_buf, actions_buf, rewards_buf, values_buf, logp_buf, value)

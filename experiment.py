@@ -22,7 +22,6 @@ if __name__ == '__main__':
     experiment.set_name(args.name)
     experiment.add_tag(args.seed)
     experiment.add_tag(args.environment)
-    # experiment.add_tag(args.name)
     experiment.add_tag(args.transformer)
 
     transformer_config.update({"transformer_type": args.transformer})
