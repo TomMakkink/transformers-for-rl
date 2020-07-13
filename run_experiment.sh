@@ -5,7 +5,7 @@
 # Seed = 10
 python experiment.py --name Canonical & 
 python experiment.py --name ReZero --transformer rezero & 
-python experiment.py --name GTrXL --transformer gtrxl $ 
+python experiment.py --name GTrXL --transformer gtrxl & 
 python experiment.py --name XL --transformer xl & 
 python experiment.py --name Linformer --transformer linformer 
 
