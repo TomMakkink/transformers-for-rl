@@ -1,4 +1,7 @@
 #!/bin/bash
+# Type Checking 
+# pytype experiment.py
+
 # Seed = 10
 python experiment.py --name Canonical & 
 python experiment.py --name ReZero --transformer rezero & 

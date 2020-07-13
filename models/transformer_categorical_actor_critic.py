@@ -17,22 +17,8 @@ class TransformerActorCritic(nn.Module):
         obs_dim = observation_space.shape[1]
         act_dim = action_space.n
         self.transformer = Transformer(**transformer_config)
-        self.actor = nn.Sequential(
-            nn.Linear(64, 64), 
-            nn.ReLU(), 
-            nn.Linear(64, 64), 
-            nn.ReLU(),
-            nn.Linear(64, act_dim), 
-            nn.ReLU(), 
-        )
-        self.critic = nn.Sequential(
-            nn.Linear(64, 64), 
-            nn.ReLU(), 
-            nn.Linear(64, 64), 
-            nn.ReLU(),
-            nn.Linear(64, 1),
-            nn.ReLU(),
-        ) 
+        self.actor = nn.Linear(64, act_dim)
+        self.critic = nn.Linear(64, 1) 
 
     def forward(self, obs, action):
         """

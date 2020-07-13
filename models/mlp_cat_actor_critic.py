@@ -21,7 +21,6 @@ class MLPActorCritic(nn.Module):
             nn.Linear(64, 64), 
             nn.ReLU(),
             nn.Linear(64, act_dim), 
-            nn.ReLU(), 
         )
         self.critic = nn.Sequential(
             nn.Linear(obs_dim, 64),
@@ -31,7 +30,6 @@ class MLPActorCritic(nn.Module):
             nn.Linear(64, 64), 
             nn.ReLU(),
             nn.Linear(64, 1),
-            nn.ReLU(),
         ) 
         self._reset_parameters()
 
