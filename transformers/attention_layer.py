@@ -117,6 +117,7 @@ class RelativeMultiHeadAttention(nn.Module):
         num_heads:int,
         d_model:int, 
         dropout:float=0.0,
+        dropout_attn:float=0.0,
         bias:bool=False,
         mem_len=None, 
         **kwargs,  
@@ -136,6 +137,7 @@ class RelativeMultiHeadAttention(nn.Module):
         assert self.head_dim * num_heads == self.d_model, "d_model must be divisible by num_heads"
         
         self.dropout = nn.Dropout(dropout)
+        self.dropout_attn = nn.Dropout(dropout_attn)
         self.qkv_net = nn.Linear(self.d_model, 3 * self.num_heads * self.head_dim, bias=False)
         self.r_net = nn.Linear(self.d_model, self.num_heads * self.head_dim, bias=False)
 
@@ -144,22 +146,38 @@ class RelativeMultiHeadAttention(nn.Module):
 
         self.scale = 1 / (self.head_dim ** 0.5)
 
+    
+    def _parallelogram_mask(self, height, width, left=False):
+        mask = torch.ones((height, width)).bool()
+        m = min(height, width)
+        mask[:m,:m] = torch.triu(mask[:m,:m])
+        mask[-m:,-m:] = torch.tril(mask[-m:,-m:])
+
+        if left:
+            return mask
+        else:
+            return mask.flip(0)
+
+
     def _rel_shift(self, x, zero_triu=False):
-        zero_pad = torch.zeros((x.size(0), 1, *x.size()[2:]), dtype=x.dtype, device=x.device)
+        zero_pad = torch.zeros(
+            (x.size(0), 1, *x.size()[2:]), dtype=x.dtype, device=x.device)
         x_padded = torch.cat([zero_pad, x], dim=1)
         x_padded = x_padded.view(x.size(1) + 1, x.size(0), *x.size()[2:])
         x = x_padded[1:].view_as(x)
         if zero_triu:
             ones = torch.ones((x.size(0), x.size(1)))
-            x = x * torch.tril(ones, x.size(1) - x.size(0))[:,:,None,None]
+            x = x * torch.tril(ones, x.size(1) - x.size(0))[:, :, None, None]
         return x
 
-    def forward(self, x:Tensor, r:Tensor, u:Tensor, v:Tensor, mem:Tensor=None):
+
+    def forward(self, x:Tensor, r:Tensor, u:Tensor, v:Tensor, attn_mask=None, mem:Tensor=None):
         """
         Args: 
             x: Input tensor, shape [target_seq_len, batch_size, dim]
             r: relative distance between two elements.
             u, v: learnable parameters of model common between layers 
+            attn_mask: prevent model from looking forward using attention mask
             mem: fixed cache of previous hidden states, of shape: [target_seq_len, batch_size, dim]
 
         Returns: 
@@ -187,13 +205,26 @@ class RelativeMultiHeadAttention(nn.Module):
         BD = torch.einsum('ibnd,jnd->ijbn', (wq+v, rk))
         BD = self._rel_shift(BD)
 
-        # [qlen x qlen x batch_size x num_head]
+        # [qlen, klen, batch_size, num_head]
         attn_score = AC + BD
         attn_score.mul_(self.scale)
 
+        if attn_mask is not None and attn_mask.any().item():
+            if attn_mask.dim() == 2:
+                attn_score = attn_score.float().masked_fill(
+                    attn_mask[None,:,:,None], -float('inf')).type_as(attn_score)
+            elif attn_mask.dim() == 3: 
+                attn_score = attn_score.float().masked_fill(
+                    attn_mask[:,:,:,None], -float('inf')).type_as(attn_score)
+
+        # # Mask 
+        # max_len = x.shape[0]
+        # mask = _generate_square_subsequent_mask(max_len)
+        # attn_score.masked_fill_(max_len)
+
         # [qlen x qlen x batch_size x num_head]
         attn_prob = F.softmax(attn_score, dim=1)
-        # attn_score = self.dropout()    
+        attn_score = self.dropout_attn(attn_prob)    
 
         # Compute attention vector 
         attn_vec = torch.einsum('ijbn,jbnd->ibnd', (attn_prob, wv))
@@ -218,10 +249,17 @@ class PositionWiseMLP(nn.Module):
             nn.Linear(d_model, dim_mlp), nn.ReLU(inplace=True),
             nn.Dropout(dropout),
             nn.Linear(dim_mlp, d_model), 
+            nn.Dropout(dropout), 
         )
 
     def forward(self, src):
         return self.pos_wise_mlp(src)
+
+
+def _generate_square_subsequent_mask(sz):
+    mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
+    mask = mask.masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
+    return mask
 
 
 class TransformerBlock(nn.Module):
@@ -239,9 +277,12 @@ class TransformerBlock(nn.Module):
         self.pos_wise_mlp = PositionWiseMLP(d_model, dim_mlp, dropout)
 
     def forward(self, inputs):
+        max_len = inputs.shape[0]
+        mask = _generate_square_subsequent_mask(max_len)
+
         # Attention 
         x = inputs 
-        y = self.attention(inputs, inputs, inputs)[0]
+        y = self.attention(inputs, inputs, inputs, attn_mask=mask)[0]
         y = self.layer_norm_1(x + y)
 
         # Position-wise MLP
@@ -268,10 +309,10 @@ class TransformerXLBlock(nn.Module):
         self.attention = RelativeMultiHeadAttention(num_heads, d_model, dropout, mem_len=mem_len)
         self.pos_wise_mlp = PositionWiseMLP(d_model, dim_mlp, dropout)
         
-    def forward(self, inputs:Tensor, r:Tensor, u:Tensor, v:Tensor, mem:Tensor=None):
+    def forward(self, inputs:Tensor, r:Tensor, u:Tensor, v:Tensor, attn_mask:Tensor=None, mem:Tensor=None):
         # Attention 
         x = inputs
-        y = self.attention(inputs, r, u, v, mem)
+        y = self.attention(inputs, r, u, v, attn_mask, mem)
         y = self.layer_norm_1(x + y) 
 
         # Position-wise MLP
@@ -281,26 +322,54 @@ class TransformerXLBlock(nn.Module):
         return output
 
 
-class GatedRecurrentUnit(nn.Module): 
-    def __init__(self, d_model:int):
+class GatedRecurrentUnit(nn.Module):
+    def __init__(self, d_model):
         super(GatedRecurrentUnit, self).__init__()
-        self.wr = nn.Parameter(torch.ones(d_model, d_model))
-        self.ur = nn.Parameter(torch.ones(d_model, d_model))
-        self.wz = nn.Parameter(torch.ones(d_model, d_model))
-        self.uz = nn.Parameter(torch.ones(d_model, d_model))
-        self.bz = nn.Parameter(torch.ones(d_model,))
-        self.wg = nn.Parameter(torch.ones(d_model, d_model))
-        self.ug = nn.Parameter(torch.ones(d_model, d_model))
+        self.linear_wr = nn.Linear(d_model, d_model, bias=False)
+        self.linear_ur = nn.Linear(d_model, d_model, bias=False)
+        self.linear_wz = nn.Linear(d_model, d_model)
+        self.linear_uz = nn.Linear(d_model, d_model, bias=False)
+        self.linear_wg = nn.Linear(d_model, d_model, bias=False)
+        self.linear_ug = nn.Linear(d_model, d_model, bias=False)
 
-    def forward(self, inputs:Tensor):
-        x, y = inputs 
-        batch_size, seq_len, d_model = x.size()
-        assert x.shape == y.shape, "Two inputs should be of the same size"
+        self.init_bias() 
 
-        r = torch.sigmoid(torch.matmul(y, self.wr) + torch.matmul(x, self.ur))
-        z = torch.sigmoid(torch.matmul(y, self.wz) + torch.matmul(x, self.uz) - self.bz)
-        h = torch.tanh(torch.matmul(y, self.wg) + torch.matmul(r * x, self.ug))
-        return (1.0 - z) * x + z * h
+    def init_bias(self):
+        # Manually set to allow learning of markov process during initial training. -2 used in paper. 
+        with torch.no_grad(): 
+            self.linear_wz.bias.fill_(-2)   
+
+    def forward(self, inputs: Tensor):
+        x, y = inputs
+        assert x.shape == y.shape, "Inputs to GRU layer should be the same size"
+
+        z = torch.sigmoid(self.linear_wz(y) + self.linear_uz(x))  
+        r = torch.sigmoid(self.linear_wr(y) + self.linear_ur(x))
+        h_hat = torch.tanh(self.linear_wg(y) + self.linear_ug(r * x))
+
+        return (1. - z) * x + z * h_hat
+
+
+# class GatedRecurrentUnit(nn.Module): 
+#     def __init__(self, d_model:int):
+#         super(GatedRecurrentUnit, self).__init__()
+#         self.wr = nn.Parameter(torch.ones(d_model, d_model))
+#         self.ur = nn.Parameter(torch.ones(d_model, d_model))
+#         self.wz = nn.Parameter(torch.ones(d_model, d_model))
+#         self.uz = nn.Parameter(torch.ones(d_model, d_model))
+#         self.bz = nn.Parameter(torch.ones(d_model,))
+#         self.wg = nn.Parameter(torch.ones(d_model, d_model))
+#         self.ug = nn.Parameter(torch.ones(d_model, d_model))
+
+#     def forward(self, inputs:Tensor):
+#         x, y = inputs 
+#         batch_size, seq_len, d_model = x.size()
+#         assert x.shape == y.shape, "Two inputs should be of the same size"
+
+#         r = torch.sigmoid(torch.matmul(y, self.wr) + torch.matmul(x, self.ur))
+#         z = torch.sigmoid(torch.matmul(y, self.wz) + torch.matmul(x, self.uz) - self.bz)
+#         h = torch.tanh(torch.matmul(y, self.wg) + torch.matmul(r * x, self.ug))
+#         return (1.0 - z) * x + z * h
 
 
 class GTrXLBlock(nn.Module):

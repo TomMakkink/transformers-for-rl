@@ -62,14 +62,14 @@ class TransformerXL(nn.Module):
             for k in range(num_layers)
         ])
 
-        self.output_layer = nn.Linear(d_model, output_dim, bias=False)
+        # self.output_layer = nn.Linear(d_model, output_dim, bias=False)
 
     def init_mem(self):
         if self.mem_len > 0:
             mem = []
             param = next(self.parameters())
             for i in range(self.num_layers+1):
-                empty = torch.empty(0)
+                empty = torch.empty(0, dtype=param.dtype, device=param.device)
                 mem.append(empty)
             return mem
         else:
@@ -88,23 +88,26 @@ class TransformerXL(nn.Module):
         return new_mem
 
 
-    def forward(self, inputs:Tensor, *mem:Tensor):
+    def forward(self, inputs:Tensor, mem:Tensor=None):
         """
         Args: 
             inputs: input tensor, of shape: [source_seq_len, batch_size, features] 
             mem: memory from previous sequence. 
 
         Returns: 
-            Transformer output, of shape: [source_seq_len, batch_size, output_dim]
+            Transformer output, of shape: [target_seq_len, batch_size, output_dim]
         """
         if not mem: mem = self.init_mem()
-        qlen, bsz, features = inputs.size()
+        qlen, bsz, _ = inputs.size()
         
         mlen = mem[0].size(0) if mem is not None else 0
         klen = mlen + qlen 
-        hids = []
 
-        pos_seq = torch.arange(klen-1, -1, -1.0)
+        # Masking 
+        attn_mask = torch.triu(inputs.new_ones(qlen, klen), diagonal=1+mlen).bool()[:,:,None]
+
+        hids = []
+        pos_seq = torch.arange(klen-1, -1, -1.0, dtype=inputs.dtype, device=inputs.device)
         pos_emb = self.positional_encoding_layer(pos_seq)
 
         core_out = self.drop(inputs)
@@ -113,19 +116,24 @@ class TransformerXL(nn.Module):
         hids.append(core_out)
         for i, layer in enumerate(self.TransformerXLs):
             mem_i = None if mem is None else mem[i]
-            core_out = layer(core_out, pos_emb, self.u, self.v, mem=mem_i)
+            core_out = layer(core_out, pos_emb, self.u, self.v, attn_mask=attn_mask, mem=mem_i)
             hids.append(core_out)
 
         core_out = self.drop(core_out)
 
         new_mem = self._update_mem(hids, mem, mlen, qlen)
-        pred_hid = core_out[-qlen:]
-        loss = self.output_layer(pred_hid)
 
-        if new_mem is None:
-            return [loss]
-        else:
-            return [loss] + new_mem
+        return core_out, new_mem
+
+        # TODO: Check the out layer here isn't destorying the memory mechanism somehow? 
+        # pred_hid = core_out[-qlen:]
+        # loss = self.output_layer(pred_hid)
+
+
+        # if new_mem is None:
+        #     return [loss]
+        # else:
+        #     return [loss] + new_mem
 
 
 

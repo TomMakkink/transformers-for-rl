@@ -86,7 +86,7 @@ class GTrXL(nn.Module):
         return new_mem
 
 
-    def forward(self, inputs:Tensor, *mem:Tensor):
+    def forward(self, inputs:Tensor, mem:Tensor):
         """
         Args: 
             inputs: input tensor, of shape: [source_seq_len, batch_size, features]
@@ -100,8 +100,11 @@ class GTrXL(nn.Module):
         
         mlen = mem[0].size(0) if mem is not None else 0
         klen = mlen + qlen 
-        hids = []
 
+        # Masking 
+        attn_mask = torch.triu(inputs.new_ones(qlen, klen), diagonal=1+mlen).bool()[:,:,None]
+
+        hids = []
         pos_seq = torch.arange(klen-1, -1, -1.0, dtype=inputs.dtype, device=inputs.device)
         pos_emb = self.positional_encoding_layer(pos_seq)
 
@@ -111,16 +114,21 @@ class GTrXL(nn.Module):
         hids.append(core_out)
         for i, layer in enumerate(self.GTrXLs):
             mem_i = None if mem is None else mem[i]
-            core_out = layer(core_out, pos_emb, self.u, self.v, mem=mem_i)
+            core_out = layer(core_out, pos_emb, self.u, self.v, attn_mask=attn_mask, mem=mem_i)
             hids.append(core_out)
 
-        core_out = self.dropout(core_out)
-
+        core_out = self.drop(core_out)
         new_mem = self._update_mem(hids, mem, mlen, qlen)
-        pred_hid = core_out[-qlen:]
-        loss = self.output_layer(pred_hid)
+        return core_out, new_mem
 
-        if new_mem is None:
-            return [loss]
-        else:
-            return [loss] + new_mem
+
+        # core_out = self.dropout(core_out)
+
+        # new_mem = self._update_mem(hids, mem, mlen, qlen)
+        # pred_hid = core_out[-qlen:]
+        # loss = self.output_layer(pred_hid)
+
+        # if new_mem is None:
+        #     return [loss]
+        # else:
+        #     return [loss] + new_mem

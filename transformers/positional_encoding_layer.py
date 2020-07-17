@@ -53,20 +53,37 @@ class AbsolutePositionalEncoding(nn.Module):
     def forward(self, x:Tensor):
         x = x + self.pe[:, :x.size(1)]
         return x
-
+        
 
 class RelativePositionalEncoding(nn.Module):
-    """
-    Relative positional encoding as used in the "Transformer-XL: Attentive Language Models 
-    Beyond a Fixed-Length Context" paper: https://arxiv.org/pdf/1901.02860.pdf. 
-    """
-    def __init__(self, d_model:int): 
-        super(RelativePositionalEncoding, self).__init__()
-        freq = 1 / (10000 ** (torch.arange(0., d_model, 2.)/d_model))
-        self.register_buffer('freq', freq)
+    def __init__(self, demb):
+        super(PositionalEmbedding, self).__init__()
+        self.demb = demb
+        inv_freq = 1 / (10000 ** (torch.arange(0.0, demb, 2.0) / demb))
+        self.register_buffer('inv_freq', inv_freq)
 
-    def forward(self, pos:Tensor):
-        inp = torch.ger(pos, self.freq)
-        enc = torch.cat([inp.sin(), inp.cos()], dim=-1)
-        enc = enc[:, None, :]
-        return enc
+    def forward(self, pos_seq, bsz=None):
+        sinusoid_inp = torch.ger(pos_seq, self.inv_freq)
+        pos_emb = torch.cat([sinusoid_inp.sin(), sinusoid_inp.cos()], dim=-1)
+
+        if bsz is not None:
+            return pos_emb[:,None,:].expand(-1, bsz, -1)
+        else:
+            return pos_emb[:,None,:]
+
+
+# class RelativePositionalEncoding(nn.Module):
+#     """
+#     Relative positional encoding as used in the "Transformer-XL: Attentive Language Models 
+#     Beyond a Fixed-Length Context" paper: https://arxiv.org/pdf/1901.02860.pdf. 
+#     """
+#     def __init__(self, d_model:int): 
+#         super(RelativePositionalEncoding, self).__init__()
+#         freq = 1 / (10000 ** (torch.arange(0., d_model, 2.)/d_model))
+#         self.register_buffer('freq', freq)
+
+#     def forward(self, pos:Tensor):
+#         inp = torch.ger(pos, self.freq)
+#         enc = torch.cat([inp.sin(), inp.cos()], dim=-1)
+#         enc = enc[:, None, :]
+#         return enc

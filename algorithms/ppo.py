@@ -7,6 +7,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from algorithms.replay_buffer import ReplayBuffer
 from utils.logging import log_to_comet_ml, log_to_screen, log_to_tensorboard
+from utils.utils import plot_grad_flow
 
 from configs.ppo_config import ppo_config
 from configs.env_config import env_config

@@ -71,6 +71,6 @@ class TransformerModel(nn.Module):
         x = self.pos_encoder(inputs * math.sqrt(self.d_model))
         for layer in self.Transformers:
             x = layer(x)
-        return self.out_layer(x)[0]
+        return self.out_layer(x) #[0]
 
     
