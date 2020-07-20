@@ -117,7 +117,7 @@ class GTrXL(nn.Module):
             core_out = layer(core_out, pos_emb, self.u, self.v, attn_mask=attn_mask, mem=mem_i)
             hids.append(core_out)
 
-        core_out = self.drop(core_out)
+        core_out = self.dropout(core_out)
         new_mem = self._update_mem(hids, mem, mlen, qlen)
         return core_out, new_mem
 

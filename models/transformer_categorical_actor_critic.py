@@ -15,6 +15,7 @@ class TransformerActorCritic(nn.Module):
         super().__init__()
         obs_dim = observation_space.shape[1]
         act_dim = action_space.n
+        self.transformer_output = nn.Linear(transformer_config['d_model'], transformer_config['output_dim'])
         # self.obs_linear = nn.Sequential(
         #     nn.Linear(obs_dim, 32), 
         #     nn.ReLU(), 
@@ -30,12 +31,11 @@ class TransformerActorCritic(nn.Module):
             action: [seq_len]               
         """
         # obs = self.obs_linear(obs)
-        # [seq_len, batch_size, features]
         obs = obs.unsqueeze(1)
         # print(f"Shape of obs: {obs.shape}")
         obs = self.transformer(obs)[-1]
-        # print(f"Obs output shape: {obs.shape}")
-        # obs = obs.permute(1, 0, 2)
+        # print(f"Shape of obs: {obs.shape}")
+        obs = self.transformer_output(obs)
         logits = self.actor(obs)
         action_dist = Categorical(logits=logits)
         logp = action_dist.log_prob(action)
@@ -52,12 +52,13 @@ class TransformerActorCritic(nn.Module):
             # obs = self.obs_linear(obs)
             # Transformer input shape: [seq_len, batch_size, features]
             obs = obs.unsqueeze(1)
-            obs = self.transformer(obs)[-1]             # Take last element of sequence
-            # Linear layer: [batch_size, *, features])
+            obs = self.transformer(obs)[-1]
+            # print(f"Shape of obs: {obs.shape}")
+            obs = self.transformer_output(obs)
+            # print(f"Shape of obs: {obs.shape}")
             logits = self.actor(obs)
             action_dist = Categorical(logits=logits)
             action = action_dist.sample()
             logp = action_dist.log_prob(action)
             value = torch.squeeze(self.critic(obs), -1)
-        # Only return last action/value/logp
         return action.cpu().numpy(), value.cpu().numpy(), logp.cpu().numpy()

@@ -395,10 +395,10 @@ class GTrXLBlock(nn.Module):
         self.pos_wise_mlp = PositionWiseMLP(d_model, dim_mlp, dropout)
         self.relu = nn.ReLU(inplace=True)
 
-    def forward(self, inputs:Tensor, r:Tensor, u:Tensor, v:Tensor, mem:Tensor=None):
+    def forward(self, inputs:Tensor, r:Tensor, u:Tensor, v:Tensor, attn_mask=None, mem:Tensor=None):
         # Attention
         x = inputs 
-        y = self.attention(inputs, r, u, v, mem)
+        y = self.attention(inputs, r, u, v, attn_mask, mem)
         y = self.layer_norm_1(y)
         y = self.gated_layer_1([x,y])
         
