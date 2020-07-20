@@ -8,6 +8,8 @@ from torch.distributions import Categorical
 from collections import deque
 from configs.a2c_config import a2c_config
 import numpy as np
+from models.transformer_a2c import TransformerA2C
+from utils.logging import log_to_comet_ml
 
 
 class A2C:
@@ -15,12 +17,13 @@ class A2C:
     def __init__(self, name, model, env, device, logger):
         self.device = device
         self.env = env
-        self.net = model(env.observation_space, env.action_space).to(self.device)
+        self.net = model(env.observation_space, env.action_space, logger).to(self.device)
 
         self.optimiser = optim.Adam(self.net.parameters(), lr=a2c_config['lr'])
 
         self.writer = SummaryWriter("runs/" + name)
         self.logger = logger
+        if self.logger: logger.log_parameters(a2c_config)
 
     def _compute_returns(self, rewards):
         R = 0
@@ -65,9 +68,11 @@ class A2C:
 
                 if done:
                     episode = episode + 1
-                    self.net.reset_mem()
+                    if type(self.net) is TransformerA2C:
+                        self.net.reset_mem()
                     break
 
+            episode_length = len(rewards)
             scores.append(sum(rewards))
             scores_deque.append(sum(rewards))
 
@@ -91,3 +96,11 @@ class A2C:
 
             if episode % print_every == 0:
                 print('Episode {}\tAverage Score: {:.2f}'.format(episode, np.mean(scores_deque)))
+
+            metrics = {
+                "Episode Return": scores[-1],
+                "Episode Length": episode_length,
+                "Loss/Actor Loss": policy_loss,
+                "Loss/Critic Loss": value_function_loss,
+                "Loss/Loss": loss}
+            if self.logger: log_to_comet_ml(self.logger, metrics, step=episode)

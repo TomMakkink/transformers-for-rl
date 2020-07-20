@@ -1,12 +1,13 @@
 from utils.utils import set_random_seed, get_device, create_environment
 from models.transformer_categorical_actor_critic import TransformerActorCritic
-from algorithms.ppo import PPO
+from algorithms.a2c import A2C
+from models.transformer_a2c import TransformerA2C
 
-def run_experiment(name, logger: None, algo=PPO, 
-                   model=TransformerActorCritic, total_timesteps=50000, seed=10):
+
+def run_experiment(name, logger: None, algo=A2C,
+                   model=TransformerA2C, total_timesteps=50000, seed=10):
     device = get_device()
     set_random_seed(seed)
     env = create_environment()
-    if logger: logger.log_parameters(ppo_config)
     model = algo(name, model, env, device, logger)
     model.learn(total_timesteps)

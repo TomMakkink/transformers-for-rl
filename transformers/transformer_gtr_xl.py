@@ -1,9 +1,10 @@
-import torch 
-import torch.nn as nn 
+import torch
+import torch.nn as nn
 from transformers.positional_encoding_layer import PositionalEncoding
 from transformers.attention_layer import GTrXLBlock
 
 Tensor = torch.Tensor
+
 
 class GTrXL(nn.Module):
     """
@@ -15,15 +16,16 @@ class GTrXL(nn.Module):
     These modifications were demonstrated to improve the stability and learning speed of the original
     Transformer and Transformer XL in a variety of partially observable RL domains. 
     """
+
     def __init__(
-        self, 
-        d_model:int, 
-        output_dim:int,
-        num_layers:int, 
-        num_heads:int, 
-        dim_mlp:int,     
-        dropout:float=0.0,
-        mem_len:int=None,
+            self,
+            d_model: int,
+            output_dim: int,
+            num_layers: int,
+            num_heads: int,
+            dim_mlp: int,
+            dropout: float = 0.0,
+            mem_len: int = None,
     ):
         """
         Args: 
@@ -49,7 +51,7 @@ class GTrXL(nn.Module):
                 num_heads=num_heads,
                 d_model=d_model,
                 dim_mlp=dim_mlp,
-                dropout=dropout, 
+                dropout=dropout,
                 mem_len=mem_len,
             )
             for k in range(num_layers)
@@ -60,18 +62,16 @@ class GTrXL(nn.Module):
             nn.ReLU(),
         )
 
-    
     def init_mem(self):
         if self.mem_len > 0:
             mem = []
             param = next(self.parameters())
-            for i in range(self.num_layers+1):
+            for i in range(self.num_layers + 1):
                 empty = torch.empty(0, dtype=param.dtype, device=param.device)
                 mem.append(empty)
             return mem
         else:
             return None
-
 
     def _update_mem(self, hids, mem, qlen, mlen):
         if mem is None: return None
@@ -85,8 +85,7 @@ class GTrXL(nn.Module):
                 new_mem.append(cat[beg_idx:end_idx].detach())
         return new_mem
 
-
-    def forward(self, inputs:Tensor, mem:Tensor):
+    def forward(self, inputs: Tensor, mem: Tensor):
         """
         Args: 
             inputs: input tensor, of shape: [source_seq_len, batch_size, features]
@@ -97,15 +96,15 @@ class GTrXL(nn.Module):
         """
         if not mem: mem = self.init_mem()
         qlen, bsz, features = inputs.size()
-        
+
         mlen = mem[0].size(0) if mem is not None else 0
-        klen = mlen + qlen 
+        klen = mlen + qlen
 
         # Masking 
-        attn_mask = torch.triu(inputs.new_ones(qlen, klen), diagonal=1+mlen).bool()[:,:,None]
+        attn_mask = torch.triu(inputs.new_ones(qlen, klen), diagonal=1 + mlen).bool()[:, :, None]
 
         hids = []
-        pos_seq = torch.arange(klen-1, -1, -1.0, dtype=inputs.dtype, device=inputs.device)
+        pos_seq = torch.arange(klen - 1, -1, -1.0, dtype=inputs.dtype, device=inputs.device)
         pos_emb = self.positional_encoding_layer(pos_seq)
 
         core_out = self.dropout(inputs)
@@ -114,13 +113,13 @@ class GTrXL(nn.Module):
         hids.append(core_out)
         for i, layer in enumerate(self.GTrXLs):
             mem_i = None if mem is None else mem[i]
-            core_out = layer(core_out, pos_emb, self.u, self.v, attn_mask=attn_mask, mem=mem_i)
+            core_out = layer(inputs=core_out, r=pos_emb, u=self.u, v=self.v, attn_mask=attn_mask, mem=mem_i)
             hids.append(core_out)
 
-        core_out = self.dropout(core_out)
+        # core_out = self.dropout(core_out)
+        core_out = self.output_layer(core_out)
         new_mem = self._update_mem(hids, mem, mlen, qlen)
         return core_out, new_mem
-
 
         # core_out = self.dropout(core_out)
 
