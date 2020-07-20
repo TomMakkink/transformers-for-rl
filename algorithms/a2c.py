@@ -17,7 +17,7 @@ class A2C:
     def __init__(self, name, model, env, device, logger):
         self.device = device
         self.env = env
-        self.net = model(env.observation_space, env.action_space, logger).to(self.device)
+        self.net = model(env.observation_space, env.action_space).to(self.device)
 
         self.optimiser = optim.Adam(self.net.parameters(), lr=a2c_config['lr'])
 
