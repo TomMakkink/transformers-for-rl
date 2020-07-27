@@ -13,23 +13,23 @@ from utils.logging import log_to_comet_ml
 
 
 class A2C:
-
     def __init__(self, name, model, env, device, logger):
         self.device = device
         self.env = env
         self.net = model(env.observation_space, env.action_space).to(self.device)
 
-        self.optimiser = optim.Adam(self.net.parameters(), lr=a2c_config['lr'])
+        self.optimiser = optim.Adam(self.net.parameters(), lr=a2c_config["lr"])
 
         self.writer = SummaryWriter("runs/" + name)
         self.logger = logger
-        if self.logger: logger.log_parameters(a2c_config)
+        if self.logger:
+            logger.log_parameters(a2c_config)
 
     def _compute_returns(self, rewards):
         R = 0
         returns = []
         for step in reversed(range(len(rewards))):
-            R = rewards[step] + a2c_config['gamma'] * R
+            R = rewards[step] + a2c_config["gamma"] * R
             returns.insert(0, R)
         returns = np.array(returns)
         returns -= returns.mean()
@@ -45,13 +45,13 @@ class A2C:
         episode = 1
         total_t = 0
         # for episode in range(1, number_episodes + 1):
-        while (total_t < total_timesteps):
+        while total_t < total_timesteps:
             log_probs = []
             values = []
             rewards = []
 
             state = self.env.reset()
-            for t in range(a2c_config['steps_per_epoch']):
+            for t in range(a2c_config["steps_per_epoch"]):
                 total_t = total_t + 1
                 state = torch.from_numpy(state).float().to(self.device)
                 dist, value = self.net(state)
@@ -95,12 +95,18 @@ class A2C:
             self.optimiser.step()
 
             if episode % print_every == 0:
-                print('Episode {}\tAverage Score: {:.2f}'.format(episode, np.mean(scores_deque)))
+                print(
+                    "Episode {}\tAverage Score: {:.2f}".format(
+                        episode, np.mean(scores_deque)
+                    )
+                )
 
             metrics = {
                 "Episode Return": scores[-1],
                 "Episode Length": episode_length,
-                "Loss/Actor Loss": policy_loss,
-                "Loss/Critic Loss": value_function_loss,
-                "Loss/Loss": loss}
-            if self.logger: log_to_comet_ml(self.logger, metrics, step=episode)
+                "Loss/Actor Loss": policy_loss.detach().cpu().numpy(),
+                "Loss/Critic Loss": value_function_loss.detach().cpu().numpy(),
+                "Loss/Loss": loss.detach().cpu().numpy(),
+            }
+            if self.logger:
+                log_to_comet_ml(self.logger, metrics, step=episode)

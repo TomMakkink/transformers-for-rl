@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from transformers.positional_encoding_layer import PositionalEncoding
-from transformers.attention_layer import RelativeMultiHeadAttention, TransformerXLBlock
+from transformers.attention_layer import RelativeMultiHeadAttention, PositionWiseMLP
 
 Tensor = torch.Tensor
 
@@ -108,7 +108,9 @@ class TransformerXL(nn.Module):
             ]
         )
 
-        # self.output_layer = nn.Linear(d_model, output_dim, bias=False)
+        self.output_layer = nn.Sequential(
+            nn.Linear(d_model, output_dim, bias=False), nn.ReLU(),
+        )
 
     def init_mem(self):
         if self.mem_len > 0:
@@ -172,10 +174,9 @@ class TransformerXL(nn.Module):
             )
             hids.append(core_out)
 
-        core_out = self.drop(core_out)
-
+        # core_out = self.dropout(core_out)
+        core_out = self.output_layer(core_out)
         new_mem = self._update_mem(hids, mem, mlen, qlen)
-
         return core_out, new_mem
 
         # TODO: Check the out layer here isn't destorying the memory mechanism somehow?

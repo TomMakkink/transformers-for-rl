@@ -1,12 +1,15 @@
 import torch
 import torch.nn as nn
 from transformers.positional_encoding_layer import PositionalEncoding
-from transformers.attention_layer import GatedRecurrentUnit, RelativeMultiHeadAttention
+from transformers.attention_layer import (
+    GatedRecurrentUnit,
+    RelativeMultiHeadAttention,
+    PositionWiseMLP,
+)
 
 Tensor = torch.Tensor
 
 
-<<<<<<< HEAD
 class GTrXLBlock(nn.Module):
     def __init__(
         self,
@@ -55,8 +58,6 @@ class GTrXLBlock(nn.Module):
         return output
 
 
-=======
->>>>>>> 4136f8de0a7ea081c12e49b027f8752472252721
 class GTrXL(nn.Module):
     """
     GTrXL Transformer model from the "Stabilizing Transformers for Reinforcement Learning" paper: 
@@ -69,7 +70,6 @@ class GTrXL(nn.Module):
     """
 
     def __init__(
-<<<<<<< HEAD
         self,
         d_model: int,
         output_dim: int,
@@ -78,16 +78,6 @@ class GTrXL(nn.Module):
         dim_mlp: int,
         dropout: float = 0.0,
         mem_len: int = None,
-=======
-            self,
-            d_model: int,
-            output_dim: int,
-            num_layers: int,
-            num_heads: int,
-            dim_mlp: int,
-            dropout: float = 0.0,
-            mem_len: int = None,
->>>>>>> 4136f8de0a7ea081c12e49b027f8752472252721
     ):
         """
         Args: 
@@ -110,7 +100,6 @@ class GTrXL(nn.Module):
         self.v = nn.Parameter(torch.Tensor(num_heads, dim_head))
         self.dropout = nn.Dropout(dropout)
 
-<<<<<<< HEAD
         self.GTrXLs = nn.ModuleList(
             [
                 GTrXLBlock(
@@ -123,18 +112,6 @@ class GTrXL(nn.Module):
                 for k in range(num_layers)
             ]
         )
-=======
-        self.GTrXLs = nn.ModuleList([
-            GTrXLBlock(
-                num_heads=num_heads,
-                d_model=d_model,
-                dim_mlp=dim_mlp,
-                dropout=dropout,
-                mem_len=mem_len,
-            )
-            for k in range(num_layers)
-        ])
->>>>>>> 4136f8de0a7ea081c12e49b027f8752472252721
 
         self.output_layer = nn.Sequential(
             nn.Linear(d_model, output_dim, bias=False), nn.ReLU(),
@@ -180,7 +157,6 @@ class GTrXL(nn.Module):
         mlen = mem[0].size(0) if mem is not None else 0
         klen = mlen + qlen
 
-<<<<<<< HEAD
         # Masking
         attn_mask = torch.triu(inputs.new_ones(qlen, klen), diagonal=1 + mlen).bool()[
             :, :, None
@@ -190,13 +166,6 @@ class GTrXL(nn.Module):
         pos_seq = torch.arange(
             klen - 1, -1, -1.0, dtype=inputs.dtype, device=inputs.device
         )
-=======
-        # Masking 
-        attn_mask = torch.triu(inputs.new_ones(qlen, klen), diagonal=1 + mlen).bool()[:, :, None]
-
-        hids = []
-        pos_seq = torch.arange(klen - 1, -1, -1.0, dtype=inputs.dtype, device=inputs.device)
->>>>>>> 4136f8de0a7ea081c12e49b027f8752472252721
         pos_emb = self.positional_encoding_layer(pos_seq)
 
         core_out = self.dropout(inputs)
@@ -205,21 +174,18 @@ class GTrXL(nn.Module):
         hids.append(core_out)
         for i, layer in enumerate(self.GTrXLs):
             mem_i = None if mem is None else mem[i]
-<<<<<<< HEAD
             core_out = layer(
-                core_out, pos_emb, self.u, self.v, attn_mask=attn_mask, mem=mem_i
+                inputs=core_out,
+                r=pos_emb,
+                u=self.u,
+                v=self.v,
+                attn_mask=attn_mask,
+                mem=mem_i,
             )
-            hids.append(core_out)
-
-        core_out = self.dropout(core_out)
-        # core_out = self.output_layer(core_out)s
-=======
-            core_out = layer(inputs=core_out, r=pos_emb, u=self.u, v=self.v, attn_mask=attn_mask, mem=mem_i)
             hids.append(core_out)
 
         # core_out = self.dropout(core_out)
         core_out = self.output_layer(core_out)
->>>>>>> 4136f8de0a7ea081c12e49b027f8752472252721
         new_mem = self._update_mem(hids, mem, mlen, qlen)
         return core_out, new_mem
 
@@ -233,7 +199,3 @@ class GTrXL(nn.Module):
         #     return [loss]
         # else:
         #     return [loss] + new_mem
-<<<<<<< HEAD
-
-=======
->>>>>>> 4136f8de0a7ea081c12e49b027f8752472252721

@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.init import xavier_uniform_
-from transformers.attention_layer import MultiHeadAttention, TransformerBlock
+from transformers.attention_layer import MultiHeadAttention, PositionWiseMLP
 from transformers.positional_encoding_layer import PositionalEncoding
 
 Tensor = torch.Tensor
@@ -21,7 +21,8 @@ class TransformerBlock(nn.Module):
 
     def forward(self, inputs):
         max_len = inputs.shape[0]
-        mask = _generate_square_subsequent_mask(max_len)
+        # mask = _generate_square_subsequent_mask(max_len)
+        mask = None
 
         # Attention
         x = inputs

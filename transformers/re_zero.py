@@ -1,9 +1,10 @@
 import math
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.nn.init import xavier_uniform_
 from transformers.positional_encoding_layer import PositionalEncoding
-from transformers.attention_layer import RZTXEncoderLayer
+from transformers.attention_layer import MultiHeadAttention
 
 Tensor = torch.Tensor
 

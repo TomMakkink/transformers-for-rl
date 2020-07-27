@@ -57,14 +57,16 @@ def get_device():
     print(f"Using {device}")
     return device
 
+
 def process_obs(obs, device):
     obs = obs.squeeze()
     return torch.as_tensor(obs, dtype=torch.float32, device=device)
 
+
 def create_environment():
-    raw_env = bsuite.load_from_id(bsuite_id=env_config['env'])
+    save_path = "results/"
+    raw_env = bsuite.load_and_record(env_config["env"], save_path, overwrite=True)
     env = gym_wrapper.GymFromDMEnv(raw_env)
     env = TransformObservation(env, lambda obs: obs.squeeze())
-    return env 
-
+    return env
 

@@ -9,18 +9,17 @@ from utils.logging import set_up_comet_ml
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--project', type=str, default="transformers-for-rl")
-parser.add_argument('--name', type=str, default="Test")
-parser.add_argument('--algo', type=str, default="A2C")
-parser.add_argument('--transformer', type=str, default='gtrxl')
-parser.add_argument('--t_steps', type=int, default=100000)
-parser.add_argument('--seed', type=int, default=10)
-parser.add_argument('--env', type=str, default='cartpole/0')
+parser.add_argument("--project", type=str, default="transformers-for-rl")
+parser.add_argument("--name", type=str, default="Test")
+parser.add_argument("--algo", type=str, default="A2C")
+parser.add_argument("--transformer", type=str)
+parser.add_argument("--t_steps", type=int, default=100000)
+parser.add_argument("--seed", type=int, default=10)
+parser.add_argument("--env", type=str)
 
 args = parser.parse_args()
 
-if __name__ == '__main__':
-    # Boiler Plate to update configs based on input argmuments
+if __name__ == "__main__":
     if args.project:
         experiment_config.update({"project_name": args.project})
     if args.name:
@@ -28,9 +27,13 @@ if __name__ == '__main__':
     if args.transformer:
         transformer_config.update({"transformer_type": args.transformer})
     if args.env:
-        env_config.update({"env_name": args.env})
+        env_config.update({"env": args.env})
 
     logger = set_up_comet_ml(tags=[args.algo, args.transformer, args.seed, args.env])
-    run_experiment(args.name, logger,
-                   # model=MLPA2C,
-                   total_timesteps=args.t_steps, seed=args.seed)
+    run_experiment(
+        args.name,
+        logger,
+        # model=MLPA2C,
+        total_timesteps=args.t_steps,
+        seed=args.seed,
+    )
