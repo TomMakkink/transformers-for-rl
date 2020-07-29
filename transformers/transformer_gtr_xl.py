@@ -113,9 +113,7 @@ class GTrXL(nn.Module):
             ]
         )
 
-        self.output_layer = nn.Sequential(
-            nn.Linear(d_model, output_dim, bias=False), nn.ReLU(),
-        )
+        self.output_layer = nn.Linear(d_model, output_dim, bias=False)
 
     def init_mem(self):
         if self.mem_len > 0:

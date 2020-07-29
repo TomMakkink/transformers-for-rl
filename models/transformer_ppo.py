@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Categorical
@@ -5,7 +6,7 @@ from transformers.transformer_wrapper import Transformer
 from configs.transformer_config import transformer_config
 
 
-class TransformerA2C(nn.Module):
+class TransformerPPO(nn.Module):
     def __init__(self, observation_space, action_space):
         super(TransformerA2C, self).__init__()
 
@@ -27,7 +28,6 @@ class TransformerA2C(nn.Module):
         x = F.relu(self.fc_shared(x))
         x = x.unsqueeze(0).unsqueeze(0)
         x = self.transformer(x)
-        print(x)
         x = x.squeeze(0).squeeze(0)
         logits = self.fc_policy(x)
 

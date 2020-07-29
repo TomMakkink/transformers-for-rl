@@ -9,7 +9,7 @@ from collections import deque
 from configs.a2c_config import a2c_config
 import numpy as np
 from models.transformer_a2c import TransformerA2C
-from utils.logging import log_to_comet_ml
+from utils.logging import log_to_comet_ml, log_to_screen
 
 
 class A2C:
@@ -42,6 +42,7 @@ class A2C:
 
         scores = []
         scores_deque = deque(maxlen=print_every)
+        loss_deque = deque(maxlen=print_every)
         episode = 1
         total_t = 0
         # for episode in range(1, number_episodes + 1):
@@ -89,24 +90,31 @@ class A2C:
             value_function_loss = 0.5 * torch.sum(delta ** 2)
 
             loss = policy_loss + value_function_loss
+            loss_deque.append(loss)
 
             self.optimiser.zero_grad()
             loss.backward()
             self.optimiser.step()
 
             if episode % print_every == 0:
-                print(
-                    "Episode {}\tAverage Score: {:.2f}".format(
-                        episode, np.mean(scores_deque)
-                    )
-                )
+                # print(
+                #     "Episode {}\tAverage Score: {:.2f}".format(
+                #         episode, np.mean(scores_deque)
+                #     )
+                # )
+                metrics = {
+                    "Average Score": np.mean(scores_deque),
+                    "Loss": np.mean(loss_deque),
+                }
+                log_to_screen(metrics)
+                if self.logger:
+                    log_to_comet_ml(self.logger, metrics, step=episode)
 
-            metrics = {
-                "Episode Return": scores[-1],
-                "Episode Length": episode_length,
-                "Loss/Actor Loss": policy_loss.detach().cpu().numpy(),
-                "Loss/Critic Loss": value_function_loss.detach().cpu().numpy(),
-                "Loss/Loss": loss.detach().cpu().numpy(),
-            }
-            if self.logger:
-                log_to_comet_ml(self.logger, metrics, step=episode)
+            # metrics = {
+            #     "Episode Return": scores[-1],
+            #     "Episode Length": episode_length,
+            #     "Loss/Actor Loss": policy_loss.detach().cpu().numpy(),
+            #     "Loss/Critic Loss": value_function_loss.detach().cpu().numpy(),
+            #     "Loss/Loss": loss.detach().cpu().numpy(),
+            # }
+
