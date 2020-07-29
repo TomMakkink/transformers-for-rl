@@ -8,13 +8,13 @@ from bsuite.experiments import summary_analysis
 
 
 def run_experiment(
-    name, logger: None, algo=A2C, model=TransformerA2C, total_timesteps=5000, seed=10
+    name, logger: None, algo=A2C, model=TransformerA2C, total_episodes=1000, seed=10
 ):
     device = get_device()
     set_random_seed(seed)
     env = create_environment()
     model = algo(name, model, env, device, logger)
-    model.learn(total_timesteps)
+    model.learn(total_episodes=total_episodes, window_size=5)
 
     # DF, _ = csv_load.load_bsuite("results/")
     # BSUITE_SCORE = summary_analysis.bsuite_score(DF)

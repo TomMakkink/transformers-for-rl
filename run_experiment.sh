@@ -2,12 +2,20 @@
 # Type Checking 
 # pytype experiment.py
 
-# Seed = 10
-python experiment.py --name Canonical & 
-python experiment.py --name ReZero --transformer rezero & 
-python experiment.py --name GTrXL --transformer gtrxl & 
-python experiment.py --name XL --transformer xl & 
-python experiment.py --name Linformer --transformer linformer 
+# Seed = 1
+python experiment.py --name Canonical --transformer vanilla --seed 1 & 
+python experiment.py --name ReZero --transformer rezero --seed 1 & 
+python experiment.py --name GTrXL --transformer gtrxl --seed 1 
+python experiment.py --name XL --transformer xl --seed 1 
 
-# tensorboard --logdir=runs --port 6003 & python experiment.py
-# xvfb-run -a -s "-screen 0 1400x900x24" -- python experiment.py 
+# Seed = 2
+python experiment.py --name Canonical --transformer vanilla --seed 2 & 
+python experiment.py --name ReZero --transformer rezero --seed 2 & 
+python experiment.py --name GTrXL --transformer gtrxl --seed 2 
+python experiment.py --name XL --transformer xl --seed 2 
+
+# Seed = 3
+python experiment.py --name Canonical --transformer vanilla --seed 3 & 
+python experiment.py --name ReZero --transformer rezero --seed 3 & 
+python experiment.py --name GTrXL --transformer gtrxl --seed 3 
+python experiment.py --name XL --transformer xl --seed 
