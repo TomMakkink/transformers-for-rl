@@ -96,8 +96,8 @@ class GTrXL(nn.Module):
         self.positional_encoding_layer = PositionalEncoding(
             encoding_type="relative", d_model=d_model
         )
-        self.u = nn.Parameter(torch.Tensor(num_heads, dim_head))
-        self.v = nn.Parameter(torch.Tensor(num_heads, dim_head))
+        self.u = nn.Parameter(torch.zeros(num_heads, dim_head))
+        self.v = nn.Parameter(torch.zeros(num_heads, dim_head))
         self.dropout = nn.Dropout(dropout)
 
         self.GTrXLs = nn.ModuleList(
@@ -113,9 +113,7 @@ class GTrXL(nn.Module):
             ]
         )
 
-        self.output_layer = nn.Sequential(
-            nn.Linear(d_model, output_dim, bias=False), nn.ReLU(),
-        )
+        self.output_layer = nn.Linear(d_model, output_dim, bias=False)
 
     def init_mem(self):
         if self.mem_len > 0:

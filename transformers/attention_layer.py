@@ -235,19 +235,19 @@ class RelativeMultiHeadAttention(nn.Module):
         attn_score = AC + BD
         attn_score.mul_(self.scale)
 
-        if attn_mask is not None and attn_mask.any().item():
-            if attn_mask.dim() == 2:
-                attn_score = (
-                    attn_score.float()
-                    .masked_fill(attn_mask[None, :, :, None], -float("inf"))
-                    .type_as(attn_score)
-                )
-            elif attn_mask.dim() == 3:
-                attn_score = (
-                    attn_score.float()
-                    .masked_fill(attn_mask[:, :, :, None], -float("inf"))
-                    .type_as(attn_score)
-                )
+        # if attn_mask is not None and attn_mask.any().item():
+        #     if attn_mask.dim() == 2:
+        #         attn_score = (
+        #             attn_score.float()
+        #             .masked_fill(attn_mask[None, :, :, None], -float("inf"))
+        #             .type_as(attn_score)
+        #         )
+        #     elif attn_mask.dim() == 3:
+        #         attn_score = (
+        #             attn_score.float()
+        #             .masked_fill(attn_mask[:, :, :, None], -float("inf"))
+        #             .type_as(attn_score)
+        #         )
 
         # # Mask
         # max_len = x.shape[0]

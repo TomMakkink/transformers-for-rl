@@ -25,9 +25,9 @@ class TransformerA2C(nn.Module):
 
     def forward(self, x):
         x = F.relu(self.fc_shared(x))
-        x = x.unsqueeze(0).unsqueeze(0)
+        x = x.unsqueeze(1)
         x = self.transformer(x)
-        x = x.squeeze(0).squeeze(0)
+        x = x.squeeze(1)
         logits = self.fc_policy(x)
 
         value = self.fc_value_function(x)
