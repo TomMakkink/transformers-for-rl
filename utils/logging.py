@@ -28,12 +28,7 @@ def log_to_tensorboard(writer, metrics, step):
 
 
 def log_to_screen(metrics):
-<<<<<<< HEAD
     print("------------------------------")
     for name, value in metrics.items():
         print(f"{name}: {value:.2f}")
     print("------------------------------")
-=======
-    for name, value in metrics.items(): 
-        print(f"{name}: {value:.2f}")
->>>>>>> 6f01ed53452693bc639bfbfbf7c75c9ef7d8d8b6

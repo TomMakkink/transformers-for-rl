@@ -14,7 +14,7 @@ def run_experiment(
     set_random_seed(seed)
     env = create_environment()
     model = algo(name, model, env, device, logger)
-    model.learn(total_episodes=total_episodes, window_size=5)
+    model.learn(total_episodes=total_episodes, window_size=1)
 
     # DF, _ = csv_load.load_bsuite("results/")
     # BSUITE_SCORE = summary_analysis.bsuite_score(DF)

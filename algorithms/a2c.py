@@ -25,6 +25,8 @@ class A2C:
         if self.logger:
             logger.log_parameters(a2c_config)
 
+        # self.hidden = (torch.zeros(1, 1, 128), torch.zeros(1, 1, 128))
+
     def _compute_returns(self, rewards):
         R = 0
         returns = []
@@ -38,38 +40,29 @@ class A2C:
 
     def learn(self, total_episodes, window_size=1, log_interval=10):
         scores = []
-<<<<<<< HEAD
-        scores_deque = deque(maxlen=print_every)
-        loss_deque = deque(maxlen=print_every)
-        episode = 1
-        total_t = 0
-        # for episode in range(1, number_episodes + 1):
-        while total_t < total_timesteps:
-=======
         scores_deque = deque(maxlen=log_interval)
         loss_deque = deque(maxlen=log_interval)
         obs_window = deque(maxlen=window_size)
 
         for episode in range(1, total_episodes + 1):
->>>>>>> 6f01ed53452693bc639bfbfbf7c75c9ef7d8d8b6
             log_probs = []
             values = []
             rewards = []
             state = self.env.reset()
+            self.hidden = (torch.zeros(1, 1, 128), torch.zeros(1, 1, 128))
             for t in range(a2c_config["max_steps_per_episode"]):
-                state = torch.from_numpy(state).float().to(self.device)    
-                obs_window.append(state)
-                if t == 0: 
-                    for i in range(window_size - 1): 
-                        obs_window.append(state)
-        
-                state = torch.stack(list(obs_window))
+                state = torch.from_numpy(state).float().to(self.device)
+                # obs_window.append(state)
+                # if t == 0:
+                #     for i in range(window_size - 1):
+                #         obs_window.append(state)
+                #     state = torch.stack(list(obs_window))
 
-                dist, value = self.net(state)
+                dist, value, self.hidden = self.net(state, self.hidden)
 
-                action = dist.sample()[-1]
+                action = dist.sample()
 
-                log_prob = dist.log_prob(action)[-1]
+                log_prob = dist.log_prob(action)
 
                 state, reward, done, _ = self.env.step(action.item())
 
@@ -77,10 +70,11 @@ class A2C:
                 log_probs.append(log_prob.unsqueeze(0))
                 values.append(value)
 
-                if done: break
+                if done:
+                    break
 
-            if type(self.net) is TransformerA2C:
-                self.net.reset_mem()
+            # if type(self.net) is TransformerA2C:
+            #     self.net.reset_mem()
 
             episode_length = len(rewards)
             scores.append(sum(rewards))
@@ -99,36 +93,6 @@ class A2C:
             value_function_loss = 0.5 * torch.sum(delta ** 2)
 
             loss = policy_loss + value_function_loss
-<<<<<<< HEAD
-            loss_deque.append(loss)
-
-            self.optimiser.zero_grad()
-            loss.backward()
-            self.optimiser.step()
-
-            if episode % print_every == 0:
-                # print(
-                #     "Episode {}\tAverage Score: {:.2f}".format(
-                #         episode, np.mean(scores_deque)
-                #     )
-                # )
-                metrics = {
-                    "Average Score": np.mean(scores_deque),
-                    "Loss": np.mean(loss_deque),
-                }
-                log_to_screen(metrics)
-                if self.logger:
-                    log_to_comet_ml(self.logger, metrics, step=episode)
-
-            # metrics = {
-            #     "Episode Return": scores[-1],
-            #     "Episode Length": episode_length,
-            #     "Loss/Actor Loss": policy_loss.detach().cpu().numpy(),
-            #     "Loss/Critic Loss": value_function_loss.detach().cpu().numpy(),
-            #     "Loss/Loss": loss.detach().cpu().numpy(),
-            # }
-
-=======
             self.optimiser.zero_grad()
             loss.backward()
             self.optimiser.step()
@@ -136,11 +100,10 @@ class A2C:
 
             if episode % log_interval == 0:
                 metrics = {
-                    "Average Score": np.mean(scores_deque), 
+                    "Average Score": np.mean(scores_deque),
                     "Loss": np.mean(loss_deque),
                 }
                 if self.logger:
                     log_to_comet_ml(self.logger, metrics, step=episode)
                 metrics.update({"Episode": episode})
                 log_to_screen(metrics)
->>>>>>> 6f01ed53452693bc639bfbfbf7c75c9ef7d8d8b6

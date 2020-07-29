@@ -78,43 +78,46 @@ class A2C:
                 loss.backward()
                 self.optimizer.step()
 
-    def learn(self, total_timesteps):
-
+    def learn(self, total_episodes, window_size=1, log_interval=10):
         scores = []
-        scores_deque = deque(maxlen=print_every)
-        episode = 1
-        total_t = 0
-        # for episode in range(1, number_episodes + 1):
-        while total_t < total_timesteps:
+        scores_deque = deque(maxlen=log_interval)
+        loss_deque = deque(maxlen=log_interval)
+        obs_window = deque(maxlen=window_size)
+
+        for episode in range(1, total_episodes + 1):
             log_probs = []
             values = []
             states = []
-            rewards = []
             actions = []
+            rewards = []
 
             state = self.env.reset()
-            for t in range(a2c_config["steps_per_epoch"]):
-                total_t = total_t + 1
+            for t in range(a2c_config["max_steps_per_episode"]):
                 state = torch.from_numpy(state).float().to(self.device)
+                if window_size > 1:
+                    obs_window.append(state)
+                    if t == 0:
+                        for i in range(window_size - 1):
+                            obs_window.append(state)
+                    state = torch.stack(list(obs_window))
+
                 dist, value = self.net(state)
-
-                action = dist.sample()
-
-                log_prob = dist.log_prob(action)
+                action = dist.sample()[-1]
+                log_prob = dist.log_prob(action)[-1]
 
                 next_state, reward, done, _ = self.env.step(action.item())
 
                 rewards.append(reward)
                 log_probs.append(log_prob.unsqueeze(0))
                 values.append(value)
-                actions.append(action)
-                states
+                states.append(state)
+                action.append(action)
 
                 if done:
-                    episode = episode + 1
-                    if type(self.net) is TransformerA2C:
-                        self.net.reset_mem()
                     break
+
+            if type(self.net) is TransformerA2C:
+                self.net.reset_mem()
 
             episode_length = len(rewards)
             scores.append(sum(rewards))
@@ -133,24 +136,17 @@ class A2C:
             value_function_loss = 0.5 * torch.sum(delta ** 2)
 
             loss = policy_loss + value_function_loss
-
             self.optimiser.zero_grad()
             loss.backward()
             self.optimiser.step()
+            loss_deque.append(loss.detach().cpu().numpy())
 
-            if episode % print_every == 0:
-                print(
-                    "Episode {}\tAverage Score: {:.2f}".format(
-                        episode, np.mean(scores_deque)
-                    )
-                )
-
-            metrics = {
-                "Episode Return": scores[-1],
-                "Episode Length": episode_length,
-                "Loss/Actor Loss": policy_loss.detach().cpu().numpy(),
-                "Loss/Critic Loss": value_function_loss.detach().cpu().numpy(),
-                "Loss/Loss": loss.detach().cpu().numpy(),
-            }
-            if self.logger:
-                log_to_comet_ml(self.logger, metrics, step=episode)
+            if episode % log_interval == 0:
+                metrics = {
+                    "Average Score": np.mean(scores_deque),
+                    "Loss": np.mean(loss_deque),
+                }
+                if self.logger:
+                    log_to_comet_ml(self.logger, metrics, step=episode)
+                metrics.update({"Episode": episode})
+                log_to_screen(metrics)

@@ -6,6 +6,7 @@ from configs.experiment_config import experiment_config
 from configs.transformer_config import transformer_config
 from models.mlp_a2c import MLPA2C
 from models.transformer_a2c import TransformerA2C
+from models.lstm_a2c import LSTMA2C
 from utils.logging import set_up_comet_ml
 import argparse
 
@@ -33,14 +34,5 @@ if __name__ == "__main__":
     logger = set_up_comet_ml(tags=[args.algo, args.transformer, args.seed, args.env])
 
     run_experiment(
-        args.name,
-        logger,
-<<<<<<< HEAD
-        model=TransformerA2C,
-        total_timesteps=args.t_steps,
-=======
-        # model=MLPA2C,
-        total_episodes=args.num_eps,
->>>>>>> 6f01ed53452693bc639bfbfbf7c75c9ef7d8d8b6
-        seed=args.seed,
+        args.name, logger, model=LSTMA2C, total_episodes=args.num_eps, seed=args.seed,
     )
