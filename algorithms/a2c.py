@@ -57,6 +57,10 @@ class A2C:
             for t in range(a2c_config["max_steps_per_episode"]):
                 state = torch.from_numpy(state).float().to(self.device)
 
+                # Convert from torch scalar to torch tensor in bandit case
+                if len(state.shape) == 0:
+                    state = state.view(1)
+
                 if window_size > 1:
                     obs_window.append(state)
                     if t == 0:

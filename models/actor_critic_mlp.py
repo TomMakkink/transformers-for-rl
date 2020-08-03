@@ -16,8 +16,6 @@ class ActorCriticMLP(nn.Module):
         self.fc_value_function = nn.Linear(hidden_size, 1)
 
     def forward(self, x):
-        if len(x.shape) == 0:
-            x = x.view(1)
         x = F.relu(self.fc_shared(x))
         logits = self.fc_policy(x)
         value = self.fc_value_function(x)
