@@ -44,7 +44,8 @@ class PPO:
             self.total_time_steps += 1
             obs_buf.append(obs)
             action, value, logp = self.ac.select_action(
-                torch.as_tensor(obs_buf, dtype=torch.float32, device=self.device)
+                torch.as_tensor(obs_buf, dtype=torch.float32,
+                                device=self.device)
             )
             next_obs, reward, done, _ = self.env.step(action)
             ep_ret += reward
@@ -89,7 +90,8 @@ class PPO:
 
     def _compute_loss_actor(self, logp, logp_old, adv):
         ratio = torch.exp(logp - logp_old)
-        clip_adv = torch.clamp(ratio, 1 - self.clip_ratio, 1 + self.clip_ratio) * adv
+        clip_adv = torch.clamp(ratio, 1 - self.clip_ratio,
+                               1 + self.clip_ratio) * adv
         loss_actor = -(torch.min(ratio * adv, clip_adv)).mean()
 
         # Useful extra info
@@ -105,13 +107,15 @@ class PPO:
     def train(self):
         # Train with multiple steps of gradient descent
         for i in range(ppo_config["train_iters"]):
-            # Sample episodes sequentially
+            # Sample episodes sequentially - TODO: Change to random
             for episode_index in range(self.replay_buffer.size()):
-                obs, act, ret, adv, logp_old = self.replay_buffer.get(episode_index)
+                obs, act, ret, adv, logp_old = self.replay_buffer.get(
+                    episode_index)
                 # for index in BatchSampler(SequentialSampler(range(len(obs))), ppo_config['batch_size'], False):
                 self.optimizer.zero_grad()
                 action, value, logp, ent = self.ac(obs, act)
-                loss_actor, kl, clipfrac = self._compute_loss_actor(logp, logp_old, adv)
+                loss_actor, kl, clipfrac = self._compute_loss_actor(
+                    logp, logp_old, adv)
                 loss_critic = self._compute_loss_critic(value, ret)
                 loss = (
                     loss_actor
@@ -143,9 +147,11 @@ class PPO:
                 "Extra/Entropy": ent,
                 "Extra/KL": kl,
             }
-            log_to_tensorboard(self.writer, metrics, step=self.total_time_steps)
+            log_to_tensorboard(self.writer, metrics,
+                               step=self.total_time_steps)
             if self.logger:
-                log_to_comet_ml(self.logger, metrics, step=self.total_time_steps)
+                log_to_comet_ml(self.logger, metrics,
+                                step=self.total_time_steps)
             metrics.update(
                 {
                     "Total Episodes": self.total_episodes,

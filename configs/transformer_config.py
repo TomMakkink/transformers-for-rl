@@ -5,5 +5,5 @@ transformer_config = {
     "num_layers": 3,
     "dim_mlp": 32,
     "dropout": 0.0,
-    "mem_len": 5,
+    "mem_len": 10,
     "transformer_type": "gtrxl"}

@@ -8,7 +8,8 @@ from torch.distributions import Categorical
 from collections import deque
 from configs.a2c_config import a2c_config
 import numpy as np
-from models.transformer_a2c import TransformerA2C
+from models.actor_critic_lstm import ActorCriticLSTM
+from models.actor_critic_transformer import ActorCriticTransformer
 from utils.logging import log_to_comet_ml, log_to_screen
 
 
@@ -16,7 +17,8 @@ class A2C:
     def __init__(self, name, model, env, device, logger):
         self.device = device
         self.env = env
-        self.net = model(env.observation_space, env.action_space).to(self.device)
+        self.net = model(env.observation_space,
+                         env.action_space).to(self.device)
 
         self.optimiser = optim.Adam(self.net.parameters(), lr=a2c_config["lr"])
 
@@ -24,8 +26,6 @@ class A2C:
         self.logger = logger
         if self.logger:
             logger.log_parameters(a2c_config)
-
-        # self.hidden = (torch.zeros(1, 1, 128), torch.zeros(1, 1, 128))
 
     def _compute_returns(self, rewards):
         R = 0
@@ -49,19 +49,25 @@ class A2C:
             values = []
             rewards = []
             state = self.env.reset()
-            self.hidden = (torch.zeros(1, 1, 128), torch.zeros(1, 1, 128))
+
+            if type(self.net) is ActorCriticLSTM:
+                hidden = (torch.zeros(1, 1, 128), torch.zeros(1, 1, 128))
             for t in range(a2c_config["max_steps_per_episode"]):
                 state = torch.from_numpy(state).float().to(self.device)
-                # obs_window.append(state)
-                # if t == 0:
-                #     for i in range(window_size - 1):
-                #         obs_window.append(state)
-                #     state = torch.stack(list(obs_window))
 
-                dist, value, self.hidden = self.net(state, self.hidden)
+                if window_size > 1:
+                    obs_window.append(state)
+                    if t == 0:
+                        for i in range(window_size - 1):
+                            obs_window.append(state)
+                    state = torch.stack(list(obs_window))
+
+                if type(self.net) is ActorCriticLSTM:
+                    dist, value, hidden = self.net(state, hidden)
+                else:
+                    dist, value = self.net(state)
 
                 action = dist.sample()
-
                 log_prob = dist.log_prob(action)
 
                 state, reward, done, _ = self.env.step(action.item())
@@ -73,8 +79,8 @@ class A2C:
                 if done:
                     break
 
-            # if type(self.net) is TransformerA2C:
-            #     self.net.reset_mem()
+            if type(self.net) is ActorCriticTransformer:
+                self.net.reset_mem()
 
             episode_length = len(rewards)
             scores.append(sum(rewards))

@@ -6,6 +6,9 @@ from models.transformer_a2c import TransformerA2C
 from bsuite.logging import csv_load
 from bsuite.experiments import summary_analysis
 
+from bsuite import sweep
+sweep.SWEEP
+
 
 def run_experiment(
     name, logger: None, algo=A2C, model=TransformerA2C, total_episodes=1000, seed=10
@@ -19,4 +22,3 @@ def run_experiment(
     # DF, _ = csv_load.load_bsuite("results/")
     # BSUITE_SCORE = summary_analysis.bsuite_score(DF)
     # summary_analysis.plot_single_experiment(BSUITE_SCORE, "memory_len")
-

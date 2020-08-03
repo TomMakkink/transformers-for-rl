@@ -1,10 +1,53 @@
 import numpy as np
 import scipy.signal
 import torch
-import bsuite
-from bsuite.utils import gym_wrapper
 from gym.wrappers import TransformObservation
+
+import bsuite
+from algorithms.a2c import A2C
+# from algorithms.ppo import PPO
+from bsuite.utils import gym_wrapper
 from configs.env_config import env_config
+from configs.experiment_config import experiment_config
+from configs.transformer_config import transformer_config
+from models.actor_critic_lstm import ActorCriticLSTM
+from models.actor_critic_mlp import ActorCriticMLP
+from models.actor_critic_transformer import ActorCriticTransformer
+
+
+def update_configs_from_args(args):
+    if args.project:
+        experiment_config.update({"project_name": args.project})
+    if args.name:
+        experiment_config.update({"experiment_name": args.name})
+    if args.seed:
+        experiment_config.update({"seed": args.seed})
+    if args.transformer:
+        transformer_config.update({"transformer_type": args.transformer})
+    if args.env:
+        env_config.update({"env": args.env})
+
+
+def model_from_args(args):
+    if args.lstm:
+        model = ActorCriticLSTM
+    elif args.transformer in ["vanilla", "rezero", "gtrxl", "xl"]:
+        model = ActorCriticTransformer
+    else:
+        model = ActorCriticMLP
+    return model
+
+
+def algo_from_string(algo: str):
+    return A2C
+    # if algo == "a2c":
+    #     algo = A2C
+    # elif algo == "ppo":
+    #     algo = PPO
+    # else:
+    #     print(f"Algorithm {args.algo} not implemented. Defaulting to PPO.")
+    #     algo = PPO
+    # return algo
 
 
 def plot_grad_flow(named_parameters):
@@ -63,10 +106,13 @@ def process_obs(obs, device):
     return torch.as_tensor(obs, dtype=torch.float32, device=device)
 
 
-def create_environment():
+def create_environment(env=None):
     save_path = "results/"
-    raw_env = bsuite.load_and_record(env_config["env"], save_path, overwrite=True)
+    if env:
+        raw_env = bsuite.load_and_record(env, save_path, overwrite=True)
+    else:
+        raw_env = bsuite.load_and_record(
+            env_config["env"], save_path, overwrite=True)
     env = gym_wrapper.GymFromDMEnv(raw_env)
     env = TransformObservation(env, lambda obs: obs.squeeze())
     return env
-

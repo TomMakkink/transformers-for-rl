@@ -4,7 +4,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.init import xavier_uniform_
 from transformers.positional_encoding_layer import PositionalEncoding
-from transformers.attention_layer import MultiHeadAttention
 
 Tensor = torch.Tensor
 
@@ -74,7 +73,7 @@ class ReZero(nn.Module):
         self.transformer_encoder = nn.TransformerEncoder(
             encoder_layer, num_layers=num_layers
         )
-        self.out_layer = nn.Sequential(nn.Linear(d_model, output_dim), nn.ReLU(),)
+        self.out_layer = nn.Linear(d_model, output_dim)
         self._reset_parameters()
 
     def _reset_parameters(self):
