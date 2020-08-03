@@ -11,14 +11,14 @@ class ActorCriticMLP(nn.Module):
         state_size = observation_space.shape[1]
         action_size = action_space.n
 
-        print(f"State space: {state_size}")
-        print(f"Action size: {action_size}")
         self.fc_shared = nn.Linear(state_size, hidden_size)
         self.fc_policy = nn.Linear(hidden_size, action_size)
         self.fc_value_function = nn.Linear(hidden_size, 1)
 
     def forward(self, x):
-        x = F.relu(self.fc_shared(x.view(1)))
+        if len(x.shape) == 0:
+            x = x.view(1)
+        x = F.relu(self.fc_shared(x))
         logits = self.fc_policy(x)
         value = self.fc_value_function(x)
         dist = Categorical(logits=logits)

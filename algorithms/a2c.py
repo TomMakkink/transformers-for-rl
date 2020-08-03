@@ -35,7 +35,8 @@ class A2C:
             returns.insert(0, R)
         returns = np.array(returns)
         returns -= returns.mean()
-        returns /= returns.std()
+        if returns.std() > 0.0:
+            returns /= returns.std()
         return returns
 
     def learn(self, total_episodes, window_size=1, log_interval=10):
@@ -52,6 +53,7 @@ class A2C:
 
             if type(self.net) is ActorCriticLSTM:
                 hidden = (torch.zeros(1, 1, 128), torch.zeros(1, 1, 128))
+
             for t in range(a2c_config["max_steps_per_episode"]):
                 state = torch.from_numpy(state).float().to(self.device)
 
