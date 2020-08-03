@@ -27,11 +27,11 @@ def run_experiment(name, logger: None, algo, model, total_episodes, seed):
 
     if args.env == "all":
         for env in sweep.SWEEP:
-            if "/0" in env:
-                env = create_environment(env)
-                rl_head = algo(name, model, env, device, logger)
-                rl_head.learn(total_episodes=total_episodes,
-                              window_size=args.window)
+            # if "/0" in env:
+            env = create_environment(env)
+            rl_head = algo(name, model, env, device, logger)
+            rl_head.learn(total_episodes=total_episodes,
+                          window_size=args.window)
     else:
         env = create_environment()
         rl_head = algo(name, model, env, device, logger)
