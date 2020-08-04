@@ -108,14 +108,16 @@ def process_obs(obs, device):
 
 def create_environment(alog_name, seed, transformer='none', env=None):
     # build folder path to save data
-    save_path = "results/" + alog_name + "/" + transformer + "/"
+    save_path = "results/"
 
     if env:
-        save_path = save_path + env + '/' + str(seed) + "/"
+        save_path = save_path + env + '/'
     else:
         # TODO: Clean up
         # env = env_config["env"]
-        save_path = save_path + env_config["env"] + '/' + str(seed) + "/"
+        save_path = save_path + env_config["env"] + '/'
+
+    save_path = save_path + alog_name + "/" + transformer + "/" + str(seed) + "/"
 
     if env:
         raw_env = bsuite.load_and_record(env, save_path, overwrite=True)
