@@ -106,13 +106,21 @@ def process_obs(obs, device):
     return torch.as_tensor(obs, dtype=torch.float32, device=device)
 
 
-def create_environment(env=None):
-    save_path = "results/"
+def create_environment(alog_name, seed, transformer='none', env=None):
+    # build folder path to save data
+    save_path = "results/" + alog_name + "/" + transformer + "/"
+
+    if env:
+        save_path = save_path + env + '/' + str(seed) + "/"
+    else:
+        # TODO: Clean up
+        # env = env_config["env"]
+        save_path = save_path + env_config["env"] + '/' + str(seed) + "/"
+
     if env:
         raw_env = bsuite.load_and_record(env, save_path, overwrite=True)
     else:
-        raw_env = bsuite.load_and_record(
-            env_config["env"], save_path, overwrite=True)
+        raw_env = bsuite.load_and_record(env_config["env"], save_path, overwrite=True)
     env = gym_wrapper.GymFromDMEnv(raw_env)
     env = TransformObservation(env, lambda obs: obs.squeeze())
     return env

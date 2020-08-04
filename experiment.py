@@ -5,35 +5,40 @@ from algorithms.a2c import A2C
 import argparse
 from bsuite import sweep
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--project", type=str, default="transformers-for-rl")
-parser.add_argument("--name", type=str, default="Test")
-parser.add_argument("--algo", type=str, default="A2C")
-parser.add_argument("--lstm", action="store_true")
-parser.add_argument("--transformer", type=str, default=None)
-parser.add_argument("--num_eps", type=int, default=1000)
-parser.add_argument("--seed", type=int, default=10)
-parser.add_argument("--env", type=str)
-parser.add_argument("--window", type=int, default=1)
-parser.add_argument("--comet", action="store_true")
-parser.add_argument("--tags", nargs="*",
-                    help="Additional comet experiment tags.")
-args = parser.parse_args()
+
+def get_logger(use_comet, tags, env_name):
+    logger = None
+    if use_comet:
+        logger = set_up_comet_ml(
+            tags=[*tags, env_name]
+        )
+    return logger
 
 
-def run_experiment(name, logger: None, algo, model, total_episodes, seed):
+def run_experiment(args):
+    name = args.name
+    total_episodes = args.num_eps
+    seed = args.seed
+    use_comet = args.comet
+    tags = [args.algo, args.transformer, args.seed]  # , args.tags]
+
+    # algo = algo_from_string(args.algo.lower())
+    algo = A2C
+    model = model_from_args(args)
+
     device = get_device()
     set_random_seed(seed)
 
     if args.env == "all":
         for env in sweep.SWEEP:
             # if "/0" in env:
-            env = create_environment(env)
+            logger = get_logger(use_comet, tags, env)
+            env = create_environment(alog_name=args.algo, seed=args.seed, transformer=args.transformer, env=env)
             rl_head = algo(name, model, env, device, logger)
-            rl_head.learn(total_episodes=total_episodes,
-                          window_size=args.window)
+            rl_head.learn(total_episodes=total_episodes, window_size=args.window)
     else:
-        env = create_environment()
+        logger = get_logger(use_comet, tags, args.env)
+        env = create_environment(alog_name=args.algo, seed=args.seed, transformer=args.transformer)
         rl_head = algo(name, model, env, device, logger)
         rl_head.learn(total_episodes=total_episodes, window_size=args.window)
 
@@ -42,17 +47,26 @@ def run_experiment(name, logger: None, algo, model, total_episodes, seed):
     # __radar_fig__ = summary_analysis.bsuite_radar_plot(BSUITE_SUMMARY, SWEEP_VARS)
 
 
-if __name__ == "__main__":
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--project", type=str, default="transformers-for-rl")
+    parser.add_argument("--name", type=str, default="Test")
+    parser.add_argument("--algo", type=str, default="A2C")
+    parser.add_argument("--lstm", action="store_true")
+    parser.add_argument("--transformer", type=str, default=None)
+    parser.add_argument("--num_eps", type=int, default=1000)
+    parser.add_argument("--seed", type=int, default=10)
+    parser.add_argument("--env", type=str)
+    parser.add_argument("--window", type=int, default=1)
+    parser.add_argument("--comet", action="store_true")
+    parser.add_argument("--tags", nargs="*",
+                        help="Additional comet experiment tags.")
+    args = parser.parse_args()
+
     update_configs_from_args(args)
-    if args.comet:
-        logger = set_up_comet_ml(
-            tags=[args.algo, args.transformer, args.seed, args.env, args.tags]
-        )
-    else:
-        logger = None
 
-    # algo = algo_from_string(args.algo.lower())
-    algo = A2C
-    model = model_from_args(args)
+    run_experiment(args)
 
-    run_experiment(args.name, logger, algo, model, args.num_eps, args.seed)
+
+if __name__ == "__main__":
+    main()
