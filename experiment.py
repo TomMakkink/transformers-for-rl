@@ -33,12 +33,13 @@ def run_experiment(args):
         for env in sweep.SWEEP:
             # if "/0" in env:
             logger = get_logger(use_comet, tags, env)
-            env = create_environment(alog_name=args.algo, seed=args.seed, transformer=args.transformer, env=env)
+            env = create_environment(alog_name=args.algo, seed=args.seed, transformer=args.transformer, env=env,
+                                     use_lstm=args.lstm)
             rl_head = algo(name, model, env, device, logger)
             rl_head.learn(total_episodes=total_episodes, window_size=args.window)
     else:
         logger = get_logger(use_comet, tags, args.env)
-        env = create_environment(alog_name=args.algo, seed=args.seed, transformer=args.transformer)
+        env = create_environment(alog_name=args.algo, seed=args.seed, transformer=args.transformer, use_lstm=args.lstm)
         rl_head = algo(name, model, env, device, logger)
         rl_head.learn(total_episodes=total_episodes, window_size=args.window)
 

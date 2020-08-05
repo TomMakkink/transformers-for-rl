@@ -106,7 +106,7 @@ def process_obs(obs, device):
     return torch.as_tensor(obs, dtype=torch.float32, device=device)
 
 
-def create_environment(alog_name, seed, transformer='none', env=None):
+def create_environment(alog_name, seed, transformer, env=None, use_lstm=False):
     # build folder path to save data
     save_path = "results/"
 
@@ -116,6 +116,12 @@ def create_environment(alog_name, seed, transformer='none', env=None):
         # TODO: Clean up
         # env = env_config["env"]
         save_path = save_path + env_config["env"] + '/'
+
+    if transformer is None:
+        if use_lstm:
+            transformer = "LSTM"
+        else:
+            transformer = "none"
 
     save_path = save_path + alog_name + "/" + transformer + "/" + str(seed) + "/"
 
