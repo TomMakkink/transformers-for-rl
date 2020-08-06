@@ -108,13 +108,29 @@ def process_obs(obs, device):
     return torch.as_tensor(obs, dtype=torch.float32, device=device)
 
 
-def create_environment(env=None):
+def create_environment(alog_name, seed, transformer, env=None, use_lstm=False):
+    # build folder path to save data
     save_path = "results/"
+
+    if env:
+        save_path = save_path + env + '/'
+    else:
+        # TODO: Clean up
+        # env = env_config["env"]
+        save_path = save_path + env_config["env"] + '/'
+
+    if transformer is None:
+        if use_lstm:
+            transformer = "LSTM"
+        else:
+            transformer = "none"
+
+    save_path = save_path + alog_name + "/" + transformer + "/" + str(seed) + "/"
+
     if env:
         raw_env = bsuite.load_and_record(env, save_path, overwrite=True)
     else:
-        raw_env = bsuite.load_and_record(
-            env_config["env"], save_path, overwrite=True)
+        raw_env = bsuite.load_and_record(env_config["env"], save_path, overwrite=True)
     env = gym_wrapper.GymFromDMEnv(raw_env)
     env = TransformObservation(env, lambda obs: obs.squeeze())
     return env

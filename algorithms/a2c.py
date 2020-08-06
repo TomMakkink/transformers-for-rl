@@ -52,7 +52,7 @@ class A2C:
             state = self.env.reset()
 
             if type(self.net) is ActorCriticLSTM:
-                hidden = (torch.zeros(1, 1, 128), torch.zeros(1, 1, 128))
+                hidden = (torch.zeros(1, 1, 128).to(self.device), torch.zeros(1, 1, 128).to(self.device))
 
             for t in range(a2c_config["max_steps_per_episode"]):
                 state = torch.from_numpy(state).float().to(self.device)
