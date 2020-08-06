@@ -109,6 +109,7 @@ class PPO:
         for i in range(ppo_config["train_iters"]):
             # Sample episodes sequentially - TODO: Change to random
             for episode_index in range(self.replay_buffer.size()):
+                episode_index =
                 obs, act, ret, adv, logp_old = self.replay_buffer.get(
                     episode_index)
                 # for index in BatchSampler(SequentialSampler(range(len(obs))), ppo_config['batch_size'], False):

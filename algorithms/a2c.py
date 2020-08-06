@@ -39,10 +39,10 @@ class A2C:
             returns /= returns.std()
         return returns
 
-    def learn(self, total_episodes, window_size=1, log_interval=10):
+    def learn(self, total_episodes, window_size=1):
         scores = []
-        scores_deque = deque(maxlen=log_interval)
-        loss_deque = deque(maxlen=log_interval)
+        scores_deque = deque(maxlen=a2c_config["log_interval"])
+        loss_deque = deque(maxlen=a2c_config["log_interval"])
         obs_window = deque(maxlen=window_size)
 
         for episode in range(1, total_episodes + 1):
@@ -110,7 +110,7 @@ class A2C:
             self.optimiser.step()
             loss_deque.append(loss.detach().cpu().numpy())
 
-            if episode % log_interval == 0:
+            if episode % a2c_config["log_interval"] == 0:
                 metrics = {
                     "Average Score": np.mean(scores_deque),
                     "Loss": np.mean(loss_deque),

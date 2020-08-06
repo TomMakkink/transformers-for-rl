@@ -4,6 +4,11 @@ from utils.utils import update_configs_from_args, model_from_args, set_random_se
 from algorithms.a2c import A2C
 import argparse
 from bsuite import sweep
+import numpy as np
+from models.actor_critic_lstm import ActorCriticLSTM
+from models.actor_critic_mlp import ActorCriticMLP
+from models.actor_critic_transformer import ActorCriticTransformer
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--project", type=str, default="transformers-for-rl")
@@ -15,6 +20,7 @@ parser.add_argument("--num_eps", type=int, default=1000)
 parser.add_argument("--seed", type=int, default=10)
 parser.add_argument("--env", type=str)
 parser.add_argument("--window", type=int, default=1)
+parser.add_argument("--log_dir", type=str, default="scores")
 parser.add_argument("--comet", action="store_true")
 parser.add_argument("--tags", nargs="*",
                     help="Additional comet experiment tags.")
@@ -22,20 +28,19 @@ args = parser.parse_args()
 
 
 def run_experiment(name, logger: None, algo, model, total_episodes, seed):
-    device = get_device()
     set_random_seed(seed)
-
     if args.env == "all":
         for env in sweep.SWEEP:
-            # if "/0" in env:
-            env = create_environment(env)
-            rl_head = algo(name, model, env, device, logger)
-            rl_head.learn(total_episodes=total_episodes,
-                          window_size=args.window)
+            if "/0" in env:
+                env = create_environment(env)
+                rl_head = algo(name, model, env, device, logger)
+                rl_head.learn(total_episodes=total_episodes,
+                              window_size=args.window)
     else:
         env = create_environment()
         rl_head = algo(name, model, env, device, logger)
-        rl_head.learn(total_episodes=total_episodes, window_size=args.window)
+        rl_head.learn(
+            total_episodes=total_episodes, window_size=args.window)
 
     # BSUITE_SCORE = summary_analysis.bsuite_score(DF, SWEEP_VARS)
     # BSUITE_SUMMARY = summary_analysis.ave_score_by_tag(BSUITE_SCORE, SWEEP_VARS)
@@ -46,13 +51,15 @@ if __name__ == "__main__":
     update_configs_from_args(args)
     if args.comet:
         logger = set_up_comet_ml(
-            tags=[args.algo, args.transformer, args.seed, args.env, args.tags]
+            tags=[args.algo, args.transformer, args.env, args.tags]
         )
     else:
         logger = None
-
+    device = get_device()
     # algo = algo_from_string(args.algo.lower())
     algo = A2C
     model = model_from_args(args)
+    print(model)
 
-    run_experiment(args.name, logger, algo, model, args.num_eps, args.seed)
+    run_experiment(args.name, logger, algo,
+                   model, args.num_eps, args.seed)

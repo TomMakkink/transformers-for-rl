@@ -13,6 +13,8 @@ from configs.transformer_config import transformer_config
 from models.actor_critic_lstm import ActorCriticLSTM
 from models.actor_critic_mlp import ActorCriticMLP
 from models.actor_critic_transformer import ActorCriticTransformer
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 
 def update_configs_from_args(args):

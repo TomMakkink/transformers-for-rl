@@ -8,6 +8,7 @@ from configs.transformer_config import transformer_config
 class ActorCriticTransformer(nn.Module):
     def __init__(self, observation_space, action_space):
         super(ActorCriticTransformer, self).__init__()
+
         s_size = observation_space.shape[1]
         a_size = action_space.n
 
