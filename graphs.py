@@ -56,7 +56,6 @@ def process_data(root, save):
                                 episodes.append(data["episode"])
 
                     # Assume episodes are all the same
-                    print(len(episodes[0]))
                     x = np.array(episodes[0])
                     y = calculate_mean(returns)
                     std = calculate_std(returns)
@@ -90,6 +89,8 @@ args = parser.parse_args()
 if __name__ == "__main__":
     root_dir = args.root_dir if args.root_dir else DEFAULT_DATA_FOLDER
     save_dir = args.save_dir if args.save_dir else DEFAULT_SAVE_DIR
+    print(root_dir)
+    print(save_dir)
     if os.path.exists(root_dir):
         process_data(root_dir, save_dir)
     else:
