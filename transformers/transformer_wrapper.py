@@ -5,8 +5,7 @@ from transformers.transformer_gtr_xl import GTrXL
 from transformers.transformer import TransformerModel
 from transformers.transformer_xl import TransformerXL
 from transformers.re_zero import ReZero
-from reformer_pytorch import Reformer
-from fast_transformers.builders import TransformerEncoderBuilder
+from transformers.linformer import Linformer
 from configs.ppo_config import ppo_config
 
 Tensor = torch.Tensor
@@ -18,15 +17,16 @@ class Transformer(nn.Module):
     """
 
     def __init__(
-            self,
-            d_model: int,
-            output_dim: int,
-            transformer_type: str = "None",
-            num_layers: int = 2,
-            num_heads: int = 1,
-            dim_mlp: int = 32,
-            dropout: float = 0.0,
-            mem_len: int = 0,
+        self,
+        d_model: int,
+        output_dim: int,
+        transformer_type: str = "None",
+        num_layers: int = 2,
+        num_heads: int = 1,
+        dim_mlp: int = 32,
+        dropout: float = 0.0,
+        mem_len: int = 0,
+        max_seq_len: int = 1,
     ):
         """
         Args: 
@@ -85,30 +85,16 @@ class Transformer(nn.Module):
                 dim_mlp=dim_mlp,
                 dropout=dropout,
             )
-        elif self.transformer_type == "reformer":
-            print("Using Reformer...")
-            self.transformer = Reformer(
-                dim=d_model,
-                depth=num_layers,
-                max_seq_len=ppo_config.get('batch_size'),
-                lsh_dropout=dropout,
-                heads=num_heads,
-                bucket_size=5,
-            )
         elif self.transformer_type == "linformer":
             print("Using Linformer...")
-            self.transformer = TransformerEncoderBuilder.from_kwargs(
-                n_layers=num_layers,
-                n_heads=num_heads,
-                query_dimensions=d_model,
-                value_dimensions=d_model,
-                feed_forward_dimensions=dim_mlp,
-                attention_type="linear",
-                activation="relu"
-            ).get()
-            self.out_layer = nn.Sequential(
-                nn.Linear(dim_mlp, output_dim),
-                nn.ReLU(),
+            self.transformer = Linformer(
+                d_model=d_model,
+                output_dim=output_dim,
+                num_heads=num_heads,
+                num_layers=num_layers,
+                dim_mlp=dim_mlp,
+                dropout=dropout,
+                max_seq_len=max_seq_len,
             )
         else:
             print("No Transformer Selected...")
@@ -130,10 +116,6 @@ class Transformer(nn.Module):
             return inputs
         if self.transformer_type == "xl" or self.transformer_type == "gtrxl":
             output, self.mem = self.transformer(inputs, self.mem)
-            # output, self.mem = ret[0], ret[1:]
-        elif self.transformer_type == "linformer":
-            output = self.transformer(inputs)
-            output = self.out_layer(output)
         else:
             output = self.transformer(inputs)
         return output
