@@ -5,6 +5,8 @@ from gym.wrappers import TransformObservation
 
 import bsuite
 from algorithms.a2c import A2C
+from algorithms.dqn import DQN
+
 # from algorithms.ppo import PPO
 from bsuite.utils import gym_wrapper
 from configs.env_config import env_config
@@ -113,11 +115,11 @@ def create_environment(alog_name, seed, transformer, env=None, use_lstm=False):
     save_path = "results/"
 
     if env:
-        save_path = save_path + env + '/'
+        save_path = save_path + env + "/"
     else:
         # TODO: Clean up
         # env = env_config["env"]
-        save_path = save_path + env_config["env"] + '/'
+        save_path = save_path + env_config["env"] + "/"
 
     if transformer is None:
         if use_lstm:

@@ -1,16 +1,22 @@
 #!/bin/bash
 # Type Checking 
 # pytype experiment.py
-env='memory_size'
-for i in {0..10}
-  do 
-    python experiment.py --env "${env}/${i}" --transformer vanilla --window 4 --name Canonical --comet 
-    python experiment.py --env "${env}/${i}" --transformer gtrxl --window 4 --name GTrXL --comet 
-    python experiment.py --env "${env}/${i}" --transformer xl --window 4 --name XL --comet 
-    python experiment.py --env "${env}/${i}" --transformer rezero --window 4 --name ReZero --comet
-    python experiment.py --env "${env}/${i}" --name LSTM --lstm --comet 
-    python experiment.py --env "${env}/${i}" --name Actor_Critic --comet
- done
+# env='memory_size'
+declare -a envs=("memory_size" "memory_len")
+ 
+# Read the array values with space
+for env in "${envs[@]}"; do
+  for i in {0..5}; do 
+    python experiment.py --env "${env}/${i}" --transformer vanilla --window 20 --name Canonical --comet 
+    python experiment.py --env "${env}/${i}" --transformer gtrxl --window 20 --name GTrXL --comet 
+    # python experiment.py --env "${env}/${i}" --transformer xl --window 4 --name XL --comet 
+    # python experiment.py --env "${env}/${i}" --transformer rezero --window 4 --name ReZero --comet
+    # python experiment.py --env "${env}/${i}" --name LSTM --lstm --comet 
+    # python experiment.py --env "${env}/${i}" --name Actor_Critic --comet
+    python experiment.py --env "${env}/${i}" --transformer linformer --window 20 --name Linformer --comet 
+  done
+done
+
 
 
 
