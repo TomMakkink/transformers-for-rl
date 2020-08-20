@@ -5,6 +5,7 @@ from gym.wrappers import TransformObservation
 
 import bsuite
 from algorithms.a2c import A2C
+
 # from algorithms.ppo import PPO
 from bsuite.utils import gym_wrapper
 from configs.env_config import env_config
@@ -28,12 +29,14 @@ def update_configs_from_args(args):
         transformer_config.update({"transformer_type": args.transformer})
     if args.env:
         env_config.update({"env": args.env})
+    if args.window:
+        transformer_config.update({"max_seq_len": args.window})
 
 
 def model_from_args(args):
     if args.lstm:
         model = ActorCriticLSTM
-    elif args.transformer in ["vanilla", "rezero", "gtrxl", "xl"]:
+    elif args.transformer in ["vanilla", "rezero", "gtrxl", "xl", "linformer"]:
         model = ActorCriticTransformer
     else:
         model = ActorCriticMLP
@@ -113,11 +116,11 @@ def create_environment(alog_name, seed, transformer, env=None, use_lstm=False):
     save_path = "results/"
 
     if env:
-        save_path = save_path + env + '/'
+        save_path = save_path + env + "/"
     else:
         # TODO: Clean up
         # env = env_config["env"]
-        save_path = save_path + env_config["env"] + '/'
+        save_path = save_path + env_config["env"] + "/"
 
     if transformer is None:
         if use_lstm:
