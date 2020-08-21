@@ -1,13 +1,14 @@
 from collections import deque
 import torch
+import torch.nn as nn
 from torch.optim import Adam
-from torch.utils.data.sampler import BatchSampler, SequentialSampler
 from torch.utils.tensorboard import SummaryWriter
-from algorithms.replay_buffer import ReplayBuffer
-from utils.logging import log_to_comet_ml, log_to_screen, log_to_tensorboard
-from utils.utils import plot_grad_flow
+from typing import Deque, Dict, List, Tuple
 from configs.ppo_config import ppo_config
 from configs.env_config import env_config
+import numpy as np
+from models.actor_critic_mlp import Actor, Critic
+from utils.logging import log_to_comet_ml, log_to_screen
 
 
 class PPO:
@@ -20,143 +21,182 @@ class PPO:
         Args: 
         """
         super(PPO, self).__init__()
-        self.ac = model(env.observation_space, env.action_space).to(device)
-        self.env = env
-        self.replay_buffer = ReplayBuffer(
-            device, gamma=ppo_config["gamma"], lam=ppo_config["lam"]
-        )
-        self.steps_per_epoch = ppo_config["steps_per_epoch"]
-        self.clip_ratio = ppo_config["clip_ratio"]
-        self.device = device
-        self.total_episodes = 0
-        self.total_time_steps = 0
 
-        self.optimizer = Adam(self.ac.parameters(), lr=ppo_config["lr"])
+        self.env = env
+        self.device = device
+        self.memory = Memory()
+
+        self.gamma = ppo_config['gamma']
+        self.eps_clip = ppo_config['eps_clip']
+        self.epochs = ppo_config['epochs']
+        self.update_timestep = ppo_config['update_timestep']
+        self.learning_rate = ppo_config['learning_rate']
+        self.log_interval = ppo_config['log_interval']
+        self.entropy_weight = ppo_config['entropy_weight']
+        # network
+        # TODO: Use model that's passed in
+        hidden_layers_size = [64]
+        self.actor = Actor(env.observation_space, env.action_space,
+                           hidden_layers_size).to(self.device)
+        self.critic = Critic(env.observation_space, hidden_layers_size).to(self.device)
+
+        self.old_actor = Actor(env.observation_space, env.action_space,
+                               hidden_layers_size).to(self.device)
+        self.old_actor.load_state_dict(self.actor.state_dict())
+
+        # optimizer
+        self.actor_optimizer = Adam(self.actor.parameters(), lr=self.learning_rate)
+        self.critic_optimizer = Adam(self.critic.parameters(),
+                                     lr=self.learning_rate * 5)
+
+        self.MseLoss = nn.MSELoss()
 
         self.writer = SummaryWriter("runs/" + name)
         self.logger = logger
 
-    def collect_rollouts(self):
-        obs, ep_ret, ep_len = self.env.reset(), 0, 0
-        episode_returns, episode_lengths = [], []
-        obs_buf, actions_buf, rewards_buf, values_buf, logp_buf = [], [], [], [], []
-        for t in range(self.steps_per_epoch):
-            self.total_time_steps += 1
-            obs_buf.append(obs)
-            action, value, logp = self.ac.select_action(
-                torch.as_tensor(obs_buf, dtype=torch.float32,
-                                device=self.device)
-            )
-            next_obs, reward, done, _ = self.env.step(action)
-            ep_ret += reward
-            ep_len += 1
+    def update(self):
 
-            # save
-            actions_buf.append(action)
-            rewards_buf.append(reward)
-            values_buf.append(value)
-            logp_buf.append(logp)
+        rewards = []
+        discounted_reward = 0
+        for reward, is_terminal in zip(reversed(self.memory.rewards),
+                                       reversed(self.memory.is_terminals)):
+            if is_terminal:
+                discounted_reward = 0
+            discounted_reward = reward + (self.gamma * discounted_reward)
+            rewards.insert(0, discounted_reward)
 
-            # Update obs
-            obs = next_obs
+        # Normalizing the rewards:
+        rewards = torch.tensor(rewards, dtype=torch.float32).to(self.device)
+        rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
 
-            timeout = ep_len == env_config["max_episode_length"]
-            terminal = done or timeout
-            epoch_ended = t == self.steps_per_epoch - 1
+        # convert list to tensor
+        old_states = torch.stack(self.memory.states).to(self.device).detach()
+        old_actions = torch.stack(self.memory.actions).to(self.device).detach()
+        old_logprobs = torch.stack(self.memory.logprobs).to(self.device).detach()
 
-            if terminal or epoch_ended:
-                episode_returns.append(ep_ret)
-                episode_lengths.append(ep_len)
-                self.replay_buffer.create_new_epi()
-                self.replay_buffer.store(
-                    obs_buf, actions_buf, rewards_buf, values_buf, logp_buf, value
-                )
+        # Optimize policy for K epochs:
+        actor_losses_l, critic_losses_l = [], []
+        for _ in range(self.epochs):
+            # Evaluating old actions and values :
+            dist = self.actor(old_states)
+            logprobs = dist.log_prob(old_actions)
+            dist_entropy = dist.entropy()
+            state_values = self.critic(old_states)
 
-                # Reset the episode and buffers
-                obs, ep_ret, ep_len = self.env.reset(), 0, 0
-                obs_buf, actions_buf, rewards_buf, values_buf, logp_buf = (
-                    [],
-                    [],
-                    [],
-                    [],
-                    [],
-                )
-                self.total_episodes += 1
+            # Finding the ratio (pi_theta / pi_theta__old):
+            ratios = torch.exp(logprobs - old_logprobs.detach())
 
-        mean_episode_returns = sum(episode_returns) / len(episode_returns)
-        mean_episode_length = sum(episode_lengths) / len(episode_lengths)
+            # Finding Surrogate Loss:
+            advantages = rewards - state_values
 
-        return mean_episode_returns, mean_episode_length
+            surr1 = ratios * advantages.detach()
+            surr2 = torch.clamp(ratios, 1 - self.eps_clip,
+                                1 + self.eps_clip) * advantages.detach()
+            actor_loss = -torch.min(surr1, surr2) - (self.entropy_weight * dist_entropy)
+            actor_loss = actor_loss.mean()
 
-    def _compute_loss_actor(self, logp, logp_old, adv):
-        ratio = torch.exp(logp - logp_old)
-        clip_adv = torch.clamp(ratio, 1 - self.clip_ratio,
-                               1 + self.clip_ratio) * adv
-        loss_actor = -(torch.min(ratio * adv, clip_adv)).mean()
+            critic_loss = 0.5 * self.MseLoss(state_values, rewards)
+            # train critic
+            self.critic_optimizer.zero_grad()
+            critic_loss.backward()
+            self.critic_optimizer.step()
 
-        # Useful extra info
-        approx_kl = (logp_old - logp).mean().item()
-        clipped = ratio.gt(1 + self.clip_ratio) | ratio.lt(1 - self.clip_ratio)
-        clipfrac = torch.as_tensor(clipped, dtype=torch.float32).mean().item()
+            # train actor
+            self.actor_optimizer.zero_grad()
+            actor_loss.backward()
+            self.actor_optimizer.step()
+            actor_losses_l.append(actor_loss.item())
+            critic_losses_l.append(critic_loss.item())
 
-        return loss_actor, approx_kl, clipfrac
+        actor_loss_l = sum(actor_losses_l) / len(actor_losses_l)
+        critic_loss_l = sum(critic_losses_l) / len(critic_losses_l)
 
-    def _compute_loss_critic(self, value, ret):
-        return ((value - ret) ** 2).mean()
+        # Copy new weights into old policy:
+        self.old_actor.load_state_dict(self.actor.state_dict())
+        return actor_loss_l, critic_loss_l
 
-    def train(self):
-        # Train with multiple steps of gradient descent
-        for i in range(ppo_config["train_iters"]):
-            # Sample episodes sequentially - TODO: Change to random
-            for episode_index in range(self.replay_buffer.size()):
-                episode_index =
-                obs, act, ret, adv, logp_old = self.replay_buffer.get(
-                    episode_index)
-                # for index in BatchSampler(SequentialSampler(range(len(obs))), ppo_config['batch_size'], False):
-                self.optimizer.zero_grad()
-                action, value, logp, ent = self.ac(obs, act)
-                loss_actor, kl, clipfrac = self._compute_loss_actor(
-                    logp, logp_old, adv)
-                loss_critic = self._compute_loss_critic(value, ret)
-                loss = (
-                    loss_actor
-                    + ent * ppo_config["ent_coef"]
-                    + loss_critic * ppo_config["value_coef"]
-                )
-                loss.backward()
-                # plot_grad_flow(self.ac.named_parameters())
-                self.optimizer.step()
-            if kl > 1.5 * ppo_config["target_kl"]:
-                print("Early stopping at step %d due to reaching max kl." % i)
-                break
+    def learn(self, total_episodes, window_size=1):
+        solved_reward = 230
 
-        return loss_actor, loss_critic, loss, ent, kl
+        # logging variables
+        running_reward = 0
+        avg_length = 0
+        timestep = 0
 
-    def learn(self, total_timesteps):
-        while self.total_time_steps < total_timesteps:
-            self.replay_buffer.reset()
-            mean_episode_returns, mean_episode_length = self.collect_rollouts()
-            loss_actor, loss_critic, loss, ent, kl = self.train()
+        self.memory.clear_memory()
 
-            # Logging metrics
-            metrics = {
-                "Mean Episode Return": mean_episode_returns,
-                "Mean Episode Length": mean_episode_length,
-                "Loss/Actor Loss": loss_actor,
-                "Loss/Critic Loss": loss_critic,
-                "Loss/Loss": loss,
-                "Extra/Entropy": ent,
-                "Extra/KL": kl,
-            }
-            log_to_tensorboard(self.writer, metrics,
-                               step=self.total_time_steps)
-            if self.logger:
-                log_to_comet_ml(self.logger, metrics,
-                                step=self.total_time_steps)
-            metrics.update(
-                {
-                    "Total Episodes": self.total_episodes,
-                    "Total Timesteps": self.total_time_steps,
+        # training loop
+        for i_episode in range(1, total_episodes + 1):
+            state = self.env.reset()
+            for t in range(env_config['max_episode_length']):
+                timestep += 1
+
+                # Running policy_old:
+                state = torch.from_numpy(state).float().to(self.device)
+                dist = self.old_actor(state)
+                action = dist.sample()
+                self.memory.states.append(state)
+                self.memory.actions.append(action)
+                self.memory.logprobs.append(dist.log_prob(action))
+
+                state, reward, done, _ = self.env.step(action.item())
+
+                # Saving reward and is_terminal:
+                self.memory.rewards.append(reward)
+                self.memory.is_terminals.append(done)
+
+                # update if its time
+                if timestep % self.update_timestep == 0:
+                    actor_loss, critic_loss = self.update()
+                    metrics = {
+                        "Actor Loss": actor_loss,
+                        "Critic Loss": critic_loss
+                    }
+                    if self.logger:
+                        log_to_comet_ml(self.logger, metrics, step=i_episode)
+                    metrics.update({"Episode": i_episode})
+                    log_to_screen(metrics)
+                    self.memory.clear_memory()
+                    timestep = 0
+
+                running_reward += reward
+                if done:
+                    break
+
+            avg_length += t
+
+            # # stop training if avg_reward > solved_reward
+            # if running_reward > (self.log_interval * solved_reward):
+            #     print("########## Solved! ##########")
+            #     break
+
+            # logging
+            if i_episode % self.log_interval == 0:
+                avg_length = int(avg_length / self.log_interval)
+                running_reward = int((running_reward / self.log_interval))
+                metrics = {
+                    "Average Score": running_reward
                 }
-            )
-            log_to_screen(metrics)
+                if self.logger:
+                    log_to_comet_ml(self.logger, metrics, step=i_episode)
+                metrics.update({"Episode": i_episode})
+                log_to_screen(metrics)
+
+                running_reward = 0
+                avg_length = 0
+
+
+class Memory:
+    def __init__(self):
+        self.actions = []
+        self.states = []
+        self.logprobs = []
+        self.rewards = []
+        self.is_terminals = []
+
+    def clear_memory(self):
+        del self.actions[:]
+        del self.states[:]
+        del self.logprobs[:]
+        del self.rewards[:]
+        del self.is_terminals[:]
