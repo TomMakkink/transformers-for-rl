@@ -1,6 +1,7 @@
 import comet_ml
 from utils.logging import set_up_comet_ml
-from utils.utils import update_configs_from_args, model_from_args, set_random_seed, get_device, create_environment
+from utils.utils import update_configs_from_args, model_from_args, set_random_seed, \
+    get_device, create_environment, algo_from_string
 from algorithms.a2c import A2C
 import argparse
 from bsuite import sweep
@@ -26,8 +27,8 @@ def run_experiment(args):
     use_comet = args.comet
     tags = [args.algo, args.transformer, args.seed]  # , args.tags]
 
-    # algo = algo_from_string(args.algo.lower())
-    algo = A2C
+    algo = algo_from_string(args.algo)
+
     model = model_from_args(args)
 
     device = get_device()
@@ -35,7 +36,8 @@ def run_experiment(args):
     if args.env == "all":
         for env in sweep.SWEEP:
             logger = get_logger(use_comet, tags, env)
-            env = create_environment(alog_name=args.algo, seed=args.seed, transformer=args.transformer, env=env,
+            env = create_environment(alog_name=args.algo, seed=args.seed,
+                                     transformer=args.transformer, env=env,
                                      use_lstm=args.lstm)
             rl_head = algo(name, model, env, device, logger)
             rl_head.learn(total_episodes=total_episodes,
@@ -43,7 +45,8 @@ def run_experiment(args):
     else:
         logger = get_logger(use_comet, tags, args.env)
         env = create_environment(
-            alog_name=args.algo, seed=args.seed, transformer=args.transformer, use_lstm=args.lstm)
+            alog_name=args.algo, seed=args.seed, transformer=args.transformer,
+            use_lstm=args.lstm)
         rl_head = algo(name, model, env, device, logger)
         rl_head.learn(
             total_episodes=total_episodes, window_size=args.window)
@@ -57,10 +60,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--project", type=str, default="transformers-for-rl")
     parser.add_argument("--name", type=str, default="Test")
-    parser.add_argument("--algo", type=str, default="A2C")
+    parser.add_argument("--algo", type=str, default="PPO")
     parser.add_argument("--lstm", action="store_true")
     parser.add_argument("--transformer", type=str, default=None)
-    parser.add_argument("--num_eps", type=int, default=1000)
+    parser.add_argument("--num_eps", type=int, default=2000)
     parser.add_argument("--seed", type=int, default=10)
     parser.add_argument("--env", type=str)
     parser.add_argument("--window", type=int, default=1)
