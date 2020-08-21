@@ -5,7 +5,7 @@ from gym.wrappers import TransformObservation
 
 import bsuite
 from algorithms.a2c import A2C
-# from algorithms.ppo import PPO
+from algorithms.ppo import PPO
 from bsuite.utils import gym_wrapper
 from configs.env_config import env_config
 from configs.experiment_config import experiment_config
@@ -41,16 +41,16 @@ def model_from_args(args):
 
 
 def algo_from_string(algo: str):
-    return A2C
-    # if algo == "a2c":
-    #     algo = A2C
-    # elif algo == "ppo":
-    #     algo = PPO
-    # else:
-    #     print(f"Algorithm {args.algo} not implemented. Defaulting to PPO.")
-    #     algo = PPO
-    # return algo
-
+    algo = algo.lower()
+    if algo == "a2c":
+        return A2C
+    elif algo == "ppo":
+        return PPO
+    else:
+        # TODO: Default to PPO
+        print(f"Algorithm {algo} not implemented. Defaulting to A2C.")
+        return A2C
+    
 
 def plot_grad_flow(named_parameters):
     ave_grads = []
