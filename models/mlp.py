@@ -27,7 +27,8 @@ class MLP(nn.Module):
         if random.random() > epsilon:
             state = torch.from_numpy(state).unsqueeze(0)
             q_value = self.forward(state)
-            action = q_value.max(1)[1].item()
+            action = torch.argmax(q_value).item()
+            # action = q_value.max(1)[1].item()
         else:
             action = random.randrange(self.action_size)
         return action

@@ -17,8 +17,7 @@ class A2C:
     def __init__(self, name, model, env, device, logger):
         self.device = device
         self.env = env
-        self.net = model(env.observation_space,
-                         env.action_space).to(self.device)
+        self.net = model(env.observation_space, env.action_space).to(self.device)
 
         self.optimiser = optim.Adam(self.net.parameters(), lr=a2c_config["lr"])
 
@@ -52,7 +51,10 @@ class A2C:
             state = self.env.reset()
 
             if type(self.net) is ActorCriticLSTM:
-                hidden = (torch.zeros(1, 1, 128).to(self.device), torch.zeros(1, 1, 128).to(self.device))
+                hidden = (
+                    torch.zeros(1, 1, 128).to(self.device),
+                    torch.zeros(1, 1, 128).to(self.device),
+                )
 
             for t in range(a2c_config["max_steps_per_episode"]):
                 state = torch.from_numpy(state).float().to(self.device)

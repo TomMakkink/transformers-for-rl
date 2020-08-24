@@ -3,10 +3,12 @@ from torch.distributions import Categorical
 import torch.nn.functional as F
 import torch
 
+
 def init_weights(m):
     if isinstance(m, nn.Linear):
-        nn.init.normal_(m.weight, mean=0., std=0.1)
+        nn.init.normal_(m.weight, mean=0.0, std=0.1)
         nn.init.constant_(m.bias, 0.1)
+
 
 class ActorCriticMLP(nn.Module):
     def __init__(self, observation_space, action_space, hidden_size=128):

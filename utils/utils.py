@@ -4,8 +4,8 @@ import torch
 from gym.wrappers import TransformObservation
 
 import bsuite
-from algorithms.a2c import A2C
-from algorithms.dqn import DQN
+from agents.a2c import A2C
+from agents.dqn import DQN
 
 # from algorithms.ppo import PPO
 from bsuite.utils import gym_wrapper

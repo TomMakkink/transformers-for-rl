@@ -3,6 +3,7 @@ dqn_config = {
     "lr": 0.001,
     "gamma": 0.99,
     "log_interval": 10,
+    "buffer_size": 10000,
     "batch_size": 32,
     "epsilon": {"start": 1.0, "final": 0.01, "decay": 500},
 }
