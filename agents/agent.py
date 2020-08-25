@@ -3,11 +3,11 @@ class Agent:
         super(Agent, self).__init__()
         self.device = device
 
-    def optimise_network(*args):
+    def optimise_network(self, *args):
         pass
 
-    def act(state):
+    def act(self, state):
         pass
 
-    def has_replay_buffer():
-        return False
+    def collect_experience(self, *args):
+        pass

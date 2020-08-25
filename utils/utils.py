@@ -6,8 +6,10 @@ from gym.wrappers import TransformObservation
 import bsuite
 from agents.a2c import A2C
 from agents.dqn import DQN
+from models.mlp import MLP
 
-# from algorithms.ppo import PPO
+# from agents.ppo import PPO
+
 from bsuite.utils import gym_wrapper
 from configs.env_config import env_config
 from configs.experiment_config import experiment_config
@@ -43,7 +45,6 @@ def model_from_args(args):
 
 
 def algo_from_string(algo: str):
-    return A2C
     # if algo == "a2c":
     #     algo = A2C
     # elif algo == "ppo":

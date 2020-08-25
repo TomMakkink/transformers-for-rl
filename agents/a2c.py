@@ -25,7 +25,7 @@ class A2C(Agent):
             returns /= returns.std()
         return returns
 
-    def optimise_network(self, rewards):
+    def optimize_network(self, rewards):
         returns = self._compute_returns(rewards)
         returns = torch.from_numpy(returns).float().to(self.device)
 
@@ -57,4 +57,7 @@ class A2C(Agent):
         self.values.append(value)
 
         return action.item()
+
+    def collect_experience(self, *args):
+        pass
 

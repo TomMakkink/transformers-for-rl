@@ -46,17 +46,11 @@ class DQN(Agent):
             dqn_config["epsilon"]["start"] - dqn_config["epsilon"]["final"]
         ) * math.exp(-1.0 * current_timestep / dqn_config["epsilon"]["decay"])
 
-    def optimise_network(self, *args):
+    def optimize_network(self, *args):
         states, actions, rewards, next_states, dones = self.replay_buffer.sample(
             dqn_config["batch_size"], self.device
         )
 
-        # with torch.no_grad():
-        #     next_q_values = self.target_network(next_states)
-        #     max_next_q_values, _ = next_q_values.max(1)
-        #     target_q_values = (
-        #         rewards + (1 - dones) * dqn_config["gamma"] * max_next_q_values
-        #     )
         next_q_values = self.net(next_states)
         max_next_q_values, _ = next_q_values.max(1)
         target_q_values = target_q_values = (
@@ -75,6 +69,6 @@ class DQN(Agent):
         del next_states
         return loss
 
-    def has_replay_buffer():
-        return False
+    def collect_experience(self, state, action, reward, next_state, done):
+        self.replay_buffer.push(state, action, reward, next_state, done)
 

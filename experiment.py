@@ -26,6 +26,7 @@ def run_experiment(args):
     use_comet = args.comet
     tags = [args.algo, args.transformer, args.seed]  # , args.tags]
 
+    agent, model = 
     # TODO: Think of a better way to do this. Maybe a use for Hydra?
     # algo = algo_from_string(args.algo.lower())
     agent = DQN

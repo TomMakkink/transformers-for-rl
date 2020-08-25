@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from collections import deque
 
 
 class ReplayBuffer:
@@ -12,9 +13,7 @@ class ReplayBuffer:
         Initialise a buffer of a given size for storing transitions
         :param size: the maximum number of transitions that can be stored
         """
-        self._storage = []
-        self._maxsize = size
-        self._next_idx = 0
+        self._storage = deque(maxlen=size)
 
     def __len__(self):
         return len(self._storage)
@@ -29,12 +28,7 @@ class ReplayBuffer:
         :param done: whether the episode terminated
         """
         data = (state, action, reward, next_state, done)
-
-        if self._next_idx >= len(self._storage):
-            self._storage.append(data)
-        else:
-            self._storage[self._next_idx] = data
-        self._next_idx = (self._next_idx + 1) % self._maxsize
+        self._storage.append(data)
 
     def _encode_sample(self, indices):
         states, actions, rewards, next_states, dones = [], [], [], [], []
