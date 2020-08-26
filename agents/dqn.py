@@ -49,7 +49,7 @@ class DQN(Agent):
             dqn_config["epsilon"]["start"] - dqn_config["epsilon"]["final"]
         ) * math.exp(-1.0 * current_timestep / dqn_config["epsilon"]["decay"])
 
-    def optimize_network(self, *args):
+    def optimize_network(self):
         states, actions, rewards, next_states, dones = self.replay_buffer.sample(
             dqn_config["batch_size"], self.device
         )
@@ -68,9 +68,10 @@ class DQN(Agent):
         self.optimiser.zero_grad()
         loss.backward()
         self.optimiser.step()
-        del states
-        del next_states
         return loss
+
+    def reset(self):
+        self.net.reset()
 
     def collect_experience(self, state, action, reward, next_state, done):
         self.replay_buffer.push(state, action, reward, next_state, done)

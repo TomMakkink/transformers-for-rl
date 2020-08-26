@@ -39,9 +39,22 @@ class Memory(nn.Module):
         x: shape [batch_size, feature_dim] 
         """
         if type(self.memory_network) is nn.LSTM:
+            x = x.unsqueeze(0)
             x, self.hidden = self.memory_network(x, self.hidden)
+            x = x.squeeze(0)
         elif type(self.memory_network) is Transformer:
             x = x.unsqueeze(1)
             x = self.memory_network(x)
             x = x.squeeze(1)
         return x
+
+    def reset(self):
+        if type(self.memory_network) is nn.LSTM:
+            self.hidden = (
+                torch.zeros(1, 1, lstm_config["hidden_dim"]).to(
+                    experiment_config["device"]
+                ),
+                torch.zeros(1, 1, lstm_config["hidden_dim"]).to(
+                    experiment_config["device"]
+                ),
+            )

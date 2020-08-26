@@ -23,14 +23,15 @@ def train_agent(agent, env, total_episodes, device, logger=None, window_size=1):
             next_state, reward, done, _ = env.step(action)
             rewards.append(reward)
 
-            agent.collect_experience(state.numpy(), action, reward, next_state, done)
+            agent.collect_experience(state, action, reward, next_state, done)
 
             state = next_state
 
             if done:
                 break
 
-        loss = agent.optimize_network(rewards)
+        loss = agent.optimize_network()
+        agent.reset()
 
         episode_length = len(rewards)
         scores.append(sum(rewards))

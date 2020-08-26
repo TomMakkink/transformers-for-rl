@@ -4,7 +4,9 @@ import torch.nn.functional as F
 
 
 class ActorCriticLSTM(nn.Module):
-    def __init__(self, observation_space, action_space, hidden_size=128, lstm_hidden_dim=128):
+    def __init__(
+        self, observation_space, action_space, hidden_size=128, lstm_hidden_dim=128
+    ):
         super(ActorCriticLSTM, self).__init__()
         state_size = observation_space.shape[1]
         action_size = action_space.n
