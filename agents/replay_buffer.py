@@ -57,8 +57,8 @@ class ReplayBuffer:
         indices = np.random.randint(0, len(self._storage) - 1, size=batch_size)
         states, actions, rewards, next_states, dones = self._encode_sample(indices)
 
-        states = np.array(states)
-        next_states = np.array(next_states)
+        states = states
+        next_states = next_states
         states = torch.from_numpy(states).float().to(device)
         actions = torch.from_numpy(actions).long().to(device)
         rewards = torch.from_numpy(rewards).float().to(device)

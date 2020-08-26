@@ -1,7 +1,6 @@
 class Agent:
-    def __init__(self, model, env, device):
+    def __init__(self, state_size, action_size, memory):
         super(Agent, self).__init__()
-        self.device = device
 
     def optimise_network(self, *args):
         pass

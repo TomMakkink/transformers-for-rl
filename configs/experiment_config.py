@@ -5,4 +5,5 @@ experiment_config = {
     "total_episode": 1000,
     "max_steps_per_episode": 2048,
     "log_interval": 10,
+    "device": "cpu",
 }

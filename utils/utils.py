@@ -6,7 +6,6 @@ from gym.wrappers import TransformObservation
 import bsuite
 from agents.a2c import A2C
 from agents.dqn import DQN
-from models.mlp import MLP
 
 # from agents.ppo import PPO
 
@@ -28,31 +27,25 @@ def update_configs_from_args(args):
         experiment_config.update({"experiment_name": args.name})
     if args.seed:
         experiment_config.update({"seed": args.seed})
-    if args.transformer:
-        transformer_config.update({"transformer_type": args.transformer})
+    if args.memory in ["vanilla", "rezero", "linformer", "xl", "gtrxl"]:
+        transformer_config.update({"transformer_type": args.memory})
     if args.env:
         env_config.update({"env": args.env})
 
 
-def model_from_args(args):
-    if args.lstm:
-        model = ActorCriticLSTM
-    elif args.transformer in ["vanilla", "rezero", "gtrxl", "xl"]:
-        model = ActorCriticTransformer
-    else:
-        model = ActorCriticMLP
-    return model
+def get_agent(agent_name: str):
+    return {"a2c": A2C, "dqn": DQN}.get(agent_name, A2C)  # Defaults to A2C
 
 
-def algo_from_string(algo: str):
-    # if algo == "a2c":
-    #     algo = A2C
-    # elif algo == "ppo":
-    #     algo = PPO
-    # else:
-    #     print(f"Algorithm {args.algo} not implemented. Defaulting to PPO.")
-    #     algo = PPO
-    # return algo
+# def algo_from_string(algo: str):
+# if algo == "a2c":
+#     algo = A2C
+# elif algo == "ppo":
+#     algo = PPO
+# else:
+#     print(f"Algorithm {args.algo} not implemented. Defaulting to PPO.")
+#     algo = PPO
+# return algo
 
 
 def plot_grad_flow(named_parameters):
@@ -100,18 +93,19 @@ def set_random_seed(seed: int, use_cuda: bool = False) -> None:
         torch.backends.cudnn.benchmark = False
 
 
-def get_device():
+def set_device():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using {device}")
-    return device
+    experiment_config["device"] = device
 
 
-def process_obs(obs, device):
-    obs = obs.squeeze()
-    return torch.as_tensor(obs, dtype=torch.float32, device=device)
+# def process_obs(obs, device):
+#     obs = obs.squeeze()
+#     return torch.as_tensor(obs, dtype=torch.float32, device=device)
 
 
-def create_environment(alog_name, seed, transformer, env=None, use_lstm=False):
+def create_environment(
+    agent, seed, memory, env=None,
+):
     # build folder path to save data
     save_path = "results/"
 
@@ -122,13 +116,7 @@ def create_environment(alog_name, seed, transformer, env=None, use_lstm=False):
         # env = env_config["env"]
         save_path = save_path + env_config["env"] + "/"
 
-    if transformer is None:
-        if use_lstm:
-            transformer = "LSTM"
-        else:
-            transformer = "none"
-
-    save_path = save_path + alog_name + "/" + transformer + "/" + str(seed) + "/"
+    save_path = save_path + agent + "/" + memory + "/" + str(seed) + "/"
 
     if env:
         raw_env = bsuite.load_and_record(env, save_path, overwrite=True)

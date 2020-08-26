@@ -3,21 +3,24 @@ import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
 
+from models.mlp import MLP
 from agents.agent import Agent
 from configs.dqn_config import dqn_config
+from configs.experiment_config import experiment_config
 from agents.replay_buffer import ReplayBuffer
 import math
 import random
 
 
 class DQN(Agent):
-    def __init__(self, model, env, device):
-        super(DQN, self).__init__(model, env, device)
-        self.net = model(env.observation_space, env.action_space).to(self.device)
+    def __init__(self, state_size, action_size, memory):
+        super(DQN, self).__init__(state_size, action_size, memory)
+        self.device = experiment_config["device"]
+        self.net = MLP(state_size, action_size, memory_type=memory).to(self.device)
         self.replay_buffer = ReplayBuffer(dqn_config["buffer_size"])
         self.optimiser = optim.Adam(self.net.parameters(), lr=dqn_config["lr"])
-        self.env = env
         self.current_timestep = 1
+        self.action_size = action_size
 
     def act(self, state):
         """
@@ -29,11 +32,11 @@ class DQN(Agent):
         self.current_timestep += 1
         if random.random() > epsilon:
             with torch.no_grad():
-                q_values = self.net(state)
-                _, action = q_values.max(0)
+                q_values = self.net(state.unsqueeze(0))
+                _, action = q_values.squeeze(0).max(0)
                 return action.item()
         else:
-            return self.env.action_space.sample()
+            return random.randrange(self.action_size)
 
     def update_target_network(self):
         """

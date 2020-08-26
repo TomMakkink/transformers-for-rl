@@ -3,33 +3,25 @@ import torch.nn as nn
 from torch.distributions import Categorical
 import torch.nn.functional as F
 import random
+from models.memory import Memory
 
 
 class MLP(nn.Module):
-    def __init__(self, observation_space, action_space, hidden_size=128):
+    def __init__(
+        self, state_size, action_size, hidden_size=128, memory_type="Transformer",
+    ):
         super(MLP, self).__init__()
-
-        state_size = observation_space.shape[1]
-        self.action_size = action_space.n
-
+        self.fc_network = nn.Sequential(nn.Linear(state_size, hidden_size), nn.ReLU())
+        self.memory_network = Memory(memory_type, hidden_size, hidden_size)
+        print(self.memory_network.memory_network)
         self.network = nn.Sequential(
-            nn.Linear(state_size, hidden_size),
-            nn.ReLU(),
             nn.Linear(hidden_size, hidden_size),
             nn.ReLU(),
-            nn.Linear(hidden_size, self.action_size),
+            nn.Linear(hidden_size, action_size),
         )
 
     def forward(self, x):
+        x = self.fc_network(x)
+        x = self.memory_network(x) if self.memory_network else x
         return self.network(x)
-
-    def act(self, state, epsilon):
-        if random.random() > epsilon:
-            state = torch.from_numpy(state).unsqueeze(0)
-            q_value = self.forward(state)
-            action = torch.argmax(q_value).item()
-            # action = q_value.max(1)[1].item()
-        else:
-            action = random.randrange(self.action_size)
-        return action
 

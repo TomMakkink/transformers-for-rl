@@ -1,6 +1,6 @@
 dqn_config = {
     "max_steps_per_episode": 2048,
-    "lr": 0.001,
+    "lr": 0.0001,
     "gamma": 0.99,
     "log_interval": 10,
     "buffer_size": 10000,
