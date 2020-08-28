@@ -130,7 +130,6 @@ class Transformer(nn.Module):
             return inputs
         if self.transformer_type == "xl" or self.transformer_type == "gtrxl":
             output, self.mem = self.transformer(inputs, self.mem)
-            # output, self.mem = ret[0], ret[1:]
         elif self.transformer_type == "linformer":
             output = self.transformer(inputs)
             output = self.out_layer(output)

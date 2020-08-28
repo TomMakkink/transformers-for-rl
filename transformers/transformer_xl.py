@@ -151,9 +151,9 @@ class TransformerXL(nn.Module):
         klen = mlen + qlen
 
         # Masking
-        attn_mask = torch.triu(inputs.new_ones(qlen, klen), diagonal=1 + mlen).bool()[
-            :, :, None
-        ]
+        # attn_mask = torch.triu(inputs.new_ones(qlen, klen), diagonal=1 + mlen).bool()[
+        #     :, :, None
+        # ]
 
         hids = []
         pos_seq = torch.arange(
@@ -168,7 +168,7 @@ class TransformerXL(nn.Module):
         for i, layer in enumerate(self.TransformerXLs):
             mem_i = None if mem is None else mem[i]
             core_out = layer(
-                core_out, pos_emb, self.u, self.v, attn_mask=attn_mask, mem=mem_i
+                core_out, pos_emb, self.u, self.v, attn_mask=None, mem=mem_i
             )
             hids.append(core_out)
 

@@ -1,21 +1,16 @@
 import numpy as np
 import scipy.signal
 import torch
-from gym.wrappers import TransformObservation
+from environment.environment_wrapper import SlidingWindowEnv
 
 import bsuite
 from agents.a2c import A2C
 from agents.dqn import DQN
 
-# from agents.ppo import PPO
-
 from bsuite.utils import gym_wrapper
 from configs.env_config import env_config
 from configs.experiment_config import experiment_config
 from configs.transformer_config import transformer_config
-from models.actor_critic_lstm import ActorCriticLSTM
-from models.actor_critic_mlp import ActorCriticMLP
-from models.actor_critic_transformer import ActorCriticTransformer
 import seaborn as sns
 import matplotlib.pyplot as plt
 
@@ -103,9 +98,7 @@ def set_device():
 #     return torch.as_tensor(obs, dtype=torch.float32, device=device)
 
 
-def create_environment(
-    agent, seed, memory, env=None,
-):
+def create_environment(agent, seed, memory, env=None, window_size=1):
     # build folder path to save data
     save_path = "results/"
 
@@ -123,5 +116,5 @@ def create_environment(
     else:
         raw_env = bsuite.load_and_record(env_config["env"], save_path, overwrite=True)
     env = gym_wrapper.GymFromDMEnv(raw_env)
-    env = TransformObservation(env, lambda obs: obs.squeeze())
+    env = SlidingWindowEnv(env, window_size=window_size)
     return env

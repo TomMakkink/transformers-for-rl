@@ -13,6 +13,7 @@ class Memory(nn.Module):
 
     def __init__(self, memory_type, input_dim, output_dim):
         super(Memory, self).__init__()
+        self.memory_type = memory_type
         if memory_type.lower() == "lstm":
             self.memory_network = nn.LSTM(
                 input_size=input_dim,
@@ -36,20 +37,21 @@ class Memory(nn.Module):
 
     def forward(self, x):
         """
-        x: shape [batch_size, feature_dim] 
+        x: shape [seq_len, batch_size, feature_dim] 
         """
         if type(self.memory_network) is nn.LSTM:
-            x = x.unsqueeze(0)
-            x, self.hidden = self.memory_network(x, self.hidden)
-            x = x.squeeze(0)
+            batch_size = x.shape[1]
+            if batch_size > 1:
+                x, self.hidden = self.memory_network(x)
+            else:
+                x, self.hidden = self.memory_network(x, self.hidden)
+
         elif type(self.memory_network) is Transformer:
-            x = x.unsqueeze(1)
             x = self.memory_network(x)
-            x = x.squeeze(1)
         return x
 
     def reset(self):
-        if type(self.memory_network) is nn.LSTM:
+        if self.memory_type == "lstm":
             self.hidden = (
                 torch.zeros(1, 1, lstm_config["hidden_dim"]).to(
                     experiment_config["device"]
@@ -58,3 +60,5 @@ class Memory(nn.Module):
                     experiment_config["device"]
                 ),
             )
+        elif self.memory_type in ["xl", "gtrxl"]:
+            self.memory_network.reset_mem()

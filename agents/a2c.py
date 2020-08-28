@@ -56,7 +56,7 @@ class A2C(Agent):
         self.net.reset()
 
     def act(self, state):
-        dist, value = self.net(state.unsqueeze(0))
+        dist, value = self.net(state)
         action = dist.sample()
         log_prob = dist.log_prob(action)
 

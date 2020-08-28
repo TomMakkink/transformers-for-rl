@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 from collections import deque
+import random
 
 
 class ReplayBuffer:
@@ -8,12 +9,10 @@ class ReplayBuffer:
     Simple storage for transitions from an environment.
     """
 
-    def __init__(self, size):
-        """
-        Initialise a buffer of a given size for storing transitions
-        :param size: the maximum number of transitions that can be stored
-        """
-        self._storage = deque(maxlen=size)
+    def __init__(self, max_num_episodes):
+        self._storage = deque(maxlen=max_num_episodes)
+        self._storage.append([])
+        self.current_episode_index = 0
 
     def __len__(self):
         return len(self._storage)
@@ -28,23 +27,51 @@ class ReplayBuffer:
         :param done: whether the episode terminated
         """
         data = (state, action, reward, next_state, done)
-        self._storage.append(data)
+        self._storage[self.current_episode_index].append(data)
 
-    def _encode_sample(self, indices):
-        states, actions, rewards, next_states, dones = [], [], [], [], []
-        for i in indices:
-            data = self._storage[i]
-            state, action, reward, next_state, done = data
-            states.append(np.array(state, copy=False))
-            actions.append(action)
-            rewards.append(reward)
-            next_states.append(np.array(next_state, copy=False))
-            dones.append(done)
+    # def _encode_sample(self, indices):
+    #     states, actions, rewards, next_states, dones = [], [], [], [], []
+    #     for i in indices:
+    #         data = self._storage[i]
+    #         state, action, reward, next_state, done = data
+    #         states.append(state)
+    #         actions.append(action)
+    #         rewards.append(reward)
+    #         next_states.append(next_state)
+    #         dones.append(done)
+    #     return (
+    #         states,
+    #         np.array(actions),
+    #         np.array(rewards),
+    #         next_states,
+    #         np.array(dones),
+    #     )
+    def sample_random_timesteps(self, batch_size):
+        flattened_experience = []
+        for episode in self._storage:
+            for timestep in range(len(episode)):
+                flattened_experience.append(episode[timestep])
+        states, actions, rewards, next_states, dones = zip(
+            *random.sample(flattened_experience, batch_size)
+        )
         return (
-            np.array(states),
+            states,
             np.array(actions),
             np.array(rewards),
-            np.array(next_states),
+            next_states,
+            np.array(dones),
+        )
+
+    def sample_random_episode(self):
+        episode_index = np.random.randint(0, len(self._storage))
+        states, actions, rewards, next_states, dones = zip(
+            *self._storage[episode_index]
+        )
+        return (
+            states,
+            np.array(actions),
+            np.array(rewards),
+            next_states,
             np.array(dones),
         )
 
@@ -54,15 +81,26 @@ class ReplayBuffer:
         :param batch_size: the number of transitions to sample
         :return: a mini-batch of sampled transitions
         """
-        indices = np.random.randint(0, len(self._storage) - 1, size=batch_size)
-        states, actions, rewards, next_states, dones = self._encode_sample(indices)
+        if sample_sequentially:
+            states, actions, rewards, next_states, dones = self.sample_random_episode()
+        else:
+            states, actions, rewards, next_states, dones = self.sample_random_timesteps(
+                batch_size
+            )
+        # states, actions, rewards, next_states, dones = self.sample_random_episode()
+        # else:
+        #     print(len(self._storage))
+        # states, actions, rewards, next_states, dones = self._encode_sample()
 
-        states = states
-        next_states = next_states
-        states = torch.from_numpy(states).float().to(device)
+        states = torch.stack(states).to(device)
         actions = torch.from_numpy(actions).long().to(device)
         rewards = torch.from_numpy(rewards).float().to(device)
-        next_states = torch.from_numpy(next_states).float().to(device)
+        next_states = torch.stack(next_states).to(device)
         dones = torch.from_numpy(dones).float().to(device)
 
         return (states, actions, rewards, next_states, dones)
+
+    def reset(self):
+        if self.current_episode_index + 1 < self._storage.maxlen:
+            self.current_episode_index += 1
+        self._storage.append([])

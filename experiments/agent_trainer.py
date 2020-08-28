@@ -5,11 +5,11 @@ import torch
 import numpy as np
 
 
-def train_agent(agent, env, total_episodes, device, logger=None, window_size=1):
+def train_agent(agent, env, total_episodes, device, logger=None):
     scores = []
     scores_deque = deque(maxlen=experiment_config["log_interval"])
     loss_deque = deque(maxlen=experiment_config["log_interval"])
-    obs_window = deque(maxlen=window_size)
+
     if logger:
         logger.log_parameters(config)
 
@@ -18,8 +18,7 @@ def train_agent(agent, env, total_episodes, device, logger=None, window_size=1):
         state = env.reset()
 
         for t in range(experiment_config["max_steps_per_episode"]):
-            state = torch.from_numpy(state).float().to(device)
-            action = agent.act(state)
+            action = agent.act(state.unsqueeze(1))
             next_state, reward, done, _ = env.step(action)
             rewards.append(reward)
 

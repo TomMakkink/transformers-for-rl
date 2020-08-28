@@ -16,10 +16,19 @@ class MLP(nn.Module):
         )
 
     def forward(self, x):
+        """
+        Args: 
+            x: input tensor of shape (seq_len, batch_size, features)
+
+        Returns:
+            Network outputs last sequence of shape (batch_size, features)
+        """
+        assert len(x.shape) == 3
         x = self.fc_network(x)
         x = self.memory_network(x) if self.memory_network else x
-        return self.network(x)
+        x = self.network(x)
+        return x[-1]
 
-    def reset(self, x):
+    def reset(self):
         self.memory_network.reset()
 

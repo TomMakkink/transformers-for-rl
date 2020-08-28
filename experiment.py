@@ -12,9 +12,6 @@ from agents.dqn import DQN
 import argparse
 from bsuite import sweep
 import numpy as np
-from models.actor_critic_lstm import ActorCriticLSTM
-from models.actor_critic_mlp import ActorCriticMLP
-from models.actor_critic_transformer import ActorCriticTransformer
 from experiments.agent_trainer import train_agent
 import torch.nn as nn
 
@@ -25,16 +22,17 @@ def run_experiment(args):
     set_random_seed(args.seed)
 
     if args.comet:
-        tags = [args.algo, args.transformer, args.seed]  # , args.tags]
-        logger = set_up_comet_ml(tags=[*tags, args.env])
+        tags = [args.agent, args.memory, args.seed, args.env]  # , args.tags]
+        logger = set_up_comet_ml(tags=[*tags])
     else:
         logger = None
-    env = create_environment(agent=args.agent, seed=args.seed, memory=args.memory)
+    env = create_environment(
+        agent=args.agent, seed=args.seed, memory=args.memory, window_size=args.window
+    )
     action_size = env.action_space.n
     state_size = env.observation_space.shape[1]
-
     agent = agent(state_size, action_size, args.memory)
-    train_agent(agent, env, args.num_eps, logger, window_size=args.window)
+    train_agent(agent, env, args.num_eps, logger)
 
 
 # def run_experiment(args):
@@ -95,7 +93,7 @@ def main():
     # parser.add_argument("--transformer", type=str, default=None)
     parser.add_argument("--num_eps", type=int, default=1000)
     parser.add_argument("--seed", type=int, default=10)
-    parser.add_argument("--env", type=str)
+    parser.add_argument("--env", type=str, default="cartpole/0")
     parser.add_argument("--window", type=int, default=1)
     parser.add_argument("--comet", action="store_true")
     parser.add_argument("--tags", nargs="*", help="Additional comet experiment tags.")

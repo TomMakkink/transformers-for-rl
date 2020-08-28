@@ -32,17 +32,11 @@ class DQN(Agent):
         self.current_timestep += 1
         if random.random() > epsilon:
             with torch.no_grad():
-                q_values = self.net(state.unsqueeze(0))
-                _, action = q_values.squeeze(0).max(0)
+                q_values = self.net(state)
+                _, action = q_values.max(1)
                 return action.item()
         else:
             return random.randrange(self.action_size)
-
-    def update_target_network(self):
-        """
-        Update the target Q-network by copying the weights from the current Q-network
-        """
-        self.target_network.load_state_dict(self.policy_network.state_dict())
 
     def calculate_epsilon(self, current_timestep):
         return dqn_config["epsilon"]["final"] + (
@@ -50,16 +44,20 @@ class DQN(Agent):
         ) * math.exp(-1.0 * current_timestep / dqn_config["epsilon"]["decay"])
 
     def optimize_network(self):
+        self.net.reset()
         states, actions, rewards, next_states, dones = self.replay_buffer.sample(
             dqn_config["batch_size"], self.device
         )
 
+        next_states = next_states.transpose(0, 1)
+        print(next_states.shape)
         next_q_values = self.net(next_states)
         max_next_q_values, _ = next_q_values.max(1)
-        target_q_values = target_q_values = (
+        target_q_values = (
             rewards + (1 - dones) * dqn_config["gamma"] * max_next_q_values
         )
 
+        states = states.transpose(0, 1)
         input_q_values = self.net(states)
         input_q_values = input_q_values.gather(1, actions.unsqueeze(1)).squeeze()
 
@@ -71,6 +69,7 @@ class DQN(Agent):
         return loss
 
     def reset(self):
+        self.replay_buffer.reset()
         self.net.reset()
 
     def collect_experience(self, state, action, reward, next_state, done):
