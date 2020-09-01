@@ -9,6 +9,7 @@ from utils.utils import (
 )
 from agents.a2c import A2C
 from agents.dqn import DQN
+
 import argparse
 from bsuite import sweep
 import numpy as np
@@ -77,6 +78,30 @@ def run_experiment(args):
 #     train_agent(agent, env, total_episodes, device, logger, window_size=args.window)
 #     # rl_head = algo(name, model, env, device, logger)
 #     # rl_head.learn(total_episodes=total_episodes, window_size=args.window)
+#     device = get_device()
+#     set_random_seed(seed)
+#     if args.env == "all":
+#         for env in sweep.SWEEP:
+#             logger = get_logger(use_comet, tags, env)
+#             env = create_environment(
+#                 alog_name=args.algo,
+#                 seed=args.seed,
+#                 transformer=args.transformer,
+#                 env=env,
+#                 use_lstm=args.lstm,
+#             )
+#             rl_head = algo(name, model, env, device, logger)
+#             rl_head.learn(total_episodes=total_episodes, window_size=args.window)
+#     else:
+#         logger = get_logger(use_comet, tags, args.env)
+#         env = create_environment(
+#             alog_name=args.algo,
+#             seed=args.seed,
+#             transformer=args.transformer,
+#             use_lstm=args.lstm,
+#         )
+#         rl_head = algo(name, model, env, device, logger)
+#         rl_head.learn(total_episodes=total_episodes, window_size=args.window)
 
 #     # BSUITE_SCORE = summary_analysis.bsuite_score(DF, SWEEP_VARS)
 #     # BSUITE_SUMMARY = summary_analysis.ave_score_by_tag(BSUITE_SCORE, SWEEP_VARS)
@@ -89,11 +114,9 @@ def main():
     parser.add_argument("--name", type=str, default="Test")
     parser.add_argument("--agent", type=str, default="A2C")
     parser.add_argument("--memory", type=str, default=None)
-    # parser.add_argument("--lstm", action="store_true")
-    # parser.add_argument("--transformer", type=str, default=None)
     parser.add_argument("--num_eps", type=int, default=1000)
-    parser.add_argument("--seed", type=int, default=10)
-    parser.add_argument("--env", type=str, default="cartpole/0")
+    parser.add_argument("--seed", type=int, default=1)
+    parser.add_argument("--env", type=str)
     parser.add_argument("--window", type=int, default=1)
     parser.add_argument("--comet", action="store_true")
     parser.add_argument("--tags", nargs="*", help="Additional comet experiment tags.")

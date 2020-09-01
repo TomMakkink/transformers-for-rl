@@ -26,21 +26,13 @@ def update_configs_from_args(args):
         transformer_config.update({"transformer_type": args.memory})
     if args.env:
         env_config.update({"env": args.env})
+    if args.window:
+        transformer_config.update({"max_seq_len": args.window})
+
 
 
 def get_agent(agent_name: str):
     return {"a2c": A2C, "dqn": DQN}.get(agent_name, A2C)  # Defaults to A2C
-
-
-# def algo_from_string(algo: str):
-# if algo == "a2c":
-#     algo = A2C
-# elif algo == "ppo":
-#     algo = PPO
-# else:
-#     print(f"Algorithm {args.algo} not implemented. Defaulting to PPO.")
-#     algo = PPO
-# return algo
 
 
 def plot_grad_flow(named_parameters):

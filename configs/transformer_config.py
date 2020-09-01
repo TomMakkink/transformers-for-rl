@@ -7,4 +7,5 @@ transformer_config = {
     "dropout": 0.0,
     "mem_len": 10,
     "transformer_type": "gtrxl",
+    "max_seq_len": 1,
 }
