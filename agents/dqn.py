@@ -12,6 +12,17 @@ import math
 import random
 
 
+def plot_grad_flow(named_parameters):
+    ave_grads = []
+    layers = []
+    for n, p in named_parameters:
+        if (p.requires_grad) and ("bias" not in n) and p is not None:
+            # print(f"Layer name: {n}")
+            layers.append(n)
+            ave_grads.append(p.grad.abs().mean())
+    print(f"Average grads: {ave_grads}")
+
+
 class DQN(Agent):
     def __init__(self, state_size, action_size, memory):
         super(DQN, self).__init__(state_size, action_size, memory)
@@ -21,6 +32,9 @@ class DQN(Agent):
         self.optimiser = optim.Adam(self.net.parameters(), lr=dqn_config["lr"])
         self.current_timestep = 1
         self.action_size = action_size
+        self.sample_sequentially = (
+            True if self.net.memory_network.memory is not None else False
+        )
 
     def act(self, state):
         """
@@ -46,11 +60,10 @@ class DQN(Agent):
     def optimize_network(self):
         self.net.reset()
         states, actions, rewards, next_states, dones = self.replay_buffer.sample(
-            dqn_config["batch_size"], self.device
+            dqn_config["batch_size"], self.device, self.sample_sequentially
         )
 
         next_states = next_states.transpose(0, 1)
-        print(next_states.shape)
         next_q_values = self.net(next_states)
         max_next_q_values, _ = next_q_values.max(1)
         target_q_values = (
@@ -65,6 +78,7 @@ class DQN(Agent):
 
         self.optimiser.zero_grad()
         loss.backward()
+        # plot_grad_flow(self.net.named_parameters())
         self.optimiser.step()
         return loss
 

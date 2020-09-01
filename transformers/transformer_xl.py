@@ -130,7 +130,9 @@ class TransformerXL(nn.Module):
             end_idx = mlen + max(0, qlen)
             beg_idx = max(0, end_idx - self.mem_len)
             for i in range(len(hids)):
+                # print(hids[i][-1].shape)
                 cat = torch.cat([mem[i], hids[i]], dim=0)
+                # cat = torch.cat([mem[i], hids[i][-1]], dim=0)
                 new_mem.append(cat[beg_idx:end_idx].detach())
         return new_mem
 
@@ -175,6 +177,7 @@ class TransformerXL(nn.Module):
         # core_out = self.dropout(core_out)
         core_out = self.output_layer(core_out)
         new_mem = self._update_mem(hids, mem, mlen, qlen)
+        # print(f"New mem: {new_mem}")
         return core_out, new_mem
 
         # TODO: Check the out layer here isn't destorying the memory mechanism somehow?

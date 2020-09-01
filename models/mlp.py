@@ -25,9 +25,11 @@ class MLP(nn.Module):
         """
         assert len(x.shape) == 3
         x = self.fc_network(x)
-        x = self.memory_network(x) if self.memory_network else x
+        if self.memory_network.memory:
+            x = self.memory_network(x)
+        x = x[-1]
         x = self.network(x)
-        return x[-1]
+        return x
 
     def reset(self):
         self.memory_network.reset()

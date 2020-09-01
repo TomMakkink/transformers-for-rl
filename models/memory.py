@@ -14,8 +14,10 @@ class Memory(nn.Module):
     def __init__(self, memory_type, input_dim, output_dim):
         super(Memory, self).__init__()
         self.memory_type = memory_type
-        if memory_type.lower() == "lstm":
-            self.memory_network = nn.LSTM(
+        if memory_type is None:
+            self.memory = None
+        elif memory_type.lower() == "lstm":
+            self.memory = nn.LSTM(
                 input_size=input_dim,
                 hidden_size=lstm_config["hidden_dim"],
                 num_layers=lstm_config["num_layers"],
@@ -29,25 +31,25 @@ class Memory(nn.Module):
                 ),
             )
         elif memory_type.lower() in ["vanilla", "rezero", "linformer", "xl", "gtrxl"]:
-            self.memory_network = Transformer(
+            self.memory = Transformer(
                 d_model=input_dim, output_dim=output_dim, **transformer_config
             )
         else:
-            self.memory_network = None
+            self.memory = None
 
     def forward(self, x):
         """
         x: shape [seq_len, batch_size, feature_dim] 
         """
-        if type(self.memory_network) is nn.LSTM:
+        if type(self.memory) is nn.LSTM:
             batch_size = x.shape[1]
             if batch_size > 1:
-                x, self.hidden = self.memory_network(x)
+                x, self.hidden = self.memory(x)
             else:
-                x, self.hidden = self.memory_network(x, self.hidden)
+                x, self.hidden = self.memory(x, self.hidden)
 
-        elif type(self.memory_network) is Transformer:
-            x = self.memory_network(x)
+        elif type(self.memory) is Transformer:
+            x = self.memory(x)
         return x
 
     def reset(self):
@@ -61,4 +63,5 @@ class Memory(nn.Module):
                 ),
             )
         elif self.memory_type in ["xl", "gtrxl"]:
-            self.memory_network.reset_mem()
+            self.memory.reset_mem()
+

@@ -88,7 +88,7 @@ def main():
     parser.add_argument("--project", type=str, default="transformers-for-rl")
     parser.add_argument("--name", type=str, default="Test")
     parser.add_argument("--agent", type=str, default="A2C")
-    parser.add_argument("--memory", type=str, default="None")
+    parser.add_argument("--memory", type=str, default=None)
     # parser.add_argument("--lstm", action="store_true")
     # parser.add_argument("--transformer", type=str, default=None)
     parser.add_argument("--num_eps", type=int, default=1000)

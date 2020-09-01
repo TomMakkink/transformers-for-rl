@@ -29,23 +29,6 @@ class ReplayBuffer:
         data = (state, action, reward, next_state, done)
         self._storage[self.current_episode_index].append(data)
 
-    # def _encode_sample(self, indices):
-    #     states, actions, rewards, next_states, dones = [], [], [], [], []
-    #     for i in indices:
-    #         data = self._storage[i]
-    #         state, action, reward, next_state, done = data
-    #         states.append(state)
-    #         actions.append(action)
-    #         rewards.append(reward)
-    #         next_states.append(next_state)
-    #         dones.append(done)
-    #     return (
-    #         states,
-    #         np.array(actions),
-    #         np.array(rewards),
-    #         next_states,
-    #         np.array(dones),
-    #     )
     def sample_random_timesteps(self, batch_size):
         flattened_experience = []
         for episode in self._storage:
@@ -87,10 +70,6 @@ class ReplayBuffer:
             states, actions, rewards, next_states, dones = self.sample_random_timesteps(
                 batch_size
             )
-        # states, actions, rewards, next_states, dones = self.sample_random_episode()
-        # else:
-        #     print(len(self._storage))
-        # states, actions, rewards, next_states, dones = self._encode_sample()
 
         states = torch.stack(states).to(device)
         actions = torch.from_numpy(actions).long().to(device)

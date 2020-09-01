@@ -166,17 +166,6 @@ class RelativeMultiHeadAttention(nn.Module):
 
         self.scale = 1 / (self.head_dim ** 0.5)
 
-    def _parallelogram_mask(self, height, width, left=False):
-        mask = torch.ones((height, width)).bool()
-        m = min(height, width)
-        mask[:m, :m] = torch.triu(mask[:m, :m])
-        mask[-m:, -m:] = torch.tril(mask[-m:, -m:])
-
-        if left:
-            return mask
-        else:
-            return mask.flip(0)
-
     def _rel_shift(self, x, zero_triu=False):
         zero_pad = torch.zeros(
             (x.size(0), 1, *x.size()[2:]), dtype=x.dtype, device=x.device
@@ -211,6 +200,10 @@ class RelativeMultiHeadAttention(nn.Module):
         """
         qlen, rlen, bsz = x.size(0), r.size(0), x.size(1)
 
+        # print(f"Memory shape: {mem}")
+        # if len(mem) > 0:
+        #     print(f"Memory slice: {mem[0].shape}")
+        # print(f"X: {x.shape}")
         context = x if mem is None else torch.cat([mem, x], 0)
         w_heads = self.qkv_net(context)
         rk = self.r_net(r)
