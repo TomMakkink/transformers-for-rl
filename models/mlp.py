@@ -4,7 +4,7 @@ from models.memory import Memory
 
 class MLP(nn.Module):
     def __init__(
-        self, state_size, action_size, hidden_size=128, memory_type="None",
+        self, state_size, action_size, hidden_size=128, memory_type=None,
     ):
         super(MLP, self).__init__()
         self.fc_network = nn.Sequential(nn.Linear(state_size, hidden_size), nn.ReLU())
@@ -18,7 +18,7 @@ class MLP(nn.Module):
     def forward(self, x):
         """
         Args: 
-            x: input tensor of shape (seq_len, batch_size, features)
+            x: input tensor of shape (batch_size, seq_len, features)
 
         Returns:
             Network outputs last sequence of shape (batch_size, features)
@@ -26,9 +26,11 @@ class MLP(nn.Module):
         assert len(x.shape) == 3
         x = self.fc_network(x)
         if self.memory_network.memory:
+            x = x.transpose(0, 1)
             x = self.memory_network(x)
-        x = x[-1]
+            x = x.transpose(0, 1)
         x = self.network(x)
+        x = x[:, -1, :]  # Only use most recent sequence
         return x
 
     def reset(self):

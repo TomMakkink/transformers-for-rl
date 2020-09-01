@@ -1,17 +1,17 @@
 from configs.experiment_config import experiment_config
-from utils.logging import log_to_screen
+from utils.logging import log_to_screen, log_to_comet_ml
 from collections import deque
 import torch
 import numpy as np
 
 
-def train_agent(agent, env, total_episodes, device, logger=None):
+def train_agent(agent, env, total_episodes, logger=None):
     scores = []
     scores_deque = deque(maxlen=experiment_config["log_interval"])
     loss_deque = deque(maxlen=experiment_config["log_interval"])
 
-    if logger:
-        logger.log_parameters(config)
+    if logger is not None:
+        logger.log_parameters(experiment_config)
 
     for episode in range(1, total_episodes + 1):
         rewards = []

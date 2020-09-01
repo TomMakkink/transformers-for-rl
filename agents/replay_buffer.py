@@ -70,7 +70,6 @@ class ReplayBuffer:
             states, actions, rewards, next_states, dones = self.sample_random_timesteps(
                 batch_size
             )
-
         states = torch.stack(states).to(device)
         actions = torch.from_numpy(actions).long().to(device)
         rewards = torch.from_numpy(rewards).float().to(device)

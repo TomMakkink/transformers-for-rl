@@ -52,16 +52,14 @@ class DQN(Agent):
             dqn_config["batch_size"], self.device, self.sample_sequentially
         )
 
-        next_states = next_states.transpose(0, 1)
         next_q_values = self.net(next_states)
         max_next_q_values, _ = next_q_values.max(1)
         target_q_values = (
             rewards + (1 - dones) * dqn_config["gamma"] * max_next_q_values
         )
 
-        states = states.transpose(0, 1)
         input_q_values = self.net(states)
-        input_q_values = input_q_values.gather(1, actions.unsqueeze(1)).squeeze()
+        input_q_values = input_q_values.gather(1, actions.unsqueeze(1)).squeeze(1)
 
         loss = F.smooth_l1_loss(input_q_values, target_q_values)
 
