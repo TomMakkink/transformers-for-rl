@@ -13,14 +13,14 @@ import random
 
 
 class DQN(Agent):
-    def __init__(self, state_size, action_size, memory):
+    def __init__(self, state_size, action_size, memory, hidden_size=[128, 128]):
         super(DQN, self).__init__(state_size, action_size, memory)
         self.device = experiment_config["device"]
         self.policy_net = MLP(
-            state_size, action_size, hidden_size=[128, 128], memory_type=memory
+            state_size, action_size, hidden_size, memory_type=memory
         ).to(self.device)
         self.target_network = MLP(
-            state_size, action_size, hidden_size=[128, 128], memory_type=memory
+            state_size, action_size, hidden_size, memory_type=memory
         ).to(self.device)
         self.update_target_update_by_percentage()
         self.target_network.eval()
