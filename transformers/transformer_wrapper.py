@@ -6,7 +6,6 @@ from transformers.transformer import TransformerModel
 from transformers.transformer_xl import TransformerXL
 from transformers.re_zero import ReZero
 from transformers.linformer import Linformer
-from configs.ppo_config import ppo_config
 
 Tensor = torch.Tensor
 
