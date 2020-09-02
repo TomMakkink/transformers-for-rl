@@ -65,6 +65,6 @@ class A2C(Agent):
 
         return action.item()
 
-    def collect_experience(self, _state, _action, reward, _next_state, _done):
+    def collect_experience(self, state, action, reward, next_state, done):
         self.rewards.append(reward)
 

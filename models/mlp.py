@@ -1,19 +1,26 @@
 import torch.nn as nn
 from models.memory import Memory
+from models.common import mlp
+from typing import List
 
 
 class MLP(nn.Module):
     def __init__(
-        self, state_size, action_size, hidden_size=128, memory_type=None,
+        self,
+        state_size,
+        action_size,
+        hidden_size: List[int] = [128, 128],
+        memory_type=None,
     ):
         super(MLP, self).__init__()
-        self.fc_network = nn.Sequential(nn.Linear(state_size, hidden_size), nn.ReLU())
-        self.memory_network = Memory(memory_type, hidden_size, hidden_size)
-        self.network = nn.Sequential(
-            nn.Linear(hidden_size, hidden_size),
-            nn.ReLU(),
-            nn.Linear(hidden_size, action_size),
+        self.fc_network = nn.Sequential(
+            nn.Linear(state_size, hidden_size[0]), nn.ReLU()
         )
+        self.memory_network = Memory(
+            memory_type, input_dim=hidden_size[0], output_dim=hidden_size[0]
+        )
+        hidden_size.append(action_size)
+        self.network = mlp(hidden_size, nn.ReLU)
 
     def forward(self, x):
         """
