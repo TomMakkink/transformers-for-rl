@@ -14,13 +14,14 @@ foo@bar:~$ docker build -t transformers -f Docker.transformer .
 ```
 
 Run the Docker image:
+
 Without GPU:  
 ```console
 foo@bar:~$ docker run -p 8889:8889 -p 6003:6003 -it -v "$(pwd)":/wd/ transformers:latest bash
 ```
 With GPU: 
 ```console
-docker run --gpus all --shm-size 8G -p 8889:8889 -p 6003:6003 -it -v "$(pwd)":/wd/ transformers:latest bash
+foo@bar:~$ docker run --gpus all --shm-size 8G -p 8889:8889 -p 6003:6003 -it -v "$(pwd)":/wd/ transformers:latest bash
 ```
 
 
