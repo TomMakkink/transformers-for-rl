@@ -35,7 +35,7 @@ def train_agent(agent, env, total_episodes, logger=None):
         episode_length = len(rewards)
         scores.append(sum(rewards))
         scores_deque.append(sum(rewards))
-        loss_deque.append(loss.item())
+        loss_deque.append(loss)
 
         if episode % experiment_config["log_interval"] == 0:
             metrics = {
