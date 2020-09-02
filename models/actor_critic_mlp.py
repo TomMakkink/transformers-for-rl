@@ -16,8 +16,21 @@ class ActorCriticMLP(nn.Module):
         self.fc_value_function = nn.Linear(hidden_size, 1)
 
     def forward(self, x):
+        """
+        Args: 
+            x: input tensor of shape (batch_size, seq_len, features)
+
+        Returns:
+            Network outputs last sequence of shape (batch_size, features)
+        """
+        # x = x.squeeze(0).squeeze(0)
         x = self.fc_network(x)
-        x = self.memory_network(x) if self.memory_network else x
+        if self.memory_network.memory:
+            # Memory recieves input of shape (seq_len, batch_size, features)
+            x = x.transpose(0, 1)
+            x = self.memory_network(x)
+            x = x.transpose(0, 1)
+        x = x[:, -1, :]  # Only use most recent sequence
         logits = self.fc_policy(x)
         value = self.fc_value_function(x)
         dist = Categorical(logits=logits)

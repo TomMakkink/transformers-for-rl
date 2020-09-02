@@ -18,7 +18,7 @@ def train_agent(agent, env, total_episodes, logger=None):
         state = env.reset()
 
         for t in range(experiment_config["max_steps_per_episode"]):
-            action = agent.act(state.unsqueeze(1))
+            action = agent.act(state.unsqueeze(0))
             next_state, reward, done, _ = env.step(action)
             rewards.append(reward)
 

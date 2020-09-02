@@ -30,7 +30,6 @@ def update_configs_from_args(args):
         transformer_config.update({"max_seq_len": args.window})
 
 
-
 def get_agent(agent_name: str):
     return {"a2c": A2C, "dqn": DQN}.get(agent_name, A2C)  # Defaults to A2C
 

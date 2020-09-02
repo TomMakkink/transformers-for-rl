@@ -60,7 +60,7 @@ class A2C(Agent):
         action = dist.sample()
         log_prob = dist.log_prob(action)
 
-        self.log_probs.append(log_prob.unsqueeze(0))
+        self.log_probs.append(log_prob)
         self.values.append(value)
 
         return action.item()
