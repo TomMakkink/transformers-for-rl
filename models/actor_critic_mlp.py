@@ -23,7 +23,6 @@ class ActorCriticMLP(nn.Module):
         Returns:
             Network outputs last sequence of shape (batch_size, features)
         """
-        # x = x.squeeze(0).squeeze(0)
         x = self.fc_network(x)
         if self.memory_network.memory:
             # Memory recieves input of shape (seq_len, batch_size, features)

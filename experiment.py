@@ -1,4 +1,3 @@
-import comet_ml
 from utils.logging import set_up_comet_ml
 from utils.utils import (
     update_configs_from_args,
@@ -8,13 +7,9 @@ from utils.utils import (
     create_environment,
 )
 from agents.a2c import A2C
-from agents.dqn import DQN
 
 import argparse
-from bsuite import sweep
-import numpy as np
 from experiments.agent_trainer import train_agent
-import torch.nn as nn
 
 
 def run_experiment(args):
@@ -34,78 +29,6 @@ def run_experiment(args):
     state_size = env.observation_space.shape[1]
     agent = agent(state_size, action_size, args.memory)
     train_agent(agent, env, args.num_eps, logger)
-
-
-# def run_experiment(args):
-#     name = args.name
-#     total_episodes = args.num_eps
-#     seed = args.seed
-#     use_comet = args.comet
-#     tags = [args.algo, args.transformer, args.seed]  # , args.tags]
-
-#     # TODO: Think of a better way to do this. Maybe a use for Hydra?
-#     # algo = algo_from_string(args.algo.lower())
-#     agent = DQN
-#     # model = model_from_args(args)
-#     model = MLP
-
-#     device = get_device()
-#     set_random_seed(seed)
-#     # if args.env == "all":
-#     #     for env in sweep.SWEEP:
-#     #         logger = set_up_comet_ml(tags=[*tags, env]) if use_comet else None
-#     #         env = create_environment(
-#     #             alog_name=args.algo,
-#     #             seed=args.seed,
-#     #             transformer=args.transformer,
-#     #             env=env,
-#     #             use_lstm=args.lstm,
-#     #         )
-#     #         rl_head = agent(name, model, env, device, logger)
-#     #         rl_head.learn(total_episodes=total_episodes, window_size=args.window)
-#     # else:
-#     logger = set_up_comet_ml(tags=[*tags, args.env]) if use_comet else None
-#     env = create_environment(
-#         alog_name=args.algo,
-#         seed=args.seed,
-#         transformer=args.transformer,
-#         use_lstm=args.lstm,
-#     )
-#     action_size = env.action_space.n
-#     state_size = env.observation_space.shape[1]
-#     input_layer = get_input_layer()
-#     agent = agent(action_size, state_size, model, device)
-#     train_agent(agent, env, total_episodes, device, logger, window_size=args.window)
-#     # rl_head = algo(name, model, env, device, logger)
-#     # rl_head.learn(total_episodes=total_episodes, window_size=args.window)
-#     device = get_device()
-#     set_random_seed(seed)
-#     if args.env == "all":
-#         for env in sweep.SWEEP:
-#             logger = get_logger(use_comet, tags, env)
-#             env = create_environment(
-#                 alog_name=args.algo,
-#                 seed=args.seed,
-#                 transformer=args.transformer,
-#                 env=env,
-#                 use_lstm=args.lstm,
-#             )
-#             rl_head = algo(name, model, env, device, logger)
-#             rl_head.learn(total_episodes=total_episodes, window_size=args.window)
-#     else:
-#         logger = get_logger(use_comet, tags, args.env)
-#         env = create_environment(
-#             alog_name=args.algo,
-#             seed=args.seed,
-#             transformer=args.transformer,
-#             use_lstm=args.lstm,
-#         )
-#         rl_head = algo(name, model, env, device, logger)
-#         rl_head.learn(total_episodes=total_episodes, window_size=args.window)
-
-#     # BSUITE_SCORE = summary_analysis.bsuite_score(DF, SWEEP_VARS)
-#     # BSUITE_SUMMARY = summary_analysis.ave_score_by_tag(BSUITE_SCORE, SWEEP_VARS)
-#     # __radar_fig__ = summary_analysis.bsuite_radar_plot(BSUITE_SUMMARY, SWEEP_VARS)
 
 
 def main():
