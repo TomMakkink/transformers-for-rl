@@ -1,18 +1,20 @@
 import numpy as np
 import scipy.signal
 import torch
-from gym.wrappers import TransformObservation
+from environment.environment_wrapper import SlidingWindowEnv
 
 import bsuite
+<<<<<<< HEAD
 from algorithms.a2c import A2C
 from algorithms.ppo import PPO
+=======
+from agents.a2c import A2C
+
+>>>>>>> 66408be54c5c559a731078fee1acad15f67046f4
 from bsuite.utils import gym_wrapper
 from configs.env_config import env_config
 from configs.experiment_config import experiment_config
 from configs.transformer_config import transformer_config
-from models.actor_critic_lstm import ActorCriticLSTM
-from models.actor_critic_mlp import ActorCriticMLP
-from models.actor_critic_transformer import ActorCriticTransformer
 import seaborn as sns
 import matplotlib.pyplot as plt
 
@@ -24,12 +26,15 @@ def update_configs_from_args(args):
         experiment_config.update({"experiment_name": args.name})
     if args.seed:
         experiment_config.update({"seed": args.seed})
-    if args.transformer:
-        transformer_config.update({"transformer_type": args.transformer})
+    if args.memory in ["vanilla", "rezero", "linformer", "xl", "gtrxl"]:
+        transformer_config.update({"transformer_type": args.memory})
     if args.env:
         env_config.update({"env": args.env})
+    if args.window:
+        transformer_config.update({"max_seq_len": args.window})
 
 
+<<<<<<< HEAD
 def model_from_args(args):
     if args.lstm:
         model = ActorCriticLSTM
@@ -51,6 +56,11 @@ def algo_from_string(algo: str):
         print(f"Algorithm {algo} not implemented. Defaulting to A2C.")
         return A2C
     
+=======
+def get_agent(agent_name: str):
+    return {"a2c": A2C}.get(agent_name, A2C)  # Defaults to A2C
+
+>>>>>>> 66408be54c5c559a731078fee1acad15f67046f4
 
 def plot_grad_flow(named_parameters):
     ave_grads = []
@@ -97,40 +107,34 @@ def set_random_seed(seed: int, use_cuda: bool = False) -> None:
         torch.backends.cudnn.benchmark = False
 
 
-def get_device():
+def set_device():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using {device}")
-    return device
+    experiment_config["device"] = device
 
 
-def process_obs(obs, device):
-    obs = obs.squeeze()
-    return torch.as_tensor(obs, dtype=torch.float32, device=device)
+# def process_obs(obs, device):
+#     obs = obs.squeeze()
+#     return torch.as_tensor(obs, dtype=torch.float32, device=device)
 
 
-def create_environment(alog_name, seed, transformer, env=None, use_lstm=False):
+def create_environment(agent, seed, memory, env=None, window_size=1):
     # build folder path to save data
     save_path = "results/"
 
     if env:
-        save_path = save_path + env + '/'
+        save_path = save_path + env + "/"
     else:
         # TODO: Clean up
         # env = env_config["env"]
-        save_path = save_path + env_config["env"] + '/'
+        save_path = save_path + env_config["env"] + "/"
 
-    if transformer is None:
-        if use_lstm:
-            transformer = "LSTM"
-        else:
-            transformer = "none"
-
-    save_path = save_path + alog_name + "/" + transformer + "/" + str(seed) + "/"
+    memory = memory if memory is not None else ""
+    save_path = save_path + agent + "/" + memory + "/" + str(seed) + "/"
 
     if env:
         raw_env = bsuite.load_and_record(env, save_path, overwrite=True)
     else:
         raw_env = bsuite.load_and_record(env_config["env"], save_path, overwrite=True)
     env = gym_wrapper.GymFromDMEnv(raw_env)
-    env = TransformObservation(env, lambda obs: obs.squeeze())
+    env = SlidingWindowEnv(env, window_size=window_size)
     return env
