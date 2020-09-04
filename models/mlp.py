@@ -6,11 +6,7 @@ from typing import List
 
 class MLP(nn.Module):
     def __init__(
-        self,
-        state_size,
-        action_size,
-        hidden_size: List[int] = [128, 128],
-        memory_type=None,
+        self, state_size, action_size, hidden_size: List[int], memory_type=None,
     ):
         super(MLP, self).__init__()
         self.fc_network = nn.Sequential(
@@ -24,7 +20,7 @@ class MLP(nn.Module):
 
     def forward(self, x):
         """
-        Args: 
+        Args:
             x: input tensor of shape (batch_size, seq_len, features)
 
         Returns:
@@ -42,4 +38,3 @@ class MLP(nn.Module):
 
     def reset(self):
         self.memory_network.reset()
-
