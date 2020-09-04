@@ -1,4 +1,4 @@
 env_config = {
-    "env": "memory_len/0",
+    "env": "cartpole/0",
     "max_episode_length": 200,
 }

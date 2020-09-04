@@ -27,7 +27,7 @@ def run_experiment(args):
     )
     action_size = env.action_space.n
     state_size = env.observation_space.shape[1]
-    agent = agent(state_size, action_size, args.memory)
+    agent = agent(state_size, action_size, args.memory, hidden_size=[128, 128])
     train_agent(agent, env, args.num_eps, logger)
 
 

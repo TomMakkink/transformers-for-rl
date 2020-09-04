@@ -5,6 +5,7 @@ from environment.environment_wrapper import SlidingWindowEnv
 
 import bsuite
 from agents.a2c import A2C
+from agents.dqn import DQN
 
 from bsuite.utils import gym_wrapper
 from configs.env_config import env_config
@@ -30,7 +31,7 @@ def update_configs_from_args(args):
 
 
 def get_agent(agent_name: str):
-    return {"a2c": A2C}.get(agent_name, A2C)  # Defaults to A2C
+    return {"a2c": A2C, "dqn": DQN}.get(agent_name, A2C)  # Defaults to A2C
 
 
 def plot_grad_flow(named_parameters):

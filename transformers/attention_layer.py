@@ -200,6 +200,10 @@ class RelativeMultiHeadAttention(nn.Module):
         """
         qlen, rlen, bsz = x.size(0), r.size(0), x.size(1)
 
+        # print(f"Memory shape: {mem}")
+        # if len(mem) > 0:
+        #     print(f"Memory slice: {mem[0].shape}")
+        # print(f"X: {x.shape}")
         context = x if mem is None else torch.cat([mem, x], 0)
         w_heads = self.qkv_net(context)
         rk = self.r_net(r)
