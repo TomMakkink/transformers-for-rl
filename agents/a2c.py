@@ -15,9 +15,12 @@ class A2C(Agent):
             self.device
         )
         self.optimiser = optim.Adam(self.net.parameters(), lr=a2c_config["lr"])
+        self.rewards = []
         self.log_probs = []
         self.values = []
-        self.rewards = []
+        self.states = []
+        self.actions = []
+        self.entropy = 0
 
     def _compute_returns(self):
         R = 0
@@ -50,9 +53,12 @@ class A2C(Agent):
         return loss
 
     def reset(self):
-        self.values = []
-        self.log_probs = []
         self.rewards = []
+        self.log_probs = []
+        self.values = []
+        self.states = []
+        self.actions = []
+        self.entropy = 0
         self.net.reset()
 
     def act(self, state):
@@ -65,6 +71,6 @@ class A2C(Agent):
 
         return action.item()
 
-    def collect_experience(self, _state, _action, reward, _next_state, _done):
+    def collect_experience(self, state, action, reward, next_state, done):
         self.rewards.append(reward)
 

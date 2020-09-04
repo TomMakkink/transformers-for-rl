@@ -1,9 +1,9 @@
 ppo_config = {
-    "log_interval": 10,
-    "update_timestep": 2000,
-    "gamma": 0.9,
+    "lr": 0.0004,
+    "gamma": 0.99,
+    "lam": 0.97,
     "epochs": 4,
-    "learning_rate": 0.002,
-    "eps_clip": 0.2,
-    "entropy_weight": 0.005
+    "mini_batch_size": 5,
+    "target_kl": 0.01,
+    "clip_ratio": 0.2,
 }

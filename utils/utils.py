@@ -4,13 +4,9 @@ import torch
 from environment.environment_wrapper import SlidingWindowEnv
 
 import bsuite
-<<<<<<< HEAD
-from algorithms.a2c import A2C
-from algorithms.ppo import PPO
-=======
 from agents.a2c import A2C
+from agents.ppo import PPO
 
->>>>>>> 66408be54c5c559a731078fee1acad15f67046f4
 from bsuite.utils import gym_wrapper
 from configs.env_config import env_config
 from configs.experiment_config import experiment_config
@@ -34,33 +30,9 @@ def update_configs_from_args(args):
         transformer_config.update({"max_seq_len": args.window})
 
 
-<<<<<<< HEAD
-def model_from_args(args):
-    if args.lstm:
-        model = ActorCriticLSTM
-    elif args.transformer in ["vanilla", "rezero", "gtrxl", "xl"]:
-        model = ActorCriticTransformer
-    else:
-        model = ActorCriticMLP
-    return model
-
-
-def algo_from_string(algo: str):
-    algo = algo.lower()
-    if algo == "a2c":
-        return A2C
-    elif algo == "ppo":
-        return PPO
-    else:
-        # TODO: Default to PPO
-        print(f"Algorithm {algo} not implemented. Defaulting to A2C.")
-        return A2C
-    
-=======
 def get_agent(agent_name: str):
-    return {"a2c": A2C}.get(agent_name, A2C)  # Defaults to A2C
+    return {"a2c": A2C, "ppo": PPO}.get(agent_name.lower(), PPO)  # Defaults to PPO
 
->>>>>>> 66408be54c5c559a731078fee1acad15f67046f4
 
 def plot_grad_flow(named_parameters):
     ave_grads = []
