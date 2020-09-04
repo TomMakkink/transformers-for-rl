@@ -1,0 +1,9 @@
+*.pyc
+runs/
+video/
+results/
+graphs/
+.vscode/
+.comet.config
+.pytype
+.DS_Store
