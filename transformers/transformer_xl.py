@@ -90,8 +90,8 @@ class TransformerXL(nn.Module):
         self.positional_encoding_layer = PositionalEncoding(
             encoding_type="relative", d_model=d_model
         )
-        self.u = nn.Parameter(torch.Tensor(num_heads, dim_head))
-        self.v = nn.Parameter(torch.Tensor(num_heads, dim_head))
+        self.u = nn.Parameter(torch.zeros(num_heads, dim_head))
+        self.v = nn.Parameter(torch.zeros(num_heads, dim_head))
 
         self.TransformerXLs = nn.ModuleList(
             [
@@ -156,6 +156,7 @@ class TransformerXL(nn.Module):
         # attn_mask = torch.triu(inputs.new_ones(qlen, klen), diagonal=1 + mlen).bool()[
         #     :, :, None
         # ]
+        attn_mask = None
 
         hids = []
         pos_seq = torch.arange(

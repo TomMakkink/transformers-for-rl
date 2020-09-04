@@ -4,7 +4,7 @@ import torch.nn as nn
 
 Tensor = torch.Tensor
 
-# TODO: Clear up documentation. One type includes max seq length, the other does not.
+
 class PositionalEncoding(nn.Module):
     """
     Wrapper for the positional-encoding layer, which provides the model with information 
@@ -78,12 +78,13 @@ class RelativePositionalEncoding(nn.Module):
 #     Relative positional encoding as used in the "Transformer-XL: Attentive Language Models
 #     Beyond a Fixed-Length Context" paper: https://arxiv.org/pdf/1901.02860.pdf.
 #     """
-#     def __init__(self, d_model:int):
-#         super(RelativePositionalEncoding, self).__init__()
-#         freq = 1 / (10000 ** (torch.arange(0., d_model, 2.)/d_model))
-#         self.register_buffer('freq', freq)
 
-#     def forward(self, pos:Tensor):
+#     def __init__(self, d_model: int):
+#         super(RelativePositionalEncoding, self).__init__()
+#         freq = 1 / (10000 ** (torch.arange(0.0, d_model, 2.0) / d_model))
+#         self.register_buffer("freq", freq)
+
+#     def forward(self, pos: Tensor):
 #         inp = torch.ger(pos, self.freq)
 #         enc = torch.cat([inp.sin(), inp.cos()], dim=-1)
 #         enc = enc[:, None, :]

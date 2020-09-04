@@ -162,20 +162,20 @@ class RelativeMultiHeadAttention(nn.Module):
         self.r_net = nn.Linear(self.d_model, self.num_heads * self.head_dim, bias=False)
 
         self.out_proj = nn.Linear(num_heads * self.head_dim, d_model, bias=False)
-        self.layer_norm = nn.LayerNorm(d_model)
+        self.layer_norm = nn.LayerNorm(d_model, eps=1e-5)
 
         self.scale = 1 / (self.head_dim ** 0.5)
 
-    def _rel_shift(self, x, zero_triu=False):
-        zero_pad = torch.zeros(
-            (x.size(0), 1, *x.size()[2:]), dtype=x.dtype, device=x.device
-        )
+    def _rel_shift(self, x):
+        zero_pad_shape = (x.size(0), 1) + x.size()[2:]
+        zero_pad = torch.zeros(zero_pad_shape, device=x.device, dtype=x.dtype)
         x_padded = torch.cat([zero_pad, x], dim=1)
-        x_padded = x_padded.view(x.size(1) + 1, x.size(0), *x.size()[2:])
+
+        x_padded_shape = (x.size(1) + 1, x.size(0)) + x.size()[2:]
+        x_padded = x_padded.view(*x_padded_shape)
+
         x = x_padded[1:].view_as(x)
-        if zero_triu:
-            ones = torch.ones((x.size(0), x.size(1)))
-            x = x * torch.tril(ones, x.size(1) - x.size(0))[:, :, None, None]
+
         return x
 
     def forward(
@@ -227,25 +227,6 @@ class RelativeMultiHeadAttention(nn.Module):
         # [qlen, klen, batch_size, num_head]
         attn_score = AC + BD
         attn_score.mul_(self.scale)
-
-        # if attn_mask is not None and attn_mask.any().item():
-        #     if attn_mask.dim() == 2:
-        #         attn_score = (
-        #             attn_score.float()
-        #             .masked_fill(attn_mask[None, :, :, None], -float("inf"))
-        #             .type_as(attn_score)
-        #         )
-        #     elif attn_mask.dim() == 3:
-        #         attn_score = (
-        #             attn_score.float()
-        #             .masked_fill(attn_mask[:, :, :, None], -float("inf"))
-        #             .type_as(attn_score)
-        #         )
-
-        # # Mask
-        # max_len = x.shape[0]
-        # mask = _generate_square_subsequent_mask(max_len)
-        # attn_score.masked_fill_(max_len)
 
         # [qlen x qlen x batch_size x num_head]
         attn_prob = F.softmax(attn_score, dim=1)
