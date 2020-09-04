@@ -8,10 +8,10 @@ import torch.optim as optim
 
 
 class A2C(Agent):
-    def __init__(self, state_size, action_size, memory):
-        super(A2C, self).__init__(state_size, action_size, memory)
+    def __init__(self, state_size, action_size, memory, hidden_size):
+        super(A2C, self).__init__(state_size, action_size, memory, hidden_size)
         self.device = experiment_config["device"]
-        self.net = ActorCriticMLP(state_size, action_size, memory_type=memory).to(
+        self.net = ActorCriticMLP(state_size, action_size, hidden_size, memory).to(
             self.device
         )
         self.optimiser = optim.Adam(self.net.parameters(), lr=a2c_config["lr"])
@@ -20,7 +20,6 @@ class A2C(Agent):
         self.values = []
         self.states = []
         self.actions = []
-        self.entropy = 0
 
     def _compute_returns(self):
         R = 0
@@ -58,7 +57,6 @@ class A2C(Agent):
         self.values = []
         self.states = []
         self.actions = []
-        self.entropy = 0
         self.net.reset()
 
     def act(self, state):
