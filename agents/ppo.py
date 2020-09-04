@@ -16,6 +16,8 @@ class PPO(Agent):
         )
         self.optimiser = optim.Adam(self.net.parameters(), lr=ppo_config["lr"])
         self.clip_ratio = ppo_config["clip_ratio"]
+        self.gamma = ppo_config["gamma"]
+        self.lam = ppo_config["lam"]
         self.rewards = []
         self.log_probs = []
         self.values = []
@@ -45,10 +47,12 @@ class PPO(Agent):
         old_log_probs = torch.cat(self.log_probs).detach()
         advantage = returns - values
 
-        for _ in range(ppo_config["epochs"]):
+        for t in range(ppo_config["epochs"]):
             dist, values = self.net(states)
             entropy = dist.entropy().mean()
             new_log_probs = dist.log_prob(actions)
+
+            approx_kl = (old_log_probs - new_log_probs).mean().item()
 
             ratio = (new_log_probs - old_log_probs).exp()
             surr1 = ratio * advantage
@@ -65,6 +69,10 @@ class PPO(Agent):
             self.optimiser.zero_grad()
             loss.backward()
             self.optimiser.step()
+
+            if approx_kl > 1.5 * ppo_config["target_kl"]:
+                print(f"Early stopping at step {t} due to reaching max kl.")
+                break
 
         return loss
 

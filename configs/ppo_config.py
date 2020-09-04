@@ -5,7 +5,6 @@ ppo_config = {
     "gamma": 0.99,
     "lam": 0.97,
     "epochs": 10,
-    "mini_batch_size": 5,
     "target_kl": 0.01,
     "clip_ratio": 0.2,
 }
