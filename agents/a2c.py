@@ -8,10 +8,10 @@ import torch.optim as optim
 
 
 class A2C(Agent):
-    def __init__(self, state_size, action_size, memory):
-        super(A2C, self).__init__(state_size, action_size, memory)
+    def __init__(self, state_size, action_size, hidden_size, memory):
+        super(A2C, self).__init__(state_size, action_size, hidden_size, memory)
         self.device = experiment_config["device"]
-        self.net = ActorCriticMLP(state_size, action_size, memory_type=memory).to(
+        self.net = ActorCriticMLP(state_size, action_size, hidden_size, memory).to(
             self.device
         )
         self.optimiser = optim.Adam(self.net.parameters(), lr=a2c_config["lr"])
@@ -47,7 +47,7 @@ class A2C(Agent):
         loss.backward()
         self.optimiser.step()
 
-        return loss
+        return loss.item()
 
     def reset(self):
         self.values = []

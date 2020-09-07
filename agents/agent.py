@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 
 class Agent(ABC):
-    def __init__(self, state_size, action_size, memory):
+    def __init__(self, state_size, action_size, hidden_size, memory):
         super(Agent, self).__init__()
 
     @abstractmethod

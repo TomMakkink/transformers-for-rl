@@ -15,39 +15,39 @@ class Memory(nn.Module):
 
     def __init__(self, memory_type, input_dim, output_dim):
         super(Memory, self).__init__()
-        self.memory_type = memory_type.lower()
-        if self.memory_type is None:
+        if memory_type is None:
             self.memory = None
-        elif self.memory_type == "lstm":
-            self.memory = nn.LSTM(
-                input_size=input_dim,
-                hidden_size=lstm_config["hidden_dim"],
-                num_layers=lstm_config["num_layers"],
-            )
-            self.hidden = (
-                torch.zeros(1, 1, lstm_config["hidden_dim"]).to(
-                    experiment_config["device"]
-                ),
-                torch.zeros(1, 1, lstm_config["hidden_dim"]).to(
-                    experiment_config["device"]
-                ),
-            )
-        elif self.memory_type in ["vanilla", "rezero", "linformer", "xl", "gtrxl"]:
-            self.memory = Transformer(
-                d_model=input_dim, output_dim=output_dim, **transformer_config
-            )
-        elif self.memory_type == "mha":
-            self.memory = MHA(input_dim, transformer_config["num_heads"])
-        elif self.memory_type == "lmha":
-            self.memory = LMHA(input_dim, transformer_config["num_heads"])
-        elif self.memory_type == "rmha":
-            self.memory = RMHA(
-                input_dim,
-                transformer_config["num_heads"],
-                mem_len=transformer_config["mem_len"],
-            )
+            self.memory_type = None
         else:
-            self.memory = None
+            self.memory_type = memory_type.lower()
+            if self.memory_type == "lstm":
+                self.memory = nn.LSTM(
+                    input_size=input_dim,
+                    hidden_size=lstm_config["hidden_dim"],
+                    num_layers=lstm_config["num_layers"],
+                )
+                self.hidden = (
+                    torch.zeros(1, 1, lstm_config["hidden_dim"]).to(
+                        experiment_config["device"]
+                    ),
+                    torch.zeros(1, 1, lstm_config["hidden_dim"]).to(
+                        experiment_config["device"]
+                    ),
+                )
+            elif self.memory_type in ["vanilla", "rezero", "linformer", "xl", "gtrxl"]:
+                self.memory = Transformer(
+                    d_model=input_dim, output_dim=output_dim, **transformer_config
+                )
+            elif self.memory_type == "mha":
+                self.memory = MHA(input_dim, transformer_config["num_heads"])
+            elif self.memory_type == "lmha":
+                self.memory = LMHA(input_dim, transformer_config["num_heads"])
+            elif self.memory_type == "rmha":
+                self.memory = RMHA(
+                    input_dim,
+                    transformer_config["num_heads"],
+                    mem_len=transformer_config["mem_len"],
+                )
 
     def forward(self, x):
         """
