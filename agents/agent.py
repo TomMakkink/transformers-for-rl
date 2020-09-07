@@ -16,3 +16,7 @@ class Agent(ABC):
     @abstractmethod
     def collect_experience(self, state, action, reward, next_state, done):
         pass
+
+    @abstractmethod
+    def get_parameters(self):
+        pass
