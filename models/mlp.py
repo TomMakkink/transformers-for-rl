@@ -1,7 +1,9 @@
-import torch.nn as nn
-from models.memory import Memory
-from models.common import mlp
 from typing import List
+
+import torch.nn as nn
+
+from models.common import mlp
+from models.memory import Memory
 
 
 class MLP(nn.Module):
@@ -15,8 +17,9 @@ class MLP(nn.Module):
         self.memory_network = Memory(
             memory_type, input_dim=hidden_size[0], output_dim=hidden_size[0]
         )
-        hidden_size.append(action_size)
-        self.network = mlp(hidden_size, nn.ReLU)
+        hidden_size_ = [*hidden_size]
+        hidden_size_.append(action_size)
+        self.network = mlp(hidden_size_, nn.ReLU)
 
     def forward(self, x):
         """
