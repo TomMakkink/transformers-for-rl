@@ -1,11 +1,11 @@
 import torch
 import torch.nn as nn
-from transformers.transformer_wrapper import Transformer
-from configs.transformer_config import transformer_config
-from configs.lstm_config import lstm_config
-from configs.experiment_config import experiment_config
 
+from configs.experiment_config import experiment_config
+from configs.lstm_config import lstm_config
+from configs.transformer_config import transformer_config
 from transformers.components import MHA, RMHA, LMHA
+from transformers.transformer_wrapper import Transformer
 
 
 class Memory(nn.Module):
@@ -15,10 +15,14 @@ class Memory(nn.Module):
 
     def __init__(self, memory_type, input_dim, output_dim):
         super(Memory, self).__init__()
-        self.memory_type = memory_type.lower()
-        if self.memory_type is None:
+
+        if memory_type is None:
+            self.memory_type = None
             self.memory = None
-        elif self.memory_type == "lstm":
+        else:
+            self.memory_type = memory_type.lower()
+
+        if self.memory_type == "lstm":
             self.memory = nn.LSTM(
                 input_size=input_dim,
                 hidden_size=lstm_config["hidden_dim"],
@@ -51,7 +55,7 @@ class Memory(nn.Module):
 
     def forward(self, x):
         """
-        x: shape [seq_len, batch_size, feature_dim] 
+        x: shape [seq_len, batch_size, feature_dim]
         """
         if type(self.memory) is nn.LSTM:
             batch_size = x.shape[1]
@@ -76,4 +80,3 @@ class Memory(nn.Module):
             )
         elif self.memory_type in ["xl", "gtrxl"]:
             self.memory.reset_mem()
-
