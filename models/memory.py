@@ -1,11 +1,19 @@
 import torch
 import torch.nn as nn
-from transformers.transformer_wrapper import Transformer
 from configs.transformer_config import transformer_config
 from configs.lstm_config import lstm_config
 from configs.experiment_config import experiment_config
 
-from transformers.components import MHA, RMHA, LMHA
+from transformers.transformer import (
+    TransformerModel,
+    MemoryTransformerModel,
+    TransformerBlock,
+    ReZeroBlock,
+    LinformerBlock,
+    TransformerXLBlock,
+    GTrXLBlock,
+    get_transformer_submodule,
+)
 
 
 class Memory(nn.Module):
@@ -15,11 +23,9 @@ class Memory(nn.Module):
 
     def __init__(self, memory_type, input_dim, output_dim):
         super(Memory, self).__init__()
-        if memory_type is None:
-            self.memory = None
-            self.memory_type = None
-        else:
+        if memory_type is not None:
             self.memory_type = memory_type.lower()
+            print(f"Using {self.memory_type}...")
             if self.memory_type == "lstm":
                 self.memory = nn.LSTM(
                     input_size=input_dim,
@@ -34,20 +40,16 @@ class Memory(nn.Module):
                         experiment_config["device"]
                     ),
                 )
-            elif self.memory_type in ["vanilla", "rezero", "linformer", "xl", "gtrxl"]:
-                self.memory = Transformer(
-                    d_model=input_dim, output_dim=output_dim, **transformer_config
-                )
-            elif self.memory_type == "mha":
-                self.memory = MHA(input_dim, transformer_config["num_heads"])
-            elif self.memory_type == "lmha":
-                self.memory = LMHA(input_dim, transformer_config["num_heads"])
-            elif self.memory_type == "rmha":
-                self.memory = RMHA(
-                    input_dim,
-                    transformer_config["num_heads"],
-                    mem_len=transformer_config["mem_len"],
-                )
+            elif self.memory_type in ["vanilla", "rezero", "linformer", "mha", "lmha"]:
+                submodule = get_transformer_submodule(self.memory_type)
+                self.memory = TransformerModel(input_dim, output_dim, submodule)
+            elif self.memory_type in ["gtrxl", "xl", "rmha", "gmha"]:
+                submodule = get_transformer_submodule(self.memory_type)
+                self.mem = tuple()
+                self.memory = MemoryTransformerModel(input_dim, output_dim, submodule)
+        else:
+            self.memory = None
+            self.memory_type = None
 
     def forward(self, x):
         """
@@ -59,8 +61,9 @@ class Memory(nn.Module):
                 x, self.hidden = self.memory(x)
             else:
                 x, self.hidden = self.memory(x, self.hidden)
-
-        elif type(self.memory) is Transformer:
+        elif type(self.memory) == MemoryTransformerModel:
+            output, self.mem = self.memory(x, self.mem)
+        elif type(self.memory) == TransformerModel:
             x = self.memory(x)
         return x
 
@@ -74,6 +77,6 @@ class Memory(nn.Module):
                     experiment_config["device"]
                 ),
             )
-        elif self.memory_type in ["xl", "gtrxl"]:
-            self.memory.reset_mem()
+        elif type(self.memory) == MemoryTransformerModel:
+            self.mem = self.memory.init_mem()
 

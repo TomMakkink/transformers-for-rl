@@ -15,7 +15,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 
-def update_configs_from_args(args):
+def update_configs(args):
     if args.project:
         experiment_config.update({"project_name": args.project})
     if args.name:

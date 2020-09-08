@@ -1,6 +1,6 @@
 from utils.logging import set_up_comet_ml
 from utils.utils import (
-    update_configs_from_args,
+    update_configs,
     get_agent,
     set_random_seed,
     set_device,
@@ -45,7 +45,7 @@ def main():
     parser.add_argument("--tags", nargs="*", help="Additional comet experiment tags.")
     args = parser.parse_args()
 
-    update_configs_from_args(args)
+    update_configs(args)
     run_experiment(args)
 
 
