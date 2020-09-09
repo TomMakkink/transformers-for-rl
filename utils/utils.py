@@ -81,6 +81,7 @@ def set_random_seed(seed: int, use_cuda: bool = False) -> None:
 
 def set_device():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"using {device}")
     experiment_config["device"] = device
 
 
@@ -101,7 +102,7 @@ def create_environment(agent, seed, memory, env=None, window_size=1):
         save_path = save_path + env_config["env"] + "/"
 
     memory = memory if memory is not None else "none"
-    save_path = save_path + agent + "/" + memory + "/" + str(seed) + "/"
+    save_path = save_path + agent + "/" + memory + "/" + str(seed) + "/" + str(window_size) + "/"
 
     if env:
         raw_env = bsuite.load_and_record(env, save_path, overwrite=True)
