@@ -100,7 +100,7 @@ def create_environment(agent, seed, memory, env=None, window_size=1):
         # env = env_config["env"]
         save_path = save_path + env_config["env"] + "/"
 
-    memory = memory if memory is not None else ""
+    memory = memory if memory is not None else "none"
     save_path = save_path + agent + "/" + memory + "/" + str(seed) + "/"
 
     if env:
