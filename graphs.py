@@ -12,11 +12,11 @@ sns.set()
 DEFAULT_SAVE_DIR = 'graphs'
 DEFAULT_DATA_FOLDER = 'results'
 ALGORITHMS = ['A2C']
-MODELS = ['rezero', 'gtrxl', 'vanilla', 'xl', 'LSTM', 'none']
-ENVS = ['memory_len', 'memory_size', 'cartpole']
-ENVS_NUM = ['0', '1', '2', '3', '4', '5']
-SEEDS = ['28', '61', '39', '78', '72', '46', '61', '71', '93', '44']
-COLOURS = ['blue', 'green', 'red', 'purple', 'black', 'orange']
+MODELS = ['gtrxl']
+ENVS = ['memory_len']
+ENVS_NUM = ['0']
+SEEDS = ['1']
+COLOURS = ['blue']
 
 # - results
 #     - env
@@ -43,6 +43,7 @@ def process_data(root, save):
                     for seed in SEEDS:
                         results_dir = '/'.join([root, env,
                                                 env_num, algo, model, seed])
+                        print(results_dir)
                         if os.path.exists(results_dir):
                             results_csv = listdir(results_dir)
                             if len(results_csv) == 1:
@@ -54,7 +55,7 @@ def process_data(root, save):
                                 #     f"Shape of episode_return: {data['episode_return'].shape}")
                                 returns.append(data['episode_return'])
                                 episodes.append(data["episode"])
-
+                
                     # Assume episodes are all the same
                     x = np.array(episodes[0])
                     y = calculate_mean(returns)
@@ -69,6 +70,8 @@ def process_data(root, save):
                         print(
                             f"Skippping file due to mismatch sizes between x: {len(x)} and y: {len(y)}")
                 ax.legend()
+                if not os.path.isdir(save):
+                    os.makedirs(save)
                 fig.savefig(
                     f"{save}/{algo}_{env}_{env_num}.pdf", format='pdf')
 
