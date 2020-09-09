@@ -23,6 +23,9 @@ class Memory(nn.Module):
 
     def __init__(self, memory_type, input_dim, output_dim):
         super(Memory, self).__init__()
+        self.memory = None
+        self.memory_type = None
+
         if memory_type is not None:
             self.memory_type = memory_type.lower()
             print(f"Using {self.memory_type}...")
@@ -47,9 +50,6 @@ class Memory(nn.Module):
                 submodule = get_transformer_submodule(self.memory_type)
                 self.mem = tuple()
                 self.memory = MemoryTransformerModel(input_dim, output_dim, submodule)
-        else:
-            self.memory = None
-            self.memory_type = None
 
     def forward(self, x):
         """
@@ -78,5 +78,5 @@ class Memory(nn.Module):
                 ),
             )
         elif type(self.memory) == MemoryTransformerModel:
-            self.mem = self.memory.init_mem()
+            self.mem = self.memory.reset()
 

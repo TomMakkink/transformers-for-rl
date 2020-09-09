@@ -12,6 +12,8 @@ from transformers.attention_layer import (
 )
 from transformers.positional_encoding_layer import PositionalEncoding
 from configs.transformer_config import transformer_config
+from configs.lstm_config import lstm_config
+from configs.experiment_config import experiment_config
 
 Tensor = torch.Tensor
 
@@ -106,6 +108,10 @@ class MemoryTransformerModel(nn.Module):
             ]
         )
 
+        self.gru_hidden_state = torch.zeros(1, 1, lstm_config["hidden_dim"]).to(
+            experiment_config["device"]
+        )
+
         self.output_layer = nn.Linear(d_model, output_dim, bias=False)
 
     def init_mem(self):
@@ -167,8 +173,14 @@ class MemoryTransformerModel(nn.Module):
         hids.append(core_out)
         for i, layer in enumerate(self.MemoryTransformerLayers):
             mem_i = None if mem is None else mem[i]
-            core_out = layer(
-                core_out, pos_emb, self.u, self.v, attn_mask=None, mem=mem_i
+            core_out, self.gru_hidden_state = layer(
+                core_out,
+                pos_emb,
+                self.u,
+                self.v,
+                attn_mask=None,
+                mem=mem_i,
+                hidden=self.gru_hidden_state,
             )
             hids.append(core_out)
 
@@ -177,6 +189,12 @@ class MemoryTransformerModel(nn.Module):
         new_mem = self._update_mem(hids, mem, mlen, qlen)
 
         return core_out, new_mem
+
+    def reset(self):
+        self.init_mem()
+        self.gru_hidden_state = torch.zeros(1, 1, lstm_config["hidden_dim"]).to(
+            experiment_config["device"]
+        )
 
 
 class TransformerBlockBase(nn.Module):
@@ -392,8 +410,9 @@ class RMHA(TransformerBlockBase):
         v: Tensor,
         attn_mask: Tensor = None,
         mem: Tensor = None,
+        hidden: Tensor = None,
     ):
-        return self.attention(inputs, r, u, v, attn_mask, mem)
+        return self.attention(inputs, r, u, v, attn_mask, mem), None
 
 
 class GMHA(TransformerBlockBase):
@@ -405,7 +424,10 @@ class GMHA(TransformerBlockBase):
             dropout,
             mem_len=transformer_config["mem_len"],
         )
-        self.gated_layer = GatedRecurrentUnit(d_model)
+        # self.gated_layer = GatedRecurrentUnit(d_model)
+        self.gated_layer = nn.GRU(
+            d_model, lstm_config["hidden_dim"], num_layers=lstm_config["num_layers"]
+        )
 
     def forward(
         self,
@@ -415,10 +437,11 @@ class GMHA(TransformerBlockBase):
         v: Tensor,
         attn_mask: Tensor = None,
         mem: Tensor = None,
+        hidden: Tensor = None,
     ):
         y = self.attention(inputs, r, u, v, attn_mask, mem)
-        y = self.gated_layer([inputs, y])
-        return y
+        y, hidden = self.gated_layer(y, hidden)
+        return y, hidden
 
 
 def get_transformer_submodule(transformer: str):

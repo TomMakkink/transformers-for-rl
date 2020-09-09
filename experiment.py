@@ -1,4 +1,4 @@
-from utils.logging import set_up_comet_ml
+from utils.logging import set_up_comet_ml, log_to_screen
 from utils.utils import (
     update_configs,
     get_agent,
@@ -10,6 +10,7 @@ from agents.a2c import A2C
 
 import argparse
 from experiments.agent_trainer import train_agent
+from configs.experiment_config import experiment_config
 
 
 def run_experiment(args):
@@ -18,7 +19,7 @@ def run_experiment(args):
     set_random_seed(args.seed)
 
     if args.comet:
-        tags = [args.agent, args.memory, args.seed, args.env]  # , args.tags]
+        tags = [args.agent, args.memory, args.seed, args.env]
         logger = set_up_comet_ml(tags=[*tags])
     else:
         logger = None
@@ -35,7 +36,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--project", type=str, default="transformers-for-rl")
     parser.add_argument("--name", type=str, default="Test")
-    parser.add_argument("--agent", type=str, default="A2C")
+    parser.add_argument("--agent", type=str)
     parser.add_argument("--memory", type=str, default=None)
     parser.add_argument("--num_eps", type=int, default=1000)
     parser.add_argument("--seed", type=int, default=1)
@@ -46,6 +47,7 @@ def main():
     args = parser.parse_args()
 
     update_configs(args)
+    # log_to_screen(experiment_config)
     run_experiment(args)
 
 

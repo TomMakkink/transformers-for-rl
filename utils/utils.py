@@ -14,20 +14,30 @@ from configs.transformer_config import transformer_config
 import seaborn as sns
 import matplotlib.pyplot as plt
 
+# parser.add_argument("--project", type=str, default="transformers-for-rl")
+# parser.add_argument("--name", type=str, default="Test")
+# parser.add_argument("--agent", type=str)
+# parser.add_argument("--memory", type=str)
+# parser.add_argument("--num_eps", type=int, default=1000)
+# parser.add_argument("--seed", type=int, default=1)
+# parser.add_argument("--env", type=str)
+# parser.add_argument("--window", type=int, default=1)
+# parser.add_argument("--comet", action="store_true")
+# parser.add_argument("--tags", nargs="*", help="Additional comet experiment tags.")
+
 
 def update_configs(args):
-    if args.project:
-        experiment_config.update({"project_name": args.project})
-    if args.name:
-        experiment_config.update({"experiment_name": args.name})
-    if args.seed:
-        experiment_config.update({"seed": args.seed})
-    if args.memory in ["vanilla", "rezero", "linformer", "xl", "gtrxl"]:
-        transformer_config.update({"transformer_type": args.memory})
-    if args.env:
-        env_config.update({"env": args.env})
-    if args.window:
-        transformer_config.update({"max_seq_len": args.window})
+    experiment_config.update(
+        {
+            "project_name": args.project,
+            "experiment_name": args.name,
+            "agent": args.agent,
+            "memory": args.memory,
+            "seed": args.seed,
+        }
+    )
+    env_config.update({"env": args.env})
+    transformer_config.update({"max_seq_len": args.window})
 
 
 def get_agent(agent_name: str):
