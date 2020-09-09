@@ -43,6 +43,7 @@ def process_data(root, save):
                     episodes = []
                     for seed in SEEDS:
                         results_dir = "/".join([root, env, env_num, algo, model, seed])
+                        print(results_dir)
                         if os.path.exists(results_dir):
                             results_csv = listdir(results_dir)
                             if len(results_csv) == 1:
@@ -72,6 +73,8 @@ def process_data(root, save):
                             f"Skippping file due to mismatch sizes between x: {len(x)} and y: {len(y)}"
                         )
                 ax.legend()
+                if not os.path.isdir(save):
+                    os.makedirs(save)
                 fig.savefig(f"{save}/{algo}_{env}_{env_num}.pdf", format="pdf")
 
 
