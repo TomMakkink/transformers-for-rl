@@ -17,8 +17,9 @@ ENVS = ["memory_len", "memory_size"]
 ENVS_NUM = ["0", "1", "2", "3", "4", "5"]
 SEEDS = ["28", "61", "39", "78", "72", "46", "61", "71", "93", "44"]
 COLOURS = ["blue", "green", "red", "purple", "black", "orange"]
-# WINDOW = ["5", "10", "25", "50"]
+WINDOW = ["1"]
 
+# Results Directory Structure:
 # - results
 #     - env
 #         - env_num (e.g. 0, as in mem_len/0)
@@ -42,19 +43,23 @@ def process_data(root, save):
                     returns = []
                     episodes = []
                     for seed in SEEDS:
-                        results_dir = "/".join([root, env, env_num, algo, model, seed])
+                        results_dir = "/".join(
+                            [root, env, env_num, algo, model, seed, WINDOW[0]]
+                        )
                         print(results_dir)
-                        if os.path.exists(results_dir):
-                            results_csv = listdir(results_dir)
-                            if len(results_csv) == 1:
-                                results_path = "/".join([results_dir, results_csv[0]])
-                                data = np.genfromtxt(
-                                    results_path, dtype=float, delimiter=",", names=True
-                                )
-                                # print(
-                                #     f"Shape of episode_return: {data['episode_return'].shape}")
-                                returns.append(data["episode_return"])
-                                episodes.append(data["episode"])
+                        if not os.path.isdir(results_dir):
+                            os.makedirs(results_dir)
+                        # if os.path.exists(results_dir):
+                        results_csv = listdir(results_dir)
+                        if len(results_csv) == 1:
+                            results_path = "/".join([results_dir, results_csv[0]])
+                            data = np.genfromtxt(
+                                results_path, dtype=float, delimiter=",", names=True
+                            )
+                            # print(
+                            #     f"Shape of episode_return: {data['episode_return'].shape}")
+                            returns.append(data["episode_return"])
+                            episodes.append(data["episode"])
 
                     # Assume episodes are all the same
                     x = np.array(episodes[0])
@@ -64,9 +69,9 @@ def process_data(root, save):
                         ax.plot(
                             x, y, "-", color=COLOURS[colour_index], label=f"{model}"
                         )
-                        ax.fill_between(
-                            x, y - std, y + std, color=COLOURS[colour_index], alpha=0.2
-                        )
+                        # ax.fill_between(
+                        #     x, y - std, y + std, color=COLOURS[colour_index], alpha=0.2
+                        # )
                         colour_index = colour_index + 1
                     else:
                         print(

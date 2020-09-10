@@ -108,10 +108,6 @@ class MemoryTransformerModel(nn.Module):
             ]
         )
 
-        self.gru_hidden_state = torch.zeros(1, 1, lstm_config["hidden_dim"]).to(
-            experiment_config["device"]
-        )
-
         self.output_layer = nn.Linear(d_model, output_dim, bias=False)
 
     def init_mem(self):
@@ -173,14 +169,8 @@ class MemoryTransformerModel(nn.Module):
         hids.append(core_out)
         for i, layer in enumerate(self.MemoryTransformerLayers):
             mem_i = None if mem is None else mem[i]
-            core_out, self.gru_hidden_state = layer(
-                core_out,
-                pos_emb,
-                self.u,
-                self.v,
-                attn_mask=None,
-                mem=mem_i,
-                hidden=self.gru_hidden_state,
+            core_out = layer(
+                core_out, pos_emb, self.u, self.v, attn_mask=None, mem=mem_i,
             )
             hids.append(core_out)
 
@@ -192,9 +182,9 @@ class MemoryTransformerModel(nn.Module):
 
     def reset(self):
         self.init_mem()
-        self.gru_hidden_state = torch.zeros(1, 1, lstm_config["hidden_dim"]).to(
-            experiment_config["device"]
-        )
+        for layer in self.MemoryTransformerLayers:
+            if type(TransformerBlockBase):
+                layer.reset()
 
 
 class TransformerBlockBase(nn.Module):
@@ -309,6 +299,7 @@ class TransformerXLBlock(TransformerBlockBase):
         v: Tensor,
         attn_mask: Tensor = None,
         mem: Tensor = None,
+        hidden: Tensor = None,
     ):
         # Attention
         x = inputs
@@ -320,6 +311,9 @@ class TransformerXLBlock(TransformerBlockBase):
         y = self.pos_wise_mlp(y)
         output = self.layer_norm_2(x + y)
         return output
+
+    def reset(self):
+        pass
 
 
 class GTrXLBlock(TransformerBlockBase):
@@ -335,8 +329,21 @@ class GTrXLBlock(TransformerBlockBase):
             mem_len=transformer_config["mem_len"],
         )
 
-        self.gated_layer_1 = GatedRecurrentUnit(d_model)
-        self.gated_layer_2 = GatedRecurrentUnit(d_model)
+        self.hidden_1 = torch.zeros(1, 1, lstm_config["hidden_dim"]).to(
+            experiment_config["device"]
+        )
+        self.hidden_2 = torch.zeros(1, 1, lstm_config["hidden_dim"]).to(
+            experiment_config["device"]
+        )
+        self.gated_layer_1 = nn.GRU(
+            d_model, lstm_config["hidden_dim"], num_layers=lstm_config["num_layers"]
+        )
+        self.gated_layer_2 = nn.GRU(
+            d_model, lstm_config["hidden_dim"], num_layers=lstm_config["num_layers"]
+        )
+
+        # self.gated_layer_1 = GatedRecurrentUnit(d_model)
+        # self.gated_layer_2 = GatedRecurrentUnit(d_model)
 
         self.pos_wise_mlp = PositionWiseMLP(d_model, dim_mlp, dropout)
         self.relu = nn.ReLU(inplace=True)
@@ -354,15 +361,24 @@ class GTrXLBlock(TransformerBlockBase):
         x = inputs
         y = self.attention(inputs, r, u, v, attn_mask, mem)
         y = self.layer_norm_1(y)
-        y = self.gated_layer_1([x, y])
+        y, self.hidden_1 = self.gated_layer_1(x + y, self.hidden_2)
+        # y = self.gated_layer_1([x, y])
 
         # Position-wise MLP
         x = y
         y = self.layer_norm_2(y)
         y = self.pos_wise_mlp(y)
         y = self.relu(y)
-        output = self.gated_layer_2([x, y])
+        output, self.hidden_2 = self.gated_layer_2(x + y, self.hidden_2)
         return output
+
+    def reset(self):
+        self.hidden_1 = torch.zeros(1, 1, lstm_config["hidden_dim"]).to(
+            experiment_config["device"]
+        )
+        self.hidden_2 = torch.zeros(1, 1, lstm_config["hidden_dim"]).to(
+            experiment_config["device"]
+        )
 
 
 class MHA(TransformerBlockBase):
@@ -410,9 +426,11 @@ class RMHA(TransformerBlockBase):
         v: Tensor,
         attn_mask: Tensor = None,
         mem: Tensor = None,
-        hidden: Tensor = None,
     ):
-        return self.attention(inputs, r, u, v, attn_mask, mem), None
+        return self.attention(inputs, r, u, v, attn_mask, mem)
+
+    def reset(self):
+        pass
 
 
 class GMHA(TransformerBlockBase):
@@ -424,7 +442,9 @@ class GMHA(TransformerBlockBase):
             dropout,
             mem_len=transformer_config["mem_len"],
         )
-        # self.gated_layer = GatedRecurrentUnit(d_model)
+        self.hidden = torch.zeros(1, 1, lstm_config["hidden_dim"]).to(
+            experiment_config["device"]
+        )
         self.gated_layer = nn.GRU(
             d_model, lstm_config["hidden_dim"], num_layers=lstm_config["num_layers"]
         )
@@ -437,11 +457,15 @@ class GMHA(TransformerBlockBase):
         v: Tensor,
         attn_mask: Tensor = None,
         mem: Tensor = None,
-        hidden: Tensor = None,
     ):
         y = self.attention(inputs, r, u, v, attn_mask, mem)
-        y, hidden = self.gated_layer(y, hidden)
-        return y, hidden
+        y, self.hidden = self.gated_layer(y, self.hidden)
+        return y
+
+    def reset(self):
+        self.hidden = torch.zeros(1, 1, lstm_config["hidden_dim"]).to(
+            experiment_config["device"]
+        )
 
 
 def get_transformer_submodule(transformer: str):
