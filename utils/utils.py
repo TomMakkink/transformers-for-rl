@@ -14,17 +14,6 @@ from configs.transformer_config import transformer_config
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-# parser.add_argument("--project", type=str, default="transformers-for-rl")
-# parser.add_argument("--name", type=str, default="Test")
-# parser.add_argument("--agent", type=str)
-# parser.add_argument("--memory", type=str)
-# parser.add_argument("--num_eps", type=int, default=1000)
-# parser.add_argument("--seed", type=int, default=1)
-# parser.add_argument("--env", type=str)
-# parser.add_argument("--window", type=int, default=1)
-# parser.add_argument("--comet", action="store_true")
-# parser.add_argument("--tags", nargs="*", help="Additional comet experiment tags.")
-
 
 def update_configs(args):
     experiment_config.update(
@@ -98,26 +87,42 @@ def set_device():
 # def process_obs(obs, device):
 #     obs = obs.squeeze()
 #     return torch.as_tensor(obs, dtype=torch.float32, device=device)
+import bsuite
+from bsuite import sweep
 
 
-def create_environment(agent, seed, memory, env=None, window_size=1):
+def get_sweep_from_bsuite_id(bsuite_id: str):
+    return {
+        "umbrella_length": sweep.UMBRELLA_LENGTH,
+        "umbrella_distract": sweep.UMBRELLA_DISTRACT,
+        "memory_length": sweep.MEMORY_LEN,
+        "memory_size": sweep.MEMORY_SIZE,
+        "cartpole": sweep.CARTPOLE,
+    }.get(bsuite_id, [bsuite_id])
+
+
+def create_environment(agent, seed, memory, env, window_size=1):
     # build folder path to save data
-    save_path = "results/"
+    save_path = "results/" + f"{agent}/{memory}/"
 
-    if env:
-        save_path = save_path + env + "/"
-    else:
-        # TODO: Clean up
-        # env = env_config["env"]
-        save_path = save_path + env_config["env"] + "/"
-
-    memory = memory if memory is not None else "none"
-    save_path = save_path + agent + "/" + memory + "/" + str(seed) + "/" + str(window_size) + "/"
+    # memory = memory if memory is not None else "none"
+    # save_path = (
+    #     save_path
+    #     + agent
+    #     + "/"
+    #     + memory
+    #     + "/"
+    #     + str(seed)
+    #     + "/"
+    #     + str(window_size)
+    #     + "/"
+    # )
 
     if env:
         raw_env = bsuite.load_and_record(env, save_path, overwrite=True)
     else:
         raw_env = bsuite.load_and_record(env_config["env"], save_path, overwrite=True)
+
     env = gym_wrapper.GymFromDMEnv(raw_env)
     env = SlidingWindowEnv(env, window_size=window_size)
     return env

@@ -5,6 +5,7 @@ from utils.utils import (
     set_random_seed,
     set_device,
     create_environment,
+    get_sweep_from_bsuite_id,
 )
 from agents.a2c import A2C
 
@@ -14,7 +15,7 @@ from configs.experiment_config import experiment_config
 
 
 def run_experiment(args):
-    agent = get_agent(args.agent)
+    rl_agent = get_agent(args.agent)
     set_device()
     set_random_seed(args.seed)
 
@@ -23,13 +24,24 @@ def run_experiment(args):
         logger = set_up_comet_ml(tags=[*tags])
     else:
         logger = None
-    env = create_environment(
-        agent=args.agent, seed=args.seed, memory=args.memory, window_size=args.window
-    )
-    action_size = env.action_space.n
-    state_size = env.observation_space.shape[1]
-    agent = agent(state_size, action_size, hidden_size=[128], memory=args.memory)
-    train_agent(agent, env, args.num_eps, logger)
+
+    env_id_list = get_sweep_from_bsuite_id(args.env)
+    for env_id in env_id_list:
+        env = create_environment(
+            agent=args.agent,
+            seed=args.seed,
+            memory=args.memory,
+            env=env_id,
+            window_size=args.window,
+        )
+        action_size = env.action_space.n
+        state_size = env.observation_space.shape[1]
+        agent = rl_agent(state_size, action_size, hidden_size=[64], memory=args.memory)
+
+        total_episodes = (
+            env.bsuite_num_episodes if args.num_eps is None else args.num_eps
+        )
+        train_agent(agent, env, total_episodes, logger)
 
 
 def main():
@@ -38,7 +50,7 @@ def main():
     parser.add_argument("--name", type=str, default="Test")
     parser.add_argument("--agent", type=str)
     parser.add_argument("--memory", type=str, default=None)
-    parser.add_argument("--num_eps", type=int, default=1000)
+    parser.add_argument("--num_eps", type=int, default=None)
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--env", type=str)
     parser.add_argument("--window", type=int, default=1)
@@ -47,7 +59,6 @@ def main():
     args = parser.parse_args()
 
     update_configs(args)
-    # log_to_screen(experiment_config)
     run_experiment(args)
 
 
