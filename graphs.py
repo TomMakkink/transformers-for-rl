@@ -98,8 +98,6 @@ parser.add_argument("--root_dir", type=str)
 parser.add_argument("--save_dir", type=str)
 args = parser.parse_args()
 
-from bsuite.experiments.umbrella_length import analysis as umbrella_length_analysis
-
 
 def bsuite_graphing(root_dir, save_dir):
     SAVE_PATH_NONE = root_dir + f"/a2c/None/"

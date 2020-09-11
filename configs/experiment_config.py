@@ -6,6 +6,6 @@ experiment_config = {
     "seed": 10,
     "total_episode": 1,
     "max_steps_per_episode": 2048,
-    "log_interval": 100,
+    "log_interval": 10,
     "device": "cpu",
 }

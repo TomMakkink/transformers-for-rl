@@ -35,7 +35,7 @@ class A2C(Agent):
         returns = self._compute_returns()
         returns = torch.from_numpy(returns).float().to(self.device)
 
-        values = torch.cat(self.values)
+        values = torch.cat(self.values).squeeze(1)
         log_probs = torch.cat(self.log_probs)
 
         delta = returns - values

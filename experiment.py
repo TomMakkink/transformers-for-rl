@@ -19,14 +19,13 @@ def run_experiment(args):
     set_device()
     set_random_seed(args.seed)
 
-    if args.comet:
-        tags = [args.agent, args.memory, args.seed, args.env]
-        logger = set_up_comet_ml(tags=[*tags])
-    else:
-        logger = None
-
     env_id_list = get_sweep_from_bsuite_id(args.env)
     for env_id in env_id_list:
+        if args.comet:
+            tags = [args.agent, args.memory, args.seed, env_id]
+            logger = set_up_comet_ml(tags=[*tags])
+        else:
+            logger = None
         env = create_environment(
             agent=args.agent,
             seed=args.seed,
