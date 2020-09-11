@@ -38,4 +38,4 @@ class SlidingWindowEnv(Wrapper):
 
     def pad_obs_window(self, obs_window):
         for i in range(obs_window.maxlen - 1):
-            obs_window.append(torch.zeros(self.env.observation_space.shape[1]))
+            obs_window.append(torch.zeros(self.env.observation_space.shape[1], device=self.device))
