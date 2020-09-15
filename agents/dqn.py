@@ -1,7 +1,6 @@
 import math
 import random
 
-import numpy as np
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
@@ -40,7 +39,7 @@ class DQN(Agent):
         :param state: the current state
         :return: the action to take
         """
-        epsilon = self.calculate_epsilon(self.current_timestep)
+        epsilon = self.calculate_epsilon()
         self.current_timestep += 1
         if random.random() > epsilon:
             with torch.no_grad():
@@ -65,13 +64,16 @@ class DQN(Agent):
                 + (1 - dqn_config["tau"]) * target_param.data
             )
 
-    def calculate_epsilon(self, current_timestep):
+    def calculate_epsilon(self, current_timestep=None):
+        if current_timestep is None:
+            current_timestep = self.current_timestep
+
         return dqn_config["epsilon"]["final"] + (
             dqn_config["epsilon"]["start"] - dqn_config["epsilon"]["final"]
         ) * math.exp(-1.0 * current_timestep / dqn_config["epsilon"]["decay"])
 
     def optimize_network(self):
-        if dqn_config["warm_up_timesteps"] <= self.current_timestep:
+        if self.current_timestep >= dqn_config["warm_up_timesteps"]:
             self.policy_net.reset()
             states, actions, rewards, next_states, dones = self.replay_buffer.sample(
                 dqn_config["batch_size"], self.device, self.sample_sequentially
@@ -98,16 +100,12 @@ class DQN(Agent):
             self.optimiser.step()
 
             if self.episode_number % dqn_config["target_update"] == 0:
-                print(
-                    self.episode_number, "updating update_target_update_by_percentage"
-                )
                 self.update_target_network()
-                # self.update_target_update_by_percentage()
 
             return loss.item()
         else:
             print("Didn't optimise", self.current_timestep)
-            return np.NaN
+            return 0.0
 
     def reset(self):
         self.replay_buffer.reset()
