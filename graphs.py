@@ -6,18 +6,22 @@ from os.path import isfile, join, splitext
 import argparse
 import matplotlib.pyplot as plt
 import seaborn as sns
+from bsuite.logging import csv_load
+from bsuite.experiments import summary_analysis
+
 sns.set()
 
+DEFAULT_SAVE_DIR = "graphs"
+DEFAULT_DATA_FOLDER = "results"
+ALGORITHMS = ["A2C"]
+MODELS = ["mha", "rmha", "gmha", "lstm", "none"]
+ENVS = ["memory_size"]  # "memory_len",
+ENVS_NUM = list(map(str, range(17)))
+SEEDS = ["28", "61", "39"]  # , "78", "72", "46", "61", "71", "93", "44"]
+COLOURS = ["blue", "green", "red", "purple", "black", "orange"]
+WINDOW = ["10"]
 
-DEFAULT_SAVE_DIR = 'graphs'
-DEFAULT_DATA_FOLDER = 'results'
-ALGORITHMS = ['A2C']
-MODELS = ['rezero', 'gtrxl', 'vanilla', 'xl', 'LSTM', 'none']
-ENVS = ['memory_len', 'memory_size', 'cartpole']
-ENVS_NUM = ['0', '1', '2', '3', '4', '5']
-SEEDS = ['28', '61', '39', '78', '72', '46', '61', '71', '93', '44']
-COLOURS = ['blue', 'green', 'red', 'purple', 'black', 'orange']
-
+# Results Directory Structure:
 # - results
 #     - env
 #         - env_num (e.g. 0, as in mem_len/0)
@@ -41,19 +45,22 @@ def process_data(root, save):
                     returns = []
                     episodes = []
                     for seed in SEEDS:
-                        results_dir = '/'.join([root, env,
-                                                env_num, algo, model, seed])
-                        if os.path.exists(results_dir):
-                            results_csv = listdir(results_dir)
-                            if len(results_csv) == 1:
-                                results_path = '/'.join([results_dir,
-                                                         results_csv[0]])
-                                data = np.genfromtxt(
-                                    results_path, dtype=float, delimiter=',', names=True)
-                                # print(
-                                #     f"Shape of episode_return: {data['episode_return'].shape}")
-                                returns.append(data['episode_return'])
-                                episodes.append(data["episode"])
+                        results_dir = "/".join(
+                            [root, env, env_num, algo, model, seed, WINDOW[0]]
+                        )
+                        if not os.path.isdir(results_dir):
+                            os.makedirs(results_dir)
+                        # if os.path.exists(results_dir):
+                        results_csv = listdir(results_dir)
+                        if len(results_csv) == 1:
+                            results_path = "/".join([results_dir, results_csv[0]])
+                            data = np.genfromtxt(
+                                results_path, dtype=float, delimiter=",", names=True
+                            )
+                            # print(
+                            #     f"Shape of episode_return: {data['episode_return'].shape}")
+                            returns.append(data["episode_return"])
+                            episodes.append(data["episode"])
 
                     # Assume episodes are all the same
                     x = np.array(episodes[0])
@@ -61,16 +68,21 @@ def process_data(root, save):
                     std = calculate_std(returns)
                     if len(x) == len(y):
                         ax.plot(
-                            x, y, '-', color=COLOURS[colour_index], label=f"{model}")
-                        # ax.fill_between(x, y - std, y + std,
-                        #                 color=COLOURS[colour_index], alpha=0.2)
+                            x, y, "-", color=COLOURS[colour_index], label=f"{model}"
+                        )
+                        # ax.fill_between(
+                        #     x, y - std, y + std, color=COLOURS[colour_index], alpha=0.2
+                        # )
                         colour_index = colour_index + 1
+                        ax.set_xscale("log")
                     else:
                         print(
-                            f"Skippping file due to mismatch sizes between x: {len(x)} and y: {len(y)}")
+                            f"Skippping file due to mismatch sizes between x: {len(x)} and y: {len(y)}"
+                        )
                 ax.legend()
-                fig.savefig(
-                    f"{save}/{algo}_{env}_{env_num}.pdf", format='pdf')
+                if not os.path.isdir(save):
+                    os.makedirs(save)
+                fig.savefig(f"{save}/{algo}_{env}_{env_num}.pdf", format="pdf")
 
 
 def calculate_mean(data):
@@ -86,12 +98,35 @@ parser.add_argument("--root_dir", type=str)
 parser.add_argument("--save_dir", type=str)
 args = parser.parse_args()
 
+
+def bsuite_graphing(root_dir, save_dir):
+    SAVE_PATH_NONE = root_dir + f"/a2c/None/"
+    SAVE_PATH_GMHA = root_dir + f"/a2c/gmha/"
+    experiments = {"none": SAVE_PATH_NONE}
+    DF, SWEEP_VARS = csv_load.load_bsuite(experiments)
+    BSUITE_SCORE = summary_analysis.bsuite_score(DF, SWEEP_VARS)
+    print(BSUITE_SCORE)
+
+    # # @title As well as plots specialized to the experiment
+    # umbrella_length_df = DF[DF.bsuite_env == "umbrella_length"].copy()
+    result = summary_analysis.plot_single_experiment(BSUITE_SCORE, "memory_size")
+    result.save(save_dir + "/Summary")
+
+    # learn = umbrella_length_analysis.plot_learning(umbrella_length_df)
+    # learn.save(save_dir + "/umbrella_length_learning")
+
+
+#     experiments
+
+# experiments = {'dqn': SAVE_PATH_DQN, 'rand': SAVE_PATH_RAND}
+# DF, SWEEP_VARS = csv_load.load_bsuite(experiments)
+
+
 if __name__ == "__main__":
     root_dir = args.root_dir if args.root_dir else DEFAULT_DATA_FOLDER
     save_dir = args.save_dir if args.save_dir else DEFAULT_SAVE_DIR
-    print(root_dir)
-    print(save_dir)
     if os.path.exists(root_dir):
-        process_data(root_dir, save_dir)
+        # process_data(root_dir, save_dir)
+        bsuite_graphing(root_dir, save_dir)
     else:
         raise OSError(f"Folder {root} does not exist.")

@@ -1,27 +1,31 @@
 # transformers-for-rl
 Investigating the use of various Transformer architectures in Reinforcement Learning. 
 
-# Running Experiments: 
-```console
-foo@bar:~$ python experiment.py --agent a2c --memory gtrxl --env memory_len/0 --window 10
-```
-
 # Docker: 
 Build the Docker file: 
 ```console
-foo@bar:~$ cd Docker 
-foo@bar:~$ docker build -t transformers -f Docker.transformer .
+foo@bar:~$ make build
 ```
 
 Run the Docker image:
 
 Without GPU:  
 ```console
-foo@bar:~$ docker run -p 8889:8889 -p 6003:6003 -it -v "$(pwd)":/wd/ transformers:latest bash
+foo@bar:~$ make up
 ```
 With GPU: 
 ```console
-foo@bar:~$ docker run --gpus all --shm-size 8G -p 8889:8889 -p 6003:6003 -it -v "$(pwd)":/wd/ transformers:latest bash
+foo@bar:~$ make up USE_GPU=True
 ```
+
+# Running Experiments: 
+Specify the experiment you would like to run by editing the `run_experiments.sh` file. Then run the experiment using the following make command:
+```console
+foo@bar:~$ make run
+```
+
+# Plotting
+```console
+foo@bar:~$ make plot
 
 

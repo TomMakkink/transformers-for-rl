@@ -5,7 +5,7 @@ import torch
 import numpy as np
 
 
-def train_agent(agent, env, total_episodes, logger=None):
+def train_agent(agent, env, total_episodes=10000, logger=None):
     scores = []
     scores_deque = deque(maxlen=experiment_config["log_interval"])
     loss_deque = deque(maxlen=experiment_config["log_interval"])

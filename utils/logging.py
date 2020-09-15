@@ -30,5 +30,5 @@ def log_to_tensorboard(writer, metrics, step):
 def log_to_screen(metrics):
     print("------------------------------")
     for name, value in metrics.items():
-        print(f"{name}: {value:.2f}")
+        print(f"{name}: {value}")
     print("------------------------------")

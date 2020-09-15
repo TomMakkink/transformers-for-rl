@@ -3,17 +3,27 @@ from torch.distributions import Categorical
 import torch.nn.functional as F
 import torch
 from models.memory import Memory
+from models.common import mlp
 
 
 class ActorCriticMLP(nn.Module):
     def __init__(
-        self, state_size, action_size, hidden_size=128, memory_type="None",
+        self, state_size, action_size, hidden_size, memory_type="None",
     ):
         super(ActorCriticMLP, self).__init__()
-        self.fc_network = nn.Sequential(nn.Linear(state_size, hidden_size), nn.ReLU())
-        self.memory_network = Memory(memory_type, hidden_size, hidden_size)
-        self.fc_policy = nn.Linear(hidden_size, action_size)
-        self.fc_value_function = nn.Linear(hidden_size, 1)
+        assert len(hidden_size) > 0, "Hidden Layer sizes cannot be empty list"
+        self.fc_network = nn.Sequential(
+            nn.Linear(state_size, hidden_size[0]), nn.ReLU()
+        )
+        self.memory_network = Memory(memory_type, hidden_size[0], hidden_size[0])
+
+        policy_size = hidden_size.copy()
+        policy_size.append(action_size)
+        value_size = hidden_size.copy()
+        value_size.append(1)
+
+        self.fc_policy = mlp(policy_size, nn.ReLU)
+        self.fc_value_function = mlp(value_size, nn.ReLU)
 
     def forward(self, x):
         """
