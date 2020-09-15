@@ -11,15 +11,11 @@ class MLP(nn.Module):
         self, state_size, action_size, hidden_size: List[int], memory_type=None,
     ):
         super(MLP, self).__init__()
-        self.fc_network = nn.Sequential(
-            nn.Linear(state_size, hidden_size[0]), nn.ReLU()
-        )
-        self.memory_network = Memory(
-            memory_type, input_dim=hidden_size[0], output_dim=hidden_size[0]
-        )
-        hidden_size_ = [*hidden_size]
-        hidden_size_.append(action_size)
-        self.network = mlp(hidden_size_, nn.ReLU)
+        hidden_size_ = hidden_size.copy()
+        hidden_size_.insert(0, state_size)
+        self.fc_network = mlp(hidden_size_, nn.ReLU)
+        self.memory_network = Memory(memory_type, hidden_size_[-1], hidden_size_[-1])
+        self.network = nn.Linear(hidden_size_[-1], action_size)
 
     def forward(self, x):
         """

@@ -14,7 +14,7 @@ from models.mlp import MLP
 
 
 class DQN(Agent):
-    def __init__(self, state_size, action_size, hidden_size, memory):
+    def __init__(self, state_size, action_size, hidden_size=[50, 50], memory=None):
         super(DQN, self).__init__(state_size, action_size, hidden_size, memory)
         self.device = experiment_config["device"]
         self.policy_net = MLP(
@@ -40,7 +40,7 @@ class DQN(Agent):
         :param state: the current state
         :return: the action to take
         """
-        epsilon = self.calculate_epsilon(self.current_timestep)
+        epsilon = self.calculate_epsilon()
         self.current_timestep += 1
         if random.random() > epsilon:
             with torch.no_grad():
@@ -68,7 +68,7 @@ class DQN(Agent):
     def calculate_epsilon(self, current_timestep):
         return dqn_config["epsilon"]["final"] + (
             dqn_config["epsilon"]["start"] - dqn_config["epsilon"]["final"]
-        ) * math.exp(-1.0 * current_timestep / dqn_config["epsilon"]["decay"])
+        ) * math.exp(-1.0 * self.current_timestep / dqn_config["epsilon"]["decay"])
 
     def optimize_network(self):
         if dqn_config["warm_up_timesteps"] <= self.current_timestep:
@@ -98,15 +98,15 @@ class DQN(Agent):
             self.optimiser.step()
 
             if self.episode_number % dqn_config["target_update"] == 0:
-                print(
-                    self.episode_number, "updating update_target_update_by_percentage"
-                )
+                # print(
+                #     self.episode_number, "updating update_target_update_by_percentage"
+                # )
                 self.update_target_network()
                 # self.update_target_update_by_percentage()
 
             return loss.item()
         else:
-            print("Didn't optimise", self.current_timestep)
+            # print("Didn't optimise", self.current_timestep)
             return np.NaN
 
     def reset(self):

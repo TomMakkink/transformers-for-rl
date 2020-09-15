@@ -12,10 +12,12 @@ class ActorCriticMLP(nn.Module):
     ):
         super(ActorCriticMLP, self).__init__()
         assert len(hidden_size) > 0, "Hidden Layer sizes cannot be empty list"
-        self.fc_network = mlp(hidden_size, nn.ReLU, nn.ReLU)
-        self.memory_network = Memory(memory_type, hidden_size[-1], hidden_size[-1])
-        self.fc_policy = nn.Linear(hidden_size[-1], action_size)
-        self.fc_value_function = nn.Linear(hidden_size[-1], 1)
+        hidden_size_ = hidden_size.copy()
+        hidden_size_.insert(0, state_size)
+        self.fc_network = mlp(hidden_size_, nn.ReLU, nn.ReLU)
+        self.memory_network = Memory(memory_type, hidden_size_[-1], hidden_size_[-1])
+        self.fc_policy = nn.Linear(hidden_size_[-1], action_size)
+        self.fc_value_function = nn.Linear(hidden_size_[-1], 1)
 
     def forward(self, x):
         """
