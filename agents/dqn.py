@@ -1,15 +1,16 @@
+import math
+import random
+
+import numpy as np
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
-import numpy as np
 
-from models.mlp import MLP
 from agents.agent import Agent
+from agents.replay_buffer import ReplayBuffer
 from configs.dqn_config import dqn_config
 from configs.experiment_config import experiment_config
-from agents.replay_buffer import ReplayBuffer
-import math
-import random
+from models.mlp import MLP
 
 
 class DQN(Agent):
@@ -22,7 +23,7 @@ class DQN(Agent):
         self.target_network = MLP(
             state_size, action_size, hidden_size, memory_type=memory
         ).to(self.device)
-        self.update_target_update_by_percentage()
+        self.update_target_network()
         self.target_network.eval()
         self.replay_buffer = ReplayBuffer(dqn_config["buffer_size"])
         self.optimiser = optim.Adam(self.policy_net.parameters(), lr=dqn_config["lr"])
@@ -31,6 +32,7 @@ class DQN(Agent):
         self.sample_sequentially = (
             True if self.policy_net.memory_network.memory is not None else False
         )
+        self.episode_number = 1
 
     def act(self, state):
         """
@@ -59,8 +61,8 @@ class DQN(Agent):
             self.policy_net.parameters(), self.target_network.parameters()
         ):
             target_param.data.copy_(
-                dqn_config["lr"] * param.data
-                + (1 - dqn_config["lr"]) * target_param.data
+                dqn_config["tau"] * param.data
+                + (1 - dqn_config["tau"]) * target_param.data
             )
 
     def calculate_epsilon(self, current_timestep):
@@ -69,36 +71,52 @@ class DQN(Agent):
         ) * math.exp(-1.0 * current_timestep / dqn_config["epsilon"]["decay"])
 
     def optimize_network(self):
-        self.policy_net.reset()
-        states, actions, rewards, next_states, dones = self.replay_buffer.sample(
-            dqn_config["batch_size"], self.device, self.sample_sequentially
-        )
-
-        with torch.no_grad():
-            next_q_values = self.target_network(next_states)
-            max_next_q_values, _ = next_q_values.max(1)
-            target_q_values = (
-                rewards + (1 - dones) * dqn_config["gamma"] * max_next_q_values
+        if dqn_config["warm_up_timesteps"] <= self.current_timestep:
+            self.policy_net.reset()
+            states, actions, rewards, next_states, dones = self.replay_buffer.sample(
+                dqn_config["batch_size"], self.device, self.sample_sequentially
             )
 
-        input_q_values = self.policy_net(states)
-        input_q_values = input_q_values.gather(1, actions.unsqueeze(1)).squeeze()
+            with torch.no_grad():
+                _, max_next_action = self.policy_net(next_states).max(1)
+                max_next_q_values = (
+                    self.target_network(next_states)
+                    .gather(1, max_next_action.unsqueeze(1))
+                    .squeeze()
+                )
+                target_q_values = (
+                    rewards + (1 - dones) * dqn_config["gamma"] * max_next_q_values
+                )
 
-        loss = F.smooth_l1_loss(input_q_values, target_q_values)
+            input_q_values = self.policy_net(states)
+            input_q_values = input_q_values.gather(1, actions.unsqueeze(1)).squeeze()
 
-        self.optimiser.zero_grad()
-        loss.backward()
-        self.optimiser.step()
+            loss = F.smooth_l1_loss(input_q_values, target_q_values)
 
-        self.update_target_update_by_percentage()
+            self.optimiser.zero_grad()
+            loss.backward()
+            self.optimiser.step()
 
-        return loss.item()
+            if self.episode_number % dqn_config["target_update"] == 0:
+                print(
+                    self.episode_number, "updating update_target_update_by_percentage"
+                )
+                self.update_target_network()
+                # self.update_target_update_by_percentage()
+
+            return loss.item()
+        else:
+            print("Didn't optimise", self.current_timestep)
+            return np.NaN
 
     def reset(self):
         self.replay_buffer.reset()
         self.policy_net.reset()
         self.target_network.reset()
+        self.episode_number += 1
 
     def collect_experience(self, state, action, reward, next_state, done):
         self.replay_buffer.push(state, action, reward, next_state, done)
 
+    def get_parameters(self):
+        return dqn_config

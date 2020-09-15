@@ -48,7 +48,7 @@ class Memory(nn.Module):
 
     def forward(self, x):
         """
-        x: shape [seq_len, batch_size, feature_dim] 
+        x: shape [seq_len, batch_size, feature_dim]
         """
         if type(self.memory) is nn.LSTM:
             batch_size = x.shape[1]
@@ -75,4 +75,3 @@ class Memory(nn.Module):
             )
         elif type(self.memory) == MemoryTransformerModel:
             self.mem = self.memory.reset()
-
