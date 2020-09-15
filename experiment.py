@@ -35,7 +35,12 @@ def run_experiment(args):
         )
         action_size = env.action_space.n
         state_size = env.observation_space.shape[1]
-        agent = rl_agent(state_size, action_size, hidden_size=[64], memory=args.memory)
+        agent = rl_agent(
+            state_size,
+            action_size,
+            hidden_size=[state_size, 64, 64],
+            memory=args.memory,
+        )
 
         total_episodes = (
             env.bsuite_num_episodes if args.num_eps is None else args.num_eps

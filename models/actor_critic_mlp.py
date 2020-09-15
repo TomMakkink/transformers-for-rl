@@ -12,18 +12,10 @@ class ActorCriticMLP(nn.Module):
     ):
         super(ActorCriticMLP, self).__init__()
         assert len(hidden_size) > 0, "Hidden Layer sizes cannot be empty list"
-        self.fc_network = nn.Sequential(
-            nn.Linear(state_size, hidden_size[0]), nn.ReLU()
-        )
-        self.memory_network = Memory(memory_type, hidden_size[0], hidden_size[0])
-
-        policy_size = hidden_size.copy()
-        policy_size.append(action_size)
-        value_size = hidden_size.copy()
-        value_size.append(1)
-
-        self.fc_policy = mlp(policy_size, nn.ReLU)
-        self.fc_value_function = mlp(value_size, nn.ReLU)
+        self.fc_network = mlp(hidden_size, nn.ReLU, nn.ReLU)
+        self.memory_network = Memory(memory_type, hidden_size[-1], hidden_size[-1])
+        self.fc_policy = nn.Linear(hidden_size[-1], action_size)
+        self.fc_value_function = nn.Linear(hidden_size[-1], 1)
 
     def forward(self, x):
         """
@@ -35,11 +27,14 @@ class ActorCriticMLP(nn.Module):
         """
         x = self.fc_network(x)
         if self.memory_network.memory:
+            skip_conn_input = x
             # Memory recieves input of shape (seq_len, batch_size, features)
             x = x.transpose(0, 1)
             x = self.memory_network(x)
             x = x.transpose(0, 1)
+            x = F.relu(x) + skip_conn_input
         x = x[:, -1, :]  # Only use most recent sequence
+
         logits = self.fc_policy(x)
         value = self.fc_value_function(x)
         dist = Categorical(logits=logits)

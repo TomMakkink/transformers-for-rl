@@ -64,6 +64,7 @@ class RelativePositionalEncoding(nn.Module):
         self.register_buffer("inv_freq", inv_freq)
 
     def forward(self, pos_seq, bsz=None):
+        print(f"1) {pos_seq.shape}")
         sinusoid_inp = torch.ger(pos_seq, self.inv_freq)
         pos_emb = torch.cat([sinusoid_inp.sin(), sinusoid_inp.cos()], dim=-1)
 

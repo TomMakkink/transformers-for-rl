@@ -151,10 +151,6 @@ class MemoryTransformerModel(nn.Module):
         mlen = mem[0].size(0) if mem is not None else 0
         klen = mlen + qlen
 
-        # Masking
-        # attn_mask = torch.triu(inputs.new_ones(qlen, klen), diagonal=1 + mlen).bool()[
-        #     :, :, None
-        # ]
         attn_mask = None
 
         hids = []
@@ -162,12 +158,13 @@ class MemoryTransformerModel(nn.Module):
             klen - 1, -1, -1.0, dtype=inputs.dtype, device=inputs.device
         )
         pos_emb = self.positional_encoding_layer(pos_seq)
+        print(f"Pos emd shape: {pos_emb.shape}")
 
         core_out = self.drop(inputs)
         pos_emb = self.drop(pos_emb)
 
-        hids.append(core_out)
         for i, layer in enumerate(self.MemoryTransformerLayers):
+            hids.append(core_out)
             mem_i = None if mem is None else mem[i]
             core_out = layer(
                 core_out, pos_emb, self.u, self.v, attn_mask=None, mem=mem_i,
@@ -442,12 +439,9 @@ class GMHA(TransformerBlockBase):
             dropout,
             mem_len=transformer_config["mem_len"],
         )
-        self.hidden = torch.zeros(1, 1, lstm_config["hidden_dim"]).to(
-            experiment_config["device"]
-        )
-        self.gated_layer = nn.GRU(
-            d_model, lstm_config["hidden_dim"], num_layers=lstm_config["num_layers"]
-        )
+        self.hidden = torch.zeros(1, 1, d_model).to(experiment_config["device"])
+        self.gated_layer = nn.GRU(d_model, d_model, num_layers=1)
+        self.d_model = d_model
 
     def forward(
         self,
@@ -463,9 +457,7 @@ class GMHA(TransformerBlockBase):
         return y
 
     def reset(self):
-        self.hidden = torch.zeros(1, 1, lstm_config["hidden_dim"]).to(
-            experiment_config["device"]
-        )
+        self.hidden = torch.zeros(1, 1, self.d_model).to(experiment_config["device"])
 
 
 def get_transformer_submodule(transformer: str):

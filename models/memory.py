@@ -7,11 +7,6 @@ from configs.experiment_config import experiment_config
 from transformers.transformer import (
     TransformerModel,
     MemoryTransformerModel,
-    TransformerBlock,
-    ReZeroBlock,
-    LinformerBlock,
-    TransformerXLBlock,
-    GTrXLBlock,
     get_transformer_submodule,
 )
 
@@ -58,6 +53,7 @@ class Memory(nn.Module):
         if type(self.memory) is nn.LSTM:
             batch_size = x.shape[1]
             if batch_size > 1:
+                print("Batch Size above 1")
                 x, self.hidden = self.memory(x)
             else:
                 x, self.hidden = self.memory(x, self.hidden)

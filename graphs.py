@@ -8,14 +8,18 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from bsuite.logging import csv_load
 from bsuite.experiments import summary_analysis
+from bsuite.experiments.memory_len import analysis as memory_len_analysis
+from bsuite.experiments.memory_size import analysis as memory_size_analysis
+from bsuite.experiments.umbrella_length import analysis as umbrella_length_analysis
 
 sns.set()
 
 DEFAULT_SAVE_DIR = "graphs"
 DEFAULT_DATA_FOLDER = "results"
-ALGORITHMS = ["A2C"]
-MODELS = ["mha", "rmha", "gmha", "lstm", "none"]
-ENVS = ["memory_size"]  # "memory_len",
+AGENTS = ["a2c"]
+# MODELS = ["mha", "rmha", "gmha", "lstm", "none", "lmha"]
+MODELS = ["lstm"]
+ENVS = ["umbrella_length"]
 ENVS_NUM = list(map(str, range(17)))
 SEEDS = ["28", "61", "39"]  # , "78", "72", "46", "61", "71", "93", "44"]
 COLOURS = ["blue", "green", "red", "purple", "black", "orange"]
@@ -100,26 +104,40 @@ args = parser.parse_args()
 
 
 def bsuite_graphing(root_dir, save_dir):
-    SAVE_PATH_NONE = root_dir + f"/a2c/None/"
-    SAVE_PATH_GMHA = root_dir + f"/a2c/gmha/"
-    experiments = {"none": SAVE_PATH_NONE}
+    experiments = {}
+    for model in MODELS:
+        for agent in AGENTS:
+            experiments[model] = f"{root_dir}/{agent}/{model}/"
+
     DF, SWEEP_VARS = csv_load.load_bsuite(experiments)
     BSUITE_SCORE = summary_analysis.bsuite_score(DF, SWEEP_VARS)
-    print(BSUITE_SCORE)
 
-    # # @title As well as plots specialized to the experiment
+    # Plots specialized to the experiment
+    for env in ENVS:
+        result = summary_analysis.plot_single_experiment(BSUITE_SCORE, env, SWEEP_VARS)
+        result.save(save_dir + f"/{env}_results")
+
+    if env in ["memory_len", "memory_size", "umbrella_length"]:
+        env_df = DF[DF.bsuite_env == env].copy()
+        if env == "memory_len":
+            learning_analysis = memory_len_analysis.plot_learning(env_df, SWEEP_VARS)
+            scale_analysis = memory_len_analysis.plot_scale(env_df, SWEEP_VARS)
+            seeds_analysis = memory_len_analysis.plot_seeds(env_df, SWEEP_VARS)
+        elif env == "memory_size":
+            learning_analysis = memory_size_analysis.plot_learning(env_df, SWEEP_VARS)
+            scale_analysis = memory_size_analysis.plot_scale(env_df, SWEEP_VARS)
+            seeds_analysis = memory_size_analysis.plot_seeds(env_df, SWEEP_VARS)
+        else:
+            learning_analysis = umbrella_length_analysis.plot_learning(
+                env_df, SWEEP_VARS
+            )
+        learning_analysis.save(save_dir + f"/{env}_learning")
+        scale_analysis.save(save_dir + f"/{env}_scale")
+        seeds_analysis.save(save_dir + f"/{env}_seed")
+
     # umbrella_length_df = DF[DF.bsuite_env == "umbrella_length"].copy()
-    result = summary_analysis.plot_single_experiment(BSUITE_SCORE, "memory_size")
-    result.save(save_dir + "/Summary")
-
     # learn = umbrella_length_analysis.plot_learning(umbrella_length_df)
     # learn.save(save_dir + "/umbrella_length_learning")
-
-
-#     experiments
-
-# experiments = {'dqn': SAVE_PATH_DQN, 'rand': SAVE_PATH_RAND}
-# DF, SWEEP_VARS = csv_load.load_bsuite(experiments)
 
 
 if __name__ == "__main__":

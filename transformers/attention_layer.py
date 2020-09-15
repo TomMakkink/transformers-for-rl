@@ -200,12 +200,9 @@ class RelativeMultiHeadAttention(nn.Module):
         """
         qlen, rlen, bsz = x.size(0), r.size(0), x.size(1)
 
-        # print(f"Memory shape: {mem}")
-        # if len(mem) > 0:
-        #     print(f"Memory slice: {mem[0].shape}")
-        # print(f"X: {x.shape}")
         context = x if mem is None else torch.cat([mem, x], 0)
         w_heads = self.qkv_net(context)
+
         rk = self.r_net(r)
         wq, wk, wv = torch.chunk(w_heads, 3, dim=-1)
         wq = wq[-qlen:]
@@ -228,9 +225,9 @@ class RelativeMultiHeadAttention(nn.Module):
         attn_score = AC + BD
         attn_score.mul_(self.scale)
 
-        # [qlen x qlen x batch_size x num_head]
+        # [qlen x klen x batch_size x num_head]
         attn_prob = F.softmax(attn_score, dim=1)
-        attn_score = self.dropout_attn(attn_prob)
+        attn_prob = self.dropout_attn(attn_prob)
 
         # Compute attention vector
         attn_vec = torch.einsum("ijbn,jbnd->ibnd", (attn_prob, wv))
