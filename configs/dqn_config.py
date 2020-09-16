@@ -1,9 +1,9 @@
 dqn_config = {
-    "lr": 3e-4,
+    "lr": 1e-3,
     "gamma": 0.99,
     "buffer_size": 1000,
-    "batch_size": 64,
-    "epsilon": {"start": 1.0, "final": 0.01, "decay": 12800},
-    "warm_up_timesteps": 4096,
-    "target_update": 5,
+    "batch_size": 32,
+    "epsilon": {"start": 1.0, "final": 0.01, "decay": 500},
+    "warm_up_timesteps": 1000,
+    "target_update": 100,
 }

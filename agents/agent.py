@@ -20,3 +20,7 @@ class Agent(ABC):
     @abstractmethod
     def get_parameters(self):
         pass
+
+    @abstractmethod
+    def reset(self):
+        pass

@@ -12,6 +12,7 @@ from agents.a2c import A2C
 import argparse
 from experiments.agent_trainer import train_agent
 from configs.experiment_config import experiment_config
+import gym
 
 
 def run_experiment(args):
@@ -35,8 +36,7 @@ def run_experiment(args):
         )
         action_size = env.action_space.n
         state_size = env.observation_space.shape[1]
-        agent = rl_agent(state_size, action_size, memory=args.memory,)
-
+        agent = rl_agent(state_size, action_size, memory=args.memory)
         total_episodes = (
             env.bsuite_num_episodes if args.num_eps is None else args.num_eps
         )

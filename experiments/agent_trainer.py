@@ -3,6 +3,7 @@ from utils.logging import log_to_screen, log_to_comet_ml
 from collections import deque
 import torch
 import numpy as np
+import gym
 
 
 def train_agent(agent, env, total_episodes=10000, logger=None):
@@ -46,3 +47,4 @@ def train_agent(agent, env, total_episodes=10000, logger=None):
                 log_to_comet_ml(logger, metrics, step=episode)
             metrics.update({"Episode": episode})
             log_to_screen(metrics)
+

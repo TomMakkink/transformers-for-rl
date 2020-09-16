@@ -158,7 +158,6 @@ class MemoryTransformerModel(nn.Module):
             klen - 1, -1, -1.0, dtype=inputs.dtype, device=inputs.device
         )
         pos_emb = self.positional_encoding_layer(pos_seq)
-        print(f"Pos emd shape: {pos_emb.shape}")
 
         core_out = self.drop(inputs)
         pos_emb = self.drop(pos_emb)

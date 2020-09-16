@@ -13,7 +13,7 @@ class MLP(nn.Module):
         super(MLP, self).__init__()
         hidden_size_ = hidden_size.copy()
         hidden_size_.insert(0, state_size)
-        self.fc_network = mlp(hidden_size_, nn.ReLU)
+        self.fc_network = mlp(hidden_size_, nn.ReLU, nn.ReLU)
         self.memory_network = Memory(memory_type, hidden_size_[-1], hidden_size_[-1])
         self.network = nn.Linear(hidden_size_[-1], action_size)
 
@@ -25,12 +25,12 @@ class MLP(nn.Module):
         Returns:
             Network outputs last sequence of shape (batch_size, features)
         """
-        assert len(x.shape) == 3
+        # assert len(x.shape) == 3
         x = self.fc_network(x)
-        if self.memory_network.memory:
-            x = x.transpose(0, 1)
-            x = self.memory_network(x)
-            x = x.transpose(0, 1)
+        # if self.memory_network.memory:
+        #     x = x.transpose(0, 1)
+        #     x = self.memory_network(x)
+        #     x = x.transpose(0, 1)
         x = self.network(x)
         x = x[:, -1, :]  # Only use most recent sequence
         return x
