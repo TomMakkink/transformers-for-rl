@@ -5,7 +5,6 @@ import torch
 from models.memory import Memory
 from models.common import mlp
 
-
 class ActorCriticMLP(nn.Module):
     def __init__(
         self, state_size, action_size, hidden_size, memory_type="None",
@@ -18,6 +17,7 @@ class ActorCriticMLP(nn.Module):
         self.memory_network = Memory(memory_type, hidden_size_[-1], hidden_size_[-1])
         self.fc_policy = nn.Linear(hidden_size_[-1], action_size)
         self.fc_value_function = nn.Linear(hidden_size_[-1], 1)
+        self.attention_weights = None
 
     def forward(self, x):
         """
@@ -32,11 +32,13 @@ class ActorCriticMLP(nn.Module):
             skip_conn_input = x
             # Memory recieves input of shape (seq_len, batch_size, features)
             x = x.transpose(0, 1)
-            x = self.memory_network(x)
+            x, w = self.memory_network(x)
             x = x.transpose(0, 1)
             x = F.relu(x) + skip_conn_input
         x = x[:, -1, :]  # Only use most recent sequence
 
+        self.attention_weights = w
+        
         logits = self.fc_policy(x)
         value = self.fc_value_function(x)
         dist = Categorical(logits=logits)

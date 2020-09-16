@@ -69,8 +69,8 @@ class TransformerModel(nn.Module):
         """
         x = self.pos_encoder(x * math.sqrt(self.d_model))
         for layer in self.TransformerLayers:
-            x = layer(x)
-        return self.out_layer(x)  # [0]
+            x, w = layer(x)
+        return self.out_layer(x), w  # change made to store attention weights
 
 
 class MemoryTransformerModel(nn.Module):
@@ -386,7 +386,7 @@ class MHA(TransformerBlockBase):
         )
 
     def forward(self, inputs):
-        y = self.attention(inputs, inputs, inputs, attn_mask=None)[0]
+        y = self.attention(inputs, inputs, inputs, attn_mask=None) #[0]
         return y
 
 

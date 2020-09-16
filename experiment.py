@@ -40,7 +40,7 @@ def run_experiment(args):
         total_episodes = (
             env.bsuite_num_episodes if args.num_eps is None else args.num_eps
         )
-        train_agent(agent, env, total_episodes, logger)
+        train_agent(agent, env, total_episodes, logger, viz=args.viz)
 
 
 def main():
@@ -53,6 +53,7 @@ def main():
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--env", type=str)
     parser.add_argument("--window", type=int, default=1)
+    parser.add_argument("--viz", action="store_true")
     parser.add_argument("--comet", action="store_true")
     parser.add_argument("--tags", nargs="*", help="Additional comet experiment tags.")
     args = parser.parse_args()
