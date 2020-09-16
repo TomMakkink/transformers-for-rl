@@ -36,7 +36,7 @@ def train_agent(agent, env, total_episodes=10000, logger=None, viz=False):
                 weights = agent.net.attention_weights
                 correct_attend = viz_attention(weights.detach().numpy(), episode, t, total_step, 
                             avg_attend, total_steps)  
-                mean_attend = int(correct_attend)/total_step
+                mean_attend = int(correct_attend)/total_step # I think this is wrong
                 avg_attend.append(mean_attend)
             
             agent.collect_experience(state, action, reward, next_state, done)
