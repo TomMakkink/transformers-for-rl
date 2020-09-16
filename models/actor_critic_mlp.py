@@ -36,7 +36,6 @@ class ActorCriticMLP(nn.Module):
             x = x.transpose(0, 1)
             x = F.relu(x) + skip_conn_input
         x = x[:, -1, :]  # Only use most recent sequence
-
         logits = self.fc_policy(x)
         value = self.fc_value_function(x)
         dist = Categorical(logits=logits)

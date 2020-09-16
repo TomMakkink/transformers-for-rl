@@ -115,7 +115,7 @@ class Memory(nn.Module):
                 self.memory = TransformerModel(input_dim, output_dim, submodule)
             elif self.memory_type in ["gtrxl", "xl", "rmha", "gmha"]:
                 submodule = get_transformer_submodule(self.memory_type)
-                self.mem = tuple()
+                self.mem = None
                 self.memory = MemoryTransformerModel(input_dim, output_dim, submodule)
 
     def forward(self, x):
@@ -150,4 +150,4 @@ class Memory(nn.Module):
         elif self.memory_type == "stable":
             self.mem = None
         elif type(self.memory) == MemoryTransformerModel:
-            self.mem = self.memory.reset()
+            self.mem = None
