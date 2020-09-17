@@ -65,10 +65,11 @@ class DQN(Agent):
                 + (1 - dqn_config["tau"]) * target_param.data
             )
 
-    def calculate_epsilon(self, current_timestep):
-        return dqn_config["epsilon"]["final"] + (
-            dqn_config["epsilon"]["start"] - dqn_config["epsilon"]["final"]
-        ) * math.exp(-1.0 * self.current_timestep / dqn_config["epsilon"]["decay"])
+    def calculate_epsilon(self):
+        # return dqn_config["epsilon"]["final"] + (
+        #     dqn_config["epsilon"]["start"] - dqn_config["epsilon"]["final"]
+        # ) * math.exp(-1.0 * self.current_timestep / dqn_config["epsilon"]["decay"])
+        return 0.05
 
     def optimize_network(self):
         if dqn_config["warm_up_timesteps"] <= self.current_timestep:

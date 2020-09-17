@@ -12,6 +12,7 @@ from agents.a2c import A2C
 import argparse
 from experiments.agent_trainer import train_agent
 from configs.experiment_config import experiment_config
+import gym
 
 
 def run_experiment(args):
@@ -20,7 +21,7 @@ def run_experiment(args):
     set_random_seed(args.seed)
 
     env_id_list = get_sweep_from_bsuite_id(args.env)
-    for env_id in env_id_list:
+    for i, env_id in enumerate(env_id_list):
         if args.comet:
             tags = [args.agent, args.memory, args.seed, env_id]
             logger = set_up_comet_ml(tags=[*tags])
@@ -31,12 +32,11 @@ def run_experiment(args):
             seed=args.seed,
             memory=args.memory,
             env=env_id,
-            window_size=args.window,
+            window_size=i + 1,
         )
         action_size = env.action_space.n
         state_size = env.observation_space.shape[1]
-        agent = rl_agent(state_size, action_size, memory=args.memory,)
-
+        agent = rl_agent(state_size, action_size, memory=args.memory)
         total_episodes = (
             env.bsuite_num_episodes if args.num_eps is None else args.num_eps
         )

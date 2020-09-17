@@ -10,6 +10,7 @@ class ReplayBuffer:
     """
 
     def __init__(self, max_num_episodes):
+        print(max_num_episodes)
         self._storage = deque(maxlen=max_num_episodes)
         self._storage.append([])
         self.current_episode_index = 0
