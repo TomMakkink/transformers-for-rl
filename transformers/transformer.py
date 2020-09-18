@@ -9,6 +9,7 @@ from transformers.attention_layer import (
     RelativeMultiHeadAttention,
     PositionWiseMLP,
     GatedRecurrentUnit,
+    RelPartialLearnableMultiHeadAttn,
 )
 from transformers.positional_encoding_layer import PositionalEncoding
 from configs.transformer_config import transformer_config
@@ -407,10 +408,11 @@ class LMHA(TransformerBlockBase):
 class RMHA(TransformerBlockBase):
     def __init__(self, d_model: int, dim_mlp: int, dropout: int):
         super(RMHA, self).__init__(d_model, dim_mlp, dropout)
-        self.attention = RelativeMultiHeadAttention(
-            transformer_config["num_heads"],
-            d_model,
-            dropout,
+        self.attention = RelPartialLearnableMultiHeadAttn(
+            n_head=transformer_config["num_heads"],
+            d_model=d_model,
+            d_head=d_model // transformer_config["num_heads"],
+            dropout=dropout,
             mem_len=transformer_config["mem_len"],
         )
 

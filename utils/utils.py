@@ -105,19 +105,6 @@ def create_environment(agent, seed, memory, env, window_size=1):
     # build folder path to save data
     save_path = "results/" + f"{agent}/{memory}/"
 
-    # memory = memory if memory is not None else "none"
-    # save_path = (
-    #     save_path
-    #     + agent
-    #     + "/"
-    #     + memory
-    #     + "/"
-    #     + str(seed)
-    #     + "/"
-    #     + str(window_size)
-    #     + "/"
-    # )
-
     if env:
         raw_env = bsuite.load_and_record(env, save_path, overwrite=True)
     else:

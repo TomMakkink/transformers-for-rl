@@ -16,10 +16,10 @@ sns.set()
 
 DEFAULT_SAVE_DIR = "graphs"
 DEFAULT_DATA_FOLDER = "results"
-AGENTS = ["a2c"]
+AGENTS = ["random"]
 # MODELS = ["mha", "rmha", "gmha", "lstm", "none", "lmha"]
-MODELS = ["mha", "rmha"]
-ENVS = ["memory_len"]  # , "memory_size"]
+MODELS = ["none"]
+ENVS = ["custom"]
 ENVS_NUM = list(map(str, range(17)))
 SEEDS = ["28", "61", "39"]  # , "78", "72", "46", "61", "71", "93", "44"]
 COLOURS = ["blue", "green", "red", "purple", "black", "orange"]
@@ -97,10 +97,39 @@ def calculate_std(data):
     return np.nanstd(np.array(list(zip_longest(*data)), dtype=float), axis=1)
 
 
+import pandas as pd
+from bsuite import sweep
+import glob
+import os
+from bsuite.logging import csv_logging
+from bsuite.logging import logging_utils
+import copy
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--root_dir", type=str)
 parser.add_argument("--save_dir", type=str)
 args = parser.parse_args()
+
+
+def load_one_result_set(results_dir: str) -> pd.DataFrame:
+    """Returns a pandas DataFrame of bsuite results stored in results_dir."""
+    data = []
+    for file_path in glob.glob(os.path.join(results_dir, "*.csv")):
+        _, name = os.path.split(file_path)
+        # Rough and ready error-checking for only bsuite csv files.
+        if not name.startswith(csv_logging.BSUITE_PREFIX):
+            print("Warning - we recommend you use a fresh folder for bsuite results.")
+            continue
+
+        # Then we will assume that the file is actually a bsuite file
+        df = pd.read_csv(file_path)
+        file_bsuite_id = name.strip(".csv").split(csv_logging.INITIAL_SEPARATOR)[1]
+        bsuite_id = file_bsuite_id.replace(csv_logging.SAFE_SEPARATOR, sweep.SEPARATOR)
+        df["bsuite_id"] = bsuite_id
+        df["results_dir"] = results_dir
+        data.append(df)
+    df = pd.concat(data, sort=False)
+    return df
 
 
 def bsuite_graphing(root_dir, save_dir):
@@ -109,7 +138,13 @@ def bsuite_graphing(root_dir, save_dir):
         for agent in AGENTS:
             experiments[model] = f"{root_dir}/{agent}/{model}/"
 
-    DF, SWEEP_VARS = csv_load.load_bsuite(experiments)
+    DF, SWEEP_VARS = logging_utils.load_multiple_runs(
+        path_collection=experiments["none"], single_load_fn=load_one_result_set,
+    )
+    print(DF)
+    print(SWEEP_VARS)
+    # df = load_one_result_set(experiments["none"])
+    # DF, SWEEP_VARS = csv_load.load_bsuite(experiments)
     BSUITE_SCORE = summary_analysis.bsuite_score(DF, SWEEP_VARS)
 
     # Plots specialized to the experiment
