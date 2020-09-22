@@ -4,11 +4,8 @@ from configs.transformer_config import transformer_config
 from configs.lstm_config import lstm_config
 from configs.experiment_config import experiment_config
 
-from transformers.transformer import (
-    TransformerModel,
-    MemoryTransformerModel,
-    get_transformer_submodule,
-)
+from transformers.transformer_models import TransformerModel, MemoryTransformerModel
+from transformers.transformer_submodules import get_transformer_submodule
 
 
 class Memory(nn.Module):
