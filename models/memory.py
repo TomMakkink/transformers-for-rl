@@ -35,24 +35,6 @@ class Memory(nn.Module):
                         experiment_config["device"]
                     ),
                 )
-            elif self.memory_type == "stable":
-                self.memory = MemTransformerLM(
-                    n_token=None,
-                    n_layer=transformer_config["num_layers"],
-                    n_head=transformer_config["num_heads"],
-                    d_head=input_dim // transformer_config["num_heads"],
-                    d_model=input_dim,
-                    d_inner=transformer_config["dim_mlp"],
-                    dropout=0.1,
-                    dropatt=0.0,
-                    mem_len=transformer_config["mem_len"],
-                    use_stable_version=True,
-                    use_gate=True,
-                )
-                self.memory.apply(weights_init)
-                self.memory.init_gru_bias()
-                self.mem = None
-
             elif self.memory_type in ["vanilla", "rezero", "linformer", "mha", "lmha"]:
                 submodule = get_transformer_submodule(self.memory_type)
                 self.memory = TransformerModel(input_dim, output_dim, submodule)
