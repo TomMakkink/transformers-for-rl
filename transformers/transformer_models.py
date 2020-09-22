@@ -3,8 +3,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.init import xavier_uniform_
-from transformers.positional_encoding_layer import PositionalEncoding
-from transformers.transformer_submodules import TransformerBlockBase
+from transformers import PositionalEncoding, TransformerBlockBase
+
 from configs.transformer_config import transformer_config
 
 Tensor = torch.Tensor

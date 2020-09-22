@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
-from transformers.attention_layer import (
+import torch.nn.functional as F
+from transformers import (
     MultiHeadAttention,
     MultiheadLinearAttention,
     RelativeMultiHeadAttention,
@@ -155,21 +156,13 @@ class GTrXLBlock(TransformerBlockBase):
             mem_len=transformer_config["mem_len"],
         )
 
-        self.hidden_1 = torch.zeros(1, 1, lstm_config["hidden_dim"]).to(
-            experiment_config["device"]
-        )
-        self.hidden_2 = torch.zeros(1, 1, lstm_config["hidden_dim"]).to(
-            experiment_config["device"]
-        )
-        self.gated_layer_1 = nn.GRU(
-            d_model, lstm_config["hidden_dim"], num_layers=lstm_config["num_layers"]
-        )
-        self.gated_layer_2 = nn.GRU(
-            d_model, lstm_config["hidden_dim"], num_layers=lstm_config["num_layers"]
-        )
+        self.hidden_1 = torch.zeros(1, 1, d_model).to(experiment_config["device"])
+        self.hidden_2 = torch.zeros(1, 1, d_model).to(experiment_config["device"])
+        self.gated_layer_1 = nn.GRU(d_model, d_model, num_layers=1)
+        self.gated_layer_2 = nn.GRU(d_model, d_model, num_layers=1)
 
         self.pos_wise_mlp = PositionWiseMLP(d_model, dim_mlp, dropout)
-        self.relu = nn.ReLU(inplace=True)
+        self.d_model = d_model
 
     def forward(
         self,
@@ -191,17 +184,12 @@ class GTrXLBlock(TransformerBlockBase):
         x = y
         y = self.layer_norm_2(y)
         y = self.pos_wise_mlp(y)
-        y = self.relu(y)
         output, self.hidden_2 = self.gated_layer_2(x + y, self.hidden_2)
         return output
 
     def reset(self):
-        self.hidden_1 = torch.zeros(1, 1, lstm_config["hidden_dim"]).to(
-            experiment_config["device"]
-        )
-        self.hidden_2 = torch.zeros(1, 1, lstm_config["hidden_dim"]).to(
-            experiment_config["device"]
-        )
+        self.hidden_1 = torch.zeros(1, 1, self.d_model).to(experiment_config["device"])
+        self.hidden_2 = torch.zeros(1, 1, self.d_model).to(experiment_config["device"])
 
 
 class MHA(TransformerBlockBase):
