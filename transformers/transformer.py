@@ -40,7 +40,7 @@ class TransformerModel(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.d_model = d_model
 
-        self.TransformerLayers = nn.ModuleList(
+        self.sudmodules = nn.ModuleList(
             [
                 submodule(
                     d_model=d_model,
@@ -69,7 +69,7 @@ class TransformerModel(nn.Module):
             Transformer output, of shape: [seq_len, batch_size, output_dim]
         """
         x = self.pos_encoder(x * math.sqrt(self.d_model))
-        for layer in self.TransformerLayers:
+        for layer in self.sudmodules:
             x = layer(x)
         return self.out_layer(x)  # [0]
 
@@ -98,7 +98,7 @@ class MemoryTransformerModel(nn.Module):
         self.u = nn.Parameter(torch.zeros(num_heads, dim_head))
         self.v = nn.Parameter(torch.zeros(num_heads, dim_head))
 
-        self.MemoryTransformerLayers = nn.ModuleList(
+        self.submodules = nn.ModuleList(
             [
                 submodule(
                     d_model=d_model,
@@ -163,7 +163,7 @@ class MemoryTransformerModel(nn.Module):
         core_out = self.drop(inputs)
         pos_emb = self.drop(pos_emb)
 
-        for i, layer in enumerate(self.MemoryTransformerLayers):
+        for i, layer in enumerate(self.submodules):
             hids.append(core_out)
             mem_i = None if mem is None else mem[i]
             core_out = layer(
@@ -179,9 +179,8 @@ class MemoryTransformerModel(nn.Module):
 
     def reset(self):
         self.init_mem()
-        for layer in self.MemoryTransformerLayers:
-            if type(TransformerBlockBase):
-                layer.reset()
+        for layer in self.submodules:
+            layer.reset()
 
 
 class TransformerBlockBase(nn.Module):
@@ -408,11 +407,10 @@ class LMHA(TransformerBlockBase):
 class RMHA(TransformerBlockBase):
     def __init__(self, d_model: int, dim_mlp: int, dropout: int):
         super(RMHA, self).__init__(d_model, dim_mlp, dropout)
-        self.attention = RelPartialLearnableMultiHeadAttn(
-            n_head=transformer_config["num_heads"],
-            d_model=d_model,
-            d_head=d_model // transformer_config["num_heads"],
-            dropout=dropout,
+        self.attention = RelativeMultiHeadAttention(
+            transformer_config["num_heads"],
+            d_model,
+            dropout,
             mem_len=transformer_config["mem_len"],
         )
 
@@ -440,7 +438,7 @@ class GMHA(TransformerBlockBase):
             dropout,
             mem_len=transformer_config["mem_len"],
         )
-        self.hidden = torch.zeros(1, 1, d_model).to(experiment_config["device"])
+        self.gru_hidden = torch.zeros(1, 1, d_model).to(experiment_config["device"])
         self.gated_layer = nn.GRU(d_model, d_model, num_layers=1)
         self.d_model = d_model
 
@@ -454,11 +452,13 @@ class GMHA(TransformerBlockBase):
         mem: Tensor = None,
     ):
         y = self.attention(inputs, r, u, v, attn_mask, mem)
-        y, self.hidden = self.gated_layer(y, self.hidden)
+        y, self.gru_hidden = self.gated_layer(y, self.gru_hidden)
         return y
 
     def reset(self):
-        self.hidden = torch.zeros(1, 1, self.d_model).to(experiment_config["device"])
+        self.gru_hidden = torch.zeros(1, 1, self.d_model).to(
+            experiment_config["device"]
+        )
 
 
 def get_transformer_submodule(transformer: str):

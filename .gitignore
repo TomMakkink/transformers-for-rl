@@ -3,6 +3,7 @@ runs/
 video/
 results/
 graphs/
+plots/
 .vscode/
 .comet.config
 .pytype

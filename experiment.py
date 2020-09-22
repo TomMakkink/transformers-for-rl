@@ -42,36 +42,6 @@ def run_experiment(args):
         train_agent(agent, env, total_episodes, logger)
 
 
-from environment.custom_memory import CustomMemoryChain
-from bsuite.utils import gym_wrapper
-from bsuite.logging.csv_logging import Logger
-from bsuite.utils import wrappers
-import termcolor
-import random
-
-
-def test_custom_env():
-    env = CustomMemoryChain(memory_length=10, num_bits=3, seed=100)
-    results_dir = "results/random/none/"
-    logger = Logger(bsuite_id="custom", results_dir=results_dir, overwrite=True)
-    termcolor.cprint(
-        f"Logging results to CSV file for each bsuite_id in {results_dir}.",
-        color="yellow",
-        attrs=["bold"],
-    )
-    env = wrappers.Logging(env, logger, log_by_step=False)
-    env = gym_wrapper.GymFromDMEnv(env)
-
-    # for eps in range(10000):
-    #     state = env.reset()
-    #     while True:
-    #         state, reward, done, _ = env.step(random.randrange(env.action_space.n))
-    #         if done:
-    #             break
-    #     if eps % 100 == 0:
-    #         print(f"Episode: {eps}")
-
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--project", type=str, default="transformers-for-rl")
@@ -87,8 +57,7 @@ def main():
     args = parser.parse_args()
 
     update_configs(args)
-    # run_experiment(args)
-    test_custom_env()
+    run_experiment(args)
 
 
 if __name__ == "__main__":
