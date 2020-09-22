@@ -4,6 +4,11 @@ import torch.nn.functional as F
 import torch
 from models.memory import Memory
 from models.common import mlp
+from transformers.transformer import (
+    TransformerModel,
+    MemoryTransformerModel,
+)
+
 
 class ActorCriticMLP(nn.Module):
     def __init__(
@@ -17,7 +22,6 @@ class ActorCriticMLP(nn.Module):
         self.memory_network = Memory(memory_type, hidden_size_[-1], hidden_size_[-1])
         self.fc_policy = nn.Linear(hidden_size_[-1], action_size)
         self.fc_value_function = nn.Linear(hidden_size_[-1], 1)
-        self.attention_weights = None
 
     def forward(self, x):
         """
@@ -28,17 +32,13 @@ class ActorCriticMLP(nn.Module):
             Network outputs last sequence of shape (batch_size, features)
         """
         x = self.fc_network(x)
+
         if self.memory_network.memory:
             skip_conn_input = x
-            # Memory recieves input of shape (seq_len, batch_size, features)
-            x = x.transpose(0, 1)
-            x, w = self.memory_network(x)
-            x = x.transpose(0, 1)
+            x = self.memory_network(x)
             x = F.relu(x) + skip_conn_input
-        x = x[:, -1, :]  # Only use most recent sequence
 
-        self.attention_weights = w
-        
+        x = x[:, -1, :]  # Only use most recent sequence
         logits = self.fc_policy(x)
         value = self.fc_value_function(x)
         dist = Categorical(logits=logits)

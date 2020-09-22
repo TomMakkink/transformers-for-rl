@@ -7,6 +7,17 @@ import torch
 import torch.optim as optim
 
 
+def plot_grad_flow(named_parameters):
+    ave_grads = []
+    layers = []
+    for n, p in named_parameters:
+        if (p.requires_grad) and ("bias" not in n) and p is not None:
+            print(f"Layer name: {n}")
+            layers.append(n)
+            ave_grads.append(p.grad.abs().mean())
+    print(f"Average grads: {ave_grads}")
+
+
 class A2C(Agent):
     def __init__(self, state_size, action_size, hidden_size=[64, 64], memory=None):
         super(A2C, self).__init__(state_size, action_size, hidden_size, memory)
@@ -45,6 +56,7 @@ class A2C(Agent):
 
         self.optimiser.zero_grad()
         loss.backward()
+        # plot_grad_flow(self.net.named_parameters())
         self.optimiser.step()
 
         return loss.item()
@@ -56,7 +68,7 @@ class A2C(Agent):
         self.net.reset()
 
     def act(self, state):
-        #print(self.net)
+        # print(self.net)
         dist, value = self.net(state)
         action = dist.sample()
         log_prob = dist.log_prob(action)
