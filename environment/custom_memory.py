@@ -37,6 +37,24 @@ class CustomMemoryChain(MemoryChain):
 
         return obs
 
+    # def _step(self, action: int) -> dm_env.TimeStep:
+    #     observation = self._get_observation()
+    #     self._timestep += 1
+
+    #     if self._timestep - 1 < self._memory_length:
+    #     # On all but the last step provide a reward of 0.
+    #     return dm_env.transition(reward=0., observation=observation)
+    #     if self._timestep - 1 > self._memory_length:
+    #     raise RuntimeError('Invalid state.')  # We shouldn't get here.
+
+    #     if action == self._context[self._query]:
+    #     reward = 1.
+    #     self._total_perfect += 1
+    #     else:
+    #     reward = -1.
+    #     self._total_regret += 2.
+    #     return dm_env.termination(reward=reward, observation=observation)
+
     def _reset(self):
         self._context_timesteps = random.sample(
             range(self._memory_length - 1), self._num_bits

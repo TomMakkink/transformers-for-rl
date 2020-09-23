@@ -8,6 +8,7 @@ from agents.a2c import A2C
 from agents.dqn import DQN
 
 from bsuite.utils import gym_wrapper
+from bsuite import sweep
 from configs.env_config import env_config
 from configs.experiment_config import experiment_config
 from configs.transformer_config import transformer_config
@@ -84,13 +85,6 @@ def set_device():
     experiment_config["device"] = device
 
 
-# def process_obs(obs, device):
-#     obs = obs.squeeze()
-#     return torch.as_tensor(obs, dtype=torch.float32, device=device)
-import bsuite
-from bsuite import sweep
-
-
 def get_sweep_from_bsuite_id(bsuite_id: str):
     return {
         "umbrella_length": sweep.UMBRELLA_LENGTH,
@@ -103,7 +97,7 @@ def get_sweep_from_bsuite_id(bsuite_id: str):
 
 def create_environment(agent, seed, memory, env, window_size=1):
     # build folder path to save data
-    save_path = "results/" + f"{agent}/{memory}/"
+    save_path = "results/" + f"{window}/{agent}/{memory}/"
 
     if env:
         raw_env = bsuite.load_and_record(env, save_path, overwrite=True)

@@ -61,8 +61,8 @@ class TransformerModel(nn.Module):
         """
         x = self.pos_encoder(x * math.sqrt(self.d_model))
         for layer in self.sudmodules:
-            x = layer(x)
-        return self.out_layer(x)  # [0]
+            x, attn_output_weights = layer(x)
+        return self.out_layer(x), attn_output_weights
 
 
 class MemoryTransformerModel(nn.Module):
@@ -157,7 +157,7 @@ class MemoryTransformerModel(nn.Module):
         for i, layer in enumerate(self.submodules):
             hids.append(core_out)
             mem_i = None if mem is None else mem[i]
-            core_out = layer(
+            core_out, attn_output_weights = layer(
                 core_out, pos_emb, self.u, self.v, attn_mask=None, mem=mem_i,
             )
             hids.append(core_out)
@@ -166,7 +166,7 @@ class MemoryTransformerModel(nn.Module):
         core_out = self.output_layer(core_out)
         new_mem = self._update_mem(hids, mem, mlen, qlen)
 
-        return core_out, new_mem
+        return core_out, attn_output_weights, new_mem
 
     def reset(self):
         self.init_mem()

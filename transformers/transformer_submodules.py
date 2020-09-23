@@ -17,7 +17,6 @@ Tensor = torch.Tensor
 class TransformerBlockBase(nn.Module):
     def __init__(self, d_model: int, dim_mlp: int, dropout: int):
         super(TransformerBlockBase, self).__init__()
-        pass
 
     def forward(self, x):
         pass
@@ -36,14 +35,14 @@ class TransformerBlock(TransformerBlockBase):
     def forward(self, inputs):
         # Attention
         x = inputs
-        y = self.attention(inputs, inputs, inputs, attn_mask=None)[0]
+        y, attn_output_weights = self.attention(inputs, inputs, inputs, attn_mask=None)
         y = self.layer_norm_1(x + y)
 
         # Position-wise MLP
         x = y
         y = self.pos_wise_mlp(y)
         output = self.layer_norm_2(x + y)
-        return output
+        return output, attn_output_weights
 
 
 class ReZeroBlock(TransformerBlockBase):
@@ -63,10 +62,10 @@ class ReZeroBlock(TransformerBlockBase):
     def forward(self, src, src_mask=None, src_key_padding_mask=None):
         # Self attention layer
         src2 = src
-        src2 = self.self_attn(
+        src2, attn_output_weights = self.self_attn(
             src2, src2, src2, attn_mask=src_mask, key_padding_mask=src_key_padding_mask
         )
-        src2 = src2[0]  # no attention weights
+        src2 = src2
         src2 = src2 * self.resweight
         src = src + self.dropout1(src2)
 
@@ -75,7 +74,7 @@ class ReZeroBlock(TransformerBlockBase):
         src2 = self.linear2(self.dropout(self.activation(self.linear1(src2))))
         src2 = src2 * self.resweight
         src = src + self.dropout2(src2)
-        return src
+        return src, attn_output_weights
 
 
 class LinformerBlock(TransformerBlockBase):
@@ -95,14 +94,14 @@ class LinformerBlock(TransformerBlockBase):
     def forward(self, inputs):
         # Attention
         x = inputs
-        y = self.attention(inputs)
+        y, attn_output_weights = self.attention(inputs)
         y = self.layer_norm_1(x + y)
 
         # Position-wise MLP
         x = y
         y = self.pos_wise_mlp(y)
         output = self.layer_norm_2(x + y)
-        return output
+        return output, attn_output_weights
 
 
 class TransformerXLBlock(TransformerBlockBase):
@@ -130,14 +129,14 @@ class TransformerXLBlock(TransformerBlockBase):
     ):
         # Attention
         x = inputs
-        y = self.attention(inputs, r, u, v, attn_mask, mem)
+        y, attn_output_weights = self.attention(inputs, r, u, v, attn_mask, mem)
         y = self.layer_norm_1(x + y)
 
         # Position-wise MLP
         x = y
         y = self.pos_wise_mlp(y)
         output = self.layer_norm_2(x + y)
-        return output
+        return output, attn_output_weights
 
     def reset(self):
         pass
@@ -175,7 +174,7 @@ class GTrXLBlock(TransformerBlockBase):
     ):
         # Attention
         x = inputs
-        y = self.attention(inputs, r, u, v, attn_mask, mem)
+        y, attn_output_weights = self.attention(inputs, r, u, v, attn_mask, mem)
         y = self.layer_norm_1(y)
         y, self.hidden_1 = self.gated_layer_1(x + y, self.hidden_2)
         # y = self.gated_layer_1([x, y])
@@ -185,7 +184,7 @@ class GTrXLBlock(TransformerBlockBase):
         y = self.layer_norm_2(y)
         y = self.pos_wise_mlp(y)
         output, self.hidden_2 = self.gated_layer_2(x + y, self.hidden_2)
-        return output
+        return output, attn_output_weights
 
     def reset(self):
         self.hidden_1 = torch.zeros(1, 1, self.d_model).to(experiment_config["device"])
@@ -200,8 +199,8 @@ class MHA(TransformerBlockBase):
         )
 
     def forward(self, inputs):
-        y = self.attention(inputs, inputs, inputs, attn_mask=None)[0]
-        return y
+        y, attn_output_weights = self.attention(inputs, inputs, inputs, attn_mask=None)
+        return y, attn_output_weights
 
 
 class LMHA(TransformerBlockBase):
@@ -266,9 +265,9 @@ class GMHA(TransformerBlockBase):
         attn_mask: Tensor = None,
         mem: Tensor = None,
     ):
-        y = self.attention(inputs, r, u, v, attn_mask, mem)
+        y, attn_output_weights = self.attention(inputs, r, u, v, attn_mask, mem)
         y, self.gru_hidden = self.gated_layer(y, self.gru_hidden)
-        return y
+        return y, attn_output_weights
 
     def reset(self):
         self.gru_hidden = torch.zeros(1, 1, self.d_model).to(
