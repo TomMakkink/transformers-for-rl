@@ -22,7 +22,8 @@ def run_experiment(args):
     env_id_list = get_sweep_from_bsuite_id(args.env)
     for env_id in env_id_list:
         if args.comet:
-            tags = [args.agent, args.memory, args.seed, env_id]
+            tags = [args.agent, args.memory, f"seed={args.seed}", env_id,
+                    f"window={args.window}"]
             logger = set_up_comet_ml(tags=[*tags])
         else:
             logger = None
