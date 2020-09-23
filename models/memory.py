@@ -29,6 +29,7 @@ class Memory(nn.Module):
                     input_size=input_dim,
                     hidden_size=lstm_config["hidden_dim"],
                     num_layers=lstm_config["num_layers"],
+                    batch_first=True,
                 )
                 self.hidden = (
                     torch.zeros(1, 1, lstm_config["hidden_dim"]).to(
@@ -41,26 +42,28 @@ class Memory(nn.Module):
             elif self.memory_type in ["vanilla", "rezero", "linformer", "mha", "lmha"]:
                 submodule = get_transformer_submodule(self.memory_type)
                 self.memory = TransformerModel(input_dim, output_dim, submodule)
+                self.attn_output_weights = None
             elif self.memory_type in ["gtrxl", "xl", "rmha", "gmha"]:
                 submodule = get_transformer_submodule(self.memory_type)
                 self.mem = tuple()
                 self.memory = MemoryTransformerModel(input_dim, output_dim, submodule)
+                self.attn_output_weights = None
 
     def forward(self, x):
         """
-        x: shape [seq_len, batch_size, feature_dim]
+        x: shape [batch_size, seq_len, feature_dim]
         """
         if type(self.memory) is nn.LSTM:
-            batch_size = x.shape[1]
-            if batch_size > 1:
-                print("Batch Size above 1")
-                x, self.hidden = self.memory(x)
-            else:
-                x, self.hidden = self.memory(x, self.hidden)
-        elif type(self.memory) == MemoryTransformerModel:
-            output, self.mem = self.memory(x, self.mem)
+            x, self.hidden = self.memory(x, self.hidden)
+            return x
+
+        # Transformers expect input of shape: [seq_len, batch_size, feature_dim]
+        x = x.transpose(0, 1)
+        if type(self.memory) == MemoryTransformerModel:
+            x, self.attn_output_weights, self.mem = self.memory(x, self.mem)
         elif type(self.memory) == TransformerModel:
-            x = self.memory(x)
+            x, self.attn_output_weights = self.memory(x)
+        x = x.transpose(0, 1)
         return x
 
     def reset(self):

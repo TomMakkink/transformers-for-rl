@@ -9,6 +9,7 @@ from transformers.attention_layer import (
     RelativeMultiHeadAttention,
     PositionWiseMLP,
     GatedRecurrentUnit,
+    RelPartialLearnableMultiHeadAttn,
 )
 from transformers.positional_encoding_layer import PositionalEncoding
 from configs.transformer_config import transformer_config
@@ -69,8 +70,8 @@ class TransformerModel(nn.Module):
         """
         x = self.pos_encoder(x * math.sqrt(self.d_model))
         for layer in self.TransformerLayers:
-            x, w = layer(x)
-        return self.out_layer(x), w  # change made to store attention weights
+            x, attn_output_weights = layer(x)
+        return self.out_layer(x), attn_output_weights
 
 
 class MemoryTransformerModel(nn.Module):
@@ -94,8 +95,6 @@ class MemoryTransformerModel(nn.Module):
         self.positional_encoding_layer = PositionalEncoding(
             encoding_type="relative", d_model=d_model
         )
-        self.u = nn.Parameter(torch.zeros(num_heads, dim_head))
-        self.v = nn.Parameter(torch.zeros(num_heads, dim_head))
 
         self.MemoryTransformerLayers = nn.ModuleList(
             [
@@ -107,6 +106,8 @@ class MemoryTransformerModel(nn.Module):
                 for k in range(self.num_layers)
             ]
         )
+        self.u = nn.Parameter(torch.zeros(num_heads, dim_head))
+        self.v = nn.Parameter(torch.zeros(num_heads, dim_head))
 
         self.output_layer = nn.Linear(d_model, output_dim, bias=False)
 
@@ -131,7 +132,6 @@ class MemoryTransformerModel(nn.Module):
             beg_idx = max(0, end_idx - self.mem_len)
             for i in range(len(hids)):
                 cat = torch.cat([mem[i], hids[i]], dim=0)
-                # cat = torch.cat([mem[i], hids[i][-1]], dim=0)
                 new_mem.append(cat[beg_idx:end_idx].detach())
         return new_mem
 
@@ -158,24 +158,28 @@ class MemoryTransformerModel(nn.Module):
             klen - 1, -1, -1.0, dtype=inputs.dtype, device=inputs.device
         )
         pos_emb = self.positional_encoding_layer(pos_seq)
-        print(f"Pos emd shape: {pos_emb.shape}")
 
         core_out = self.drop(inputs)
         pos_emb = self.drop(pos_emb)
 
-        for i, layer in enumerate(self.MemoryTransformerLayers):
-            hids.append(core_out)
-            mem_i = None if mem is None else mem[i]
-            core_out = layer(
-                core_out, pos_emb, self.u, self.v, attn_mask=None, mem=mem_i,
-            )
-            hids.append(core_out)
+        hids.append(core_out)
+        # for i, layer in enumerate(self.MemoryTransformerLayers):
+        #     mem_i = None if mem is None else mem[i]
+        #     core_out, attn_output_weights = layer(
+        #         core_out, pos_emb, self.u, self.v, attn_mask=None, mem=mem_i,
+        #     )
+        #     hids.append(core_out)
+        mem_i = None if mem is None else mem[0]
+        core_out, attn_output_weights = self.MemoryTransformerLayers[0](
+            core_out, pos_emb, self.u, self.v, attn_mask=None, mem=mem_i,
+        )
+        hids.append(core_out)
 
         core_out = self.drop(core_out)
         core_out = self.output_layer(core_out)
         new_mem = self._update_mem(hids, mem, mlen, qlen)
 
-        return core_out, new_mem
+        return core_out, attn_output_weights, new_mem
 
     def reset(self):
         self.init_mem()
@@ -187,7 +191,6 @@ class MemoryTransformerModel(nn.Module):
 class TransformerBlockBase(nn.Module):
     def __init__(self, d_model: int, dim_mlp: int, dropout: int):
         super(TransformerBlockBase, self).__init__()
-        pass
 
     def forward(self, x):
         pass
@@ -386,7 +389,7 @@ class MHA(TransformerBlockBase):
         )
 
     def forward(self, inputs):
-        y = self.attention(inputs, inputs, inputs, attn_mask=None) #[0]
+        y = self.attention(inputs, inputs, inputs, attn_mask=None)  # [0]
         return y
 
 
@@ -414,6 +417,12 @@ class RMHA(TransformerBlockBase):
             dropout,
             mem_len=transformer_config["mem_len"],
         )
+        # self.attention = RelPartialLearnableMultiHeadAttn(
+        #     n_head=transformer_config["num_heads"],
+        #     d_head=d_model // transformer_config["num_heads"],
+        #     d_model=d_model,
+        #     dropout=dropout,
+        # )
 
     def forward(
         self,
