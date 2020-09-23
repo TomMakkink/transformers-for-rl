@@ -1,15 +1,17 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
+
 sns.set_style("dark")
+
 
 def viz_attention(weights, episode, step, total_steps, avg_attend, total):
     w = np.array(weights[0, -1, :])
     x = np.arange(w.shape[0])
     window_len = len(x)
-    colors = ["cyan"] * window_len 
+    colors = ["cyan"] * window_len
     top_attend = np.argmax(w)
-    context_position = window_len-step-1
+    context_position = window_len - step - 1
     if top_attend == context_position:
         colors[top_attend] = "green"
     else:
@@ -33,3 +35,18 @@ def viz_attention(weights, episode, step, total_steps, avg_attend, total):
     plt.savefig("plots/fig{:03d}.png".format(total_steps))
     plt.close()
     return top_attend == context_position
+
+
+def viz_forget_activation(forget_activation, episode):
+    episode_len = len(forget_activation)
+
+    fig, ax1 = plt.subplots()
+    f_t_mean = [data[0][2] for data in forget_activation]
+    f_t_std = [data[0][3] for data in forget_activation]
+    ax1.bar(range(episode_len), f_t_mean, yerr=f_t_std)
+    ax1.set_ylim(0, 1)
+    ax1.set_ylabel("Mean Forget Gate Activation")
+    ax1.set_xlabel("States in sequence")
+    ax1.set_title(f"Episode {episode}")
+    plt.savefig("plots/fig{:03d}.png".format(episode))
+    plt.close()
