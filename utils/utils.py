@@ -102,7 +102,7 @@ def get_sweep_from_bsuite_id(bsuite_id: str):
     }.get(bsuite_id, [bsuite_id])
 
 
-def create_environment(agent, seed, memory, env, window_size=1):
+def create_environment(agent, seed, memory, env, window_size):
     # build folder path to save data
     save_path = "results/" + f"{window_size}/{agent}/{memory}/"
 
