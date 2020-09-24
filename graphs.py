@@ -16,22 +16,35 @@ sns.set()
 
 DEFAULT_SAVE_DIR = "graphs"
 DEFAULT_DATA_FOLDER = "results"
-AGENTS = ["random"]
-# MODELS = ["mha", "rmha", "gmha", "lstm", "none", "lmha"]
-MODELS = ["none"]
-ENVS = ["custom"]
+AGENTS = ["a2c"]
+MEMORY = [
+    "mha_64_1_1",
+    # "rmha",
+    # "gmha",
+    # "gtrxl",
+    # "gtrxl_32_1_1",
+    "gtrxl_64_1_1",
+    # "gtrxl_64_2_1",
+    # "gtrxl_64_4_1",
+    # "gtrxl_64_8_1",
+    # "linformer",
+    "lstm",
+    # "None",
+    # "rezero",
+    # "vanilla",
+    # "xl",
+]
+
+ENVS = ["umbrella_length", "umbrella_distract"]
 ENVS_NUM = list(map(str, range(17)))
 SEEDS = ["28", "61", "39"]  # , "78", "72", "46", "61", "71", "93", "44"]
 COLOURS = ["blue", "green", "red", "purple", "black", "orange"]
-WINDOW = ["10"]
+WINDOW_SIZES = ["4"]
 
-# Results Directory Structure:
-# - results
-#     - env
-#         - env_num (e.g. 0, as in mem_len/0)
-#             - algo
-#                 - model
-#                     - seed
+#   - results
+#       - window
+#           - agent
+#               - memory
 
 
 def process_data(root, save):
@@ -45,7 +58,7 @@ def process_data(root, save):
             ax.set_ylabel("Episode Return")
             for algo in ALGORITHMS:
                 colour_index = 0
-                for model in MODELS:
+                for model in MEMORY:
                     returns = []
                     episodes = []
                     for seed in SEEDS:
@@ -111,68 +124,47 @@ parser.add_argument("--save_dir", type=str)
 args = parser.parse_args()
 
 
-def load_one_result_set(results_dir: str) -> pd.DataFrame:
-    """Returns a pandas DataFrame of bsuite results stored in results_dir."""
-    data = []
-    for file_path in glob.glob(os.path.join(results_dir, "*.csv")):
-        _, name = os.path.split(file_path)
-        # Rough and ready error-checking for only bsuite csv files.
-        if not name.startswith(csv_logging.BSUITE_PREFIX):
-            print("Warning - we recommend you use a fresh folder for bsuite results.")
-            continue
-
-        # Then we will assume that the file is actually a bsuite file
-        df = pd.read_csv(file_path)
-        file_bsuite_id = name.strip(".csv").split(csv_logging.INITIAL_SEPARATOR)[1]
-        bsuite_id = file_bsuite_id.replace(csv_logging.SAFE_SEPARATOR, sweep.SEPARATOR)
-        df["bsuite_id"] = bsuite_id
-        df["results_dir"] = results_dir
-        data.append(df)
-    df = pd.concat(data, sort=False)
-    return df
-
-
 def bsuite_graphing(root_dir, save_dir):
-    experiments = {}
-    for model in MODELS:
-        for agent in AGENTS:
-            experiments[model] = f"{root_dir}/{agent}/{model}/"
+    for window_size in WINDOW_SIZES:
+        experiments = {}
+        for model in MEMORY:
+            for agent in AGENTS:
+                experiments[model] = f"{root_dir}/{window_size}/{agent}/{model}/"
 
-    DF, SWEEP_VARS = logging_utils.load_multiple_runs(
-        path_collection=experiments["none"], single_load_fn=load_one_result_set,
-    )
-    print(DF)
-    print(SWEEP_VARS)
-    # df = load_one_result_set(experiments["none"])
-    # DF, SWEEP_VARS = csv_load.load_bsuite(experiments)
-    BSUITE_SCORE = summary_analysis.bsuite_score(DF, SWEEP_VARS)
+        DF, SWEEP_VARS = csv_load.load_bsuite(experiments)
+        BSUITE_SCORE = summary_analysis.bsuite_score(DF, SWEEP_VARS)
 
-    # Plots specialized to the experiment
-    for env in ENVS:
-        result = summary_analysis.plot_single_experiment(BSUITE_SCORE, env, SWEEP_VARS)
-        result.save(save_dir + f"/{env}_results")
-
-    if env in ["memory_len", "memory_size", "umbrella_length"]:
-        env_df = DF[DF.bsuite_env == env].copy()
-        if env == "memory_len":
-            learning_analysis = memory_len_analysis.plot_learning(env_df, SWEEP_VARS)
-            scale_analysis = memory_len_analysis.plot_scale(env_df, SWEEP_VARS)
-            seeds_analysis = memory_len_analysis.plot_seeds(env_df, SWEEP_VARS)
-        elif env == "memory_size":
-            learning_analysis = memory_size_analysis.plot_learning(env_df, SWEEP_VARS)
-            scale_analysis = memory_size_analysis.plot_scale(env_df, SWEEP_VARS)
-            seeds_analysis = memory_size_analysis.plot_seeds(env_df, SWEEP_VARS)
-        else:
-            learning_analysis = umbrella_length_analysis.plot_learning(
-                env_df, SWEEP_VARS
+        # Plots specialized to the experiment
+        for env in ENVS:
+            result = summary_analysis.plot_single_experiment(
+                BSUITE_SCORE, env, SWEEP_VARS
             )
-        learning_analysis.save(save_dir + f"/{env}_learning")
-        scale_analysis.save(save_dir + f"/{env}_scale")
-        seeds_analysis.save(save_dir + f"/{env}_seed")
+            save = save_dir + f"/{window_size}"
+            if not os.path.isdir(save):
+                os.makedirs(save)
+            result.save(f"{save}/{env}_results")
 
-    # umbrella_length_df = DF[DF.bsuite_env == "umbrella_length"].copy()
-    # learn = umbrella_length_analysis.plot_learning(umbrella_length_df)
-    # learn.save(save_dir + "/umbrella_length_learning")
+            if env in ["memory_len", "memory_size"]:
+                env_df = DF[DF.bsuite_env == env].copy()
+                if env == "memory_len":
+                    learning_analysis = memory_len_analysis.plot_learning(
+                        env_df, SWEEP_VARS
+                    )
+                    scale_analysis = memory_len_analysis.plot_scale(env_df, SWEEP_VARS)
+                    seeds_analysis = memory_len_analysis.plot_seeds(env_df, SWEEP_VARS)
+                elif env == "memory_size":
+                    learning_analysis = memory_size_analysis.plot_learning(
+                        env_df, SWEEP_VARS
+                    )
+                    scale_analysis = memory_size_analysis.plot_scale(env_df, SWEEP_VARS)
+                    seeds_analysis = memory_size_analysis.plot_seeds(env_df, SWEEP_VARS)
+                else:
+                    learning_analysis = umbrella_length_analysis.plot_learning(
+                        env_df, SWEEP_VARS
+                    )
+                learning_analysis.save(save_dir + f"/{window_size}/{env}_learning")
+                scale_analysis.save(save_dir + f"/{window_size}/{env}_scale")
+                seeds_analysis.save(save_dir + f"/{window_size}/{env}_seed")
 
 
 if __name__ == "__main__":

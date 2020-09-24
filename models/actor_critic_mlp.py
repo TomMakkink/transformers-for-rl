@@ -30,10 +30,7 @@ class ActorCriticMLP(nn.Module):
         x = self.fc_network(x)
         if self.memory_network.memory:
             skip_conn_input = x
-            # Memory recieves input of shape (seq_len, batch_size, features)
-            x = x.transpose(0, 1)
             x = self.memory_network(x)
-            x = x.transpose(0, 1)
             x = F.relu(x) + skip_conn_input
         x = x[:, -1, :]  # Only use most recent sequence
         logits = self.fc_policy(x)
@@ -43,3 +40,4 @@ class ActorCriticMLP(nn.Module):
 
     def reset(self):
         self.memory_network.reset()
+

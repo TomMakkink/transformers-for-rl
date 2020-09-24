@@ -22,7 +22,7 @@ def run_experiment(args):
     env_id_list = get_sweep_from_bsuite_id(args.env)
     for env_id in env_id_list:
         if args.comet:
-            tags = [args.agent, args.memory, args.seed, env_id]
+            tags = [args.agent, args.memory, args.seed, env_id, args.window]
             logger = set_up_comet_ml(tags=[*tags])
         else:
             logger = None
@@ -42,6 +42,31 @@ def run_experiment(args):
         train_agent(agent, env, total_episodes, logger)
 
 
+from environment.environment_wrapper import SlidingWindowEnv
+from bsuite.utils import gym_wrapper
+import random
+
+
+def test_custom_env(total_episodes):
+    env = CustomMemoryChain(memory_length=5, num_bits=3)
+    env = gym_wrapper.GymFromDMEnv(env)
+    env = SlidingWindowEnv(env, window_size=1)
+
+    for episode in range(total_episodes):
+        state = env.reset()
+        t = 0
+        print(f"Timestep = {t} \n\tState: {state}")
+        while True:
+            action = random.randint(0, env.action_space.n - 1)
+            state, reward, done, _ = env.step(action)
+            t += 1
+            print(
+                f"Timestep = {t} \n\tState: {state} \n\tReward: {reward} \n\tAction: {action}"
+            )
+            if done:
+                break
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--project", type=str, default="transformers-for-rl")
@@ -58,6 +83,7 @@ def main():
 
     update_configs(args)
     run_experiment(args)
+    # test_custom_env(1)
 
 
 if __name__ == "__main__":

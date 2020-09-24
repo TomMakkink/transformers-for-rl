@@ -1,13 +1,19 @@
 import numpy as np
 import scipy.signal
 import torch
-from environment.environment_wrapper import SlidingWindowEnv
+from environment import (
+    SlidingWindowEnv,
+    CustomMemoryChain,
+    load_custom_memory_env,
+    custom_memory_sweep,
+)
 
 import bsuite
 from agents.a2c import A2C
 from agents.dqn import DQN
 
-from bsuite.utils import gym_wrapper
+from bsuite.utils import gym_wrapper, wrappers
+from bsuite.logging.csv_logging import Logger
 from bsuite import sweep
 from configs.env_config import env_config
 from configs.experiment_config import experiment_config
@@ -92,14 +98,20 @@ def get_sweep_from_bsuite_id(bsuite_id: str):
         "memory_length": sweep.MEMORY_LEN,
         "memory_size": sweep.MEMORY_SIZE,
         "cartpole": sweep.CARTPOLE,
+        "memory_custom": custom_memory_sweep,
     }.get(bsuite_id, [bsuite_id])
 
 
 def create_environment(agent, seed, memory, env, window_size=1):
     # build folder path to save data
-    save_path = "results/" + f"{window}/{agent}/{memory}/"
+    save_path = "results/" + f"{window_size}/{agent}/{memory}/"
 
-    if env:
+    if env.startswith("memory_custom"):
+        print(f"Using {env}")
+        raw_env = load_custom_memory_env(env)
+        logger = Logger("memory_custom", save_path, overwrite=True)
+        raw_env = wrappers.Logging(raw_env, logger)
+    elif env:
         raw_env = bsuite.load_and_record(env, save_path, overwrite=True)
     else:
         raw_env = bsuite.load_and_record(env_config["env"], save_path, overwrite=True)

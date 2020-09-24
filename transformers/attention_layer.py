@@ -213,12 +213,15 @@ class RelativeMultiHeadAttention(nn.Module):
         wk = wk.view(klen, bsz, self.num_heads, self.head_dim)
         wv = wv.view(klen, bsz, self.num_heads, self.head_dim)
 
-        # Shape: [tgt_len, num_head, head_dim]
+        # Shape: [qlen, num_head, head_dim]
         rk = rk.view(rlen, self.num_heads, self.head_dim)
 
         # Compute attention score
-        AC = torch.einsum("ibnd,jbnd->ijbn", (wq + u, wk))
-        BD = torch.einsum("ibnd,jnd->ijbn", (wq + v, rk))
+        # print(f"U: {u.grad}")
+        wqu = wq + u
+        wqv = wq + v
+        AC = torch.einsum("ibnd,jbnd->ijbn", (wqu, wk))
+        BD = torch.einsum("ibnd,jnd->ijbn", (wqv, rk))
         BD = self._rel_shift(BD)
 
         # [qlen, klen, batch_size, num_head]
@@ -228,6 +231,9 @@ class RelativeMultiHeadAttention(nn.Module):
         # [qlen, klen, batch_size, num_head]
         attn_prob = F.softmax(attn_score, dim=1)
         attn_prob = self.dropout_attn(attn_prob)
+
+        attn_output_weights = attn_prob.view(bsz, self.num_heads, qlen, klen)
+        attn_output_weights = attn_output_weights.sum(dim=1) / self.num_heads
 
         # Compute attention vector
         attn_vec = torch.einsum("ijbn,jbnd->ibnd", (attn_prob, wv))
@@ -243,7 +249,7 @@ class RelativeMultiHeadAttention(nn.Module):
         # Residual connection + layer normalization
         output = self.layer_norm(x + attn_out)
 
-        return output
+        return output, attn_output_weights
 
 
 class MultiheadLinearAttention(nn.Module):
@@ -342,7 +348,7 @@ class MultiheadLinearAttention(nn.Module):
         )
         attn = self.output_projection(attn)
 
-        return attn
+        return attn, attn_weights
 
 
 class PositionWiseMLP(nn.Module):

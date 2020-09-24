@@ -23,6 +23,10 @@ def train_agent(agent, env, total_episodes=10000, logger=None):
             next_state, reward, done, _ = env.step(action)
             rewards.append(reward)
 
+            # print(
+            #     f"Timestep = {t} \n\tState: {state} \n\tReward: {reward} \n\tAction: {action}"
+            # )
+
             agent.collect_experience(state, action, reward, next_state, done)
 
             state = next_state
