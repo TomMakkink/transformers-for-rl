@@ -107,6 +107,7 @@ def create_environment(agent, seed, memory, env, window_size):
     save_path = "results/" + f"{window_size}/{agent}/{memory}/"
 
     if env.startswith("memory_custom"):
+        print(f"Running environment {env}")
         raw_env = load_custom_memory_env(env)
         logger = Logger(env, save_path, overwrite=True)
         raw_env = wrappers.Logging(raw_env, logger)
