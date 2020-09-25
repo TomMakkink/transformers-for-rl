@@ -8,6 +8,7 @@ from utils.utils import (
     get_sweep_from_bsuite_id,
     get_save_path,
 )
+from utils.visualisation import viz_forget_activation
 from agents.a2c import A2C
 
 import argparse
@@ -54,17 +55,20 @@ def run(args):
 
 
 def test_agent(args):
-    agent = torch.load("results/agent.pt")
-    env = create_environment(
-        agent=args.agent,
-        seed=args.seed,
-        memory=args.memory,
-        env=args.env,
-        window_size=args.window,
-    )
-    state = env.reset()
-    action = agent.act(state.unsqueeze(0))
-    print(f"Action: {action}")
+    save_path = get_save_path(args.window, args.agent, args.memory)
+    # assumes single env not
+    env_id = args.env.replace("/", "_")
+    file_name = env_id + "_saved_model.pt"
+
+    agent = torch.load(save_path + file_name)
+
+    viz_data = agent.net.memory_network.visualisation_data[:-1]
+
+    if args.memory is not None:
+        if args.memory == 'lstm':
+            viz_forget_activation(viz_data, env_id, args.agent, args.window)
+        else:
+            print("Visual Transformer models")
 
 
 def main():

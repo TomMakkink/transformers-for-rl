@@ -1,6 +1,8 @@
+import os
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
+from utils.utils import get_save_path
 
 sns.set_style("dark")
 
@@ -40,19 +42,27 @@ def viz_attention(weights, episode, step, total_steps, avg_attend, total):
     return top_attend == context_position
 
 
-def viz_forget_activation(forget_activation, episode):
-    episode_len = len(forget_activation)
+def viz_forget_activation(forget_activation, env_id, agent_name, window_size,
+                          memory='lstm'):
+    plot_save_dir = get_save_path(window_size, agent_name, memory) + "plots/"
+    if not os.path.isdir(plot_save_dir):
+        os.makedirs(plot_save_dir)
 
-    fig, ax1 = plt.subplots()
-    f_t_mean = [data[0][2] for data in forget_activation]
-    f_t_std = [data[0][3] for data in forget_activation]
-    ax1.bar(range(episode_len), f_t_mean, yerr=f_t_std)
-    ax1.set_ylim(0, 1)
-    ax1.set_ylabel("Mean Forget Gate Activation")
-    ax1.set_xlabel("States in sequence")
-    ax1.set_title(f"Episode {episode}")
-    plt.savefig("plots/fig{:03d}.png".format(episode))
-    plt.close()
+    episode_len = len(forget_activation[0])
+    for eps_num, episode in enumerate(forget_activation):
+        fig, ax1 = plt.subplots()
+
+        f_t_mean = [data[2] for data in episode]
+        f_t_std = [data[3] for data in episode]
+        ax1.bar(range(episode_len), f_t_mean, yerr=f_t_std)
+        ax1.set_ylim(0, 1)
+        ax1.set_ylabel("Mean Forget Gate Activation")
+        ax1.set_xlabel("States in sequence")
+        ax1.set_title(f"Episode {eps_num + 1}")
+        # TODO: Check if folder exists
+        plt.savefig(plot_save_dir + env_id + "_Eps_{:03d}.png".format(eps_num + 1))
+        plt.close()
+
 
 def viz_attention_mem(weights, episode, step):
     """

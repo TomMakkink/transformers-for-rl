@@ -45,11 +45,11 @@ class CustomLSTM(nn.Module):
             h_t = o_t * torch.tanh(c_t)
             hidden_seq.append(h_t.unsqueeze(0))
             with torch.no_grad():
-                f_t_activations.append(
-                    [torch.min(f_t).item(),
-                     torch.max(f_t).item(),
-                     torch.mean(f_t).item(),
-                     torch.std(f_t).item()])
+                f_t_activations.append(torch.min(f_t).item())
+                f_t_activations.append(torch.max(f_t).item())
+                f_t_activations.append(torch.mean(f_t).item())
+                f_t_activations.append(torch.std(f_t).item())
+
         hidden_seq = torch.cat(hidden_seq, dim=0)
         # reshape from shape (sequence, batch, feature) to (batch, sequence, feature)
         hidden_seq = hidden_seq.transpose(0, 1).contiguous()

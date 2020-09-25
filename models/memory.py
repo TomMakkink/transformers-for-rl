@@ -22,37 +22,38 @@ class Memory(nn.Module):
             self.memory_type = memory_type.lower()
             print(f"Using {self.memory_type}...")
 
-            self.visualisation_data = None
+            self.visualisation_data = [[]]
 
             if self.memory_type == "lstm":
                 self.memory = CustomLSTM(input_size=input_dim,
                                          hidden_size=lstm_config["hidden_dim"])
                 self.hidden = None
-                
+
             elif self.memory_type in ["vanilla", "rezero", "linformer", "mha", "lmha"]:
                 submodule = get_transformer_submodule(self.memory_type)
                 self.memory = TransformerModel(input_dim, output_dim, submodule)
-                
+
             elif self.memory_type in ["gtrxl", "xl", "rmha", "gmha"]:
                 submodule = get_transformer_submodule(self.memory_type)
                 self.mem = None
                 self.memory = MemoryTransformerModel(input_dim, output_dim, submodule)
-
 
     def forward(self, x):
         """
         x: shape [batch_size, seq_len, feature_dim]
         """
         if (type(self.memory) is nn.LSTM) or (type(self.memory) is CustomLSTM):
-            x, self.hidden, self.visualisation_data = self.memory(x, self.hidden)
-            
+            x, self.hidden, viz_data = self.memory(x, self.hidden)
+
         # Transformers expect input of shape: [seq_len, batch_size, feature_dim]
         x = x.transpose(0, 1)
         if type(self.memory) == MemoryTransformerModel:
-            x, self.visualisation_data, self.mem = self.memory(x, self.mem)
+            x, viz_data, self.mem = self.memory(x, self.mem)
         elif type(self.memory) == TransformerModel:
-            x, self.visualisation_data = self.memory(x)
+            x, viz_data = self.memory(x)
         x = x.transpose(0, 1)
+
+        self.visualisation_data[-1].append(viz_data)
         return x
 
     def reset(self):
@@ -61,3 +62,4 @@ class Memory(nn.Module):
         elif type(self.memory) == MemoryTransformerModel:
             self.mem = None
             self.memory.reset()
+        self.visualisation_data.append([])
