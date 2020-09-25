@@ -157,8 +157,8 @@ class MemoryTransformerModel(nn.Module):
         pos_emb = self.drop(pos_emb)
 
         attn_output_weights = []
+        hids.append(core_out)
         for i, layer in enumerate(self.submodules):
-            hids.append(core_out)
             mem_i = None if mem is None else mem[i]
             core_out, attn_output_weight = layer(
                 core_out, pos_emb, self.u, self.v, attn_mask=None, mem=mem_i,
