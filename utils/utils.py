@@ -107,9 +107,8 @@ def create_environment(agent, seed, memory, env, window_size):
     save_path = "results/" + f"{window_size}/{agent}/{memory}/"
 
     if env.startswith("memory_custom"):
-        print(f"Using {env}")
         raw_env = load_custom_memory_env(env)
-        logger = Logger("memory_custom", save_path, overwrite=True)
+        logger = Logger(env, save_path, overwrite=True)
         raw_env = wrappers.Logging(raw_env, logger)
     elif env:
         raw_env = bsuite.load_and_record(env, save_path, overwrite=True)

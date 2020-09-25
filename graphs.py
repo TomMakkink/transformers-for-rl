@@ -11,6 +11,8 @@ from bsuite.experiments import summary_analysis
 from bsuite.experiments.memory_len import analysis as memory_len_analysis
 from bsuite.experiments.memory_size import analysis as memory_size_analysis
 from bsuite.experiments.umbrella_length import analysis as umbrella_length_analysis
+from bsuite.experiments.umbrella_distract import analysis as umbrella_distract_analysis
+
 
 sns.set()
 
@@ -18,24 +20,24 @@ DEFAULT_SAVE_DIR = "graphs"
 DEFAULT_DATA_FOLDER = "results"
 AGENTS = ["a2c"]
 MEMORY = [
-    "mha_64_1_1",
+    # "mha",
     # "rmha",
     # "gmha",
-    # "gtrxl",
+    "gtrxl",
     # "gtrxl_32_1_1",
-    "gtrxl_64_1_1",
+    # "gtrxl_64_1_1",
     # "gtrxl_64_2_1",
     # "gtrxl_64_4_1",
     # "gtrxl_64_8_1",
     # "linformer",
     "lstm",
-    # "None",
-    # "rezero",
-    # "vanilla",
-    # "xl",
+    "None",
+    "rezero",
+    "vanilla",
+    "xl",
 ]
 
-ENVS = ["umbrella_length", "umbrella_distract"]
+ENVS = ["umbrella_distract", "umbrella_length"]
 ENVS_NUM = list(map(str, range(17)))
 SEEDS = ["28", "61", "39"]  # , "78", "72", "46", "61", "71", "93", "44"]
 COLOURS = ["blue", "green", "red", "purple", "black", "orange"]
@@ -133,7 +135,6 @@ def bsuite_graphing(root_dir, save_dir):
 
         DF, SWEEP_VARS = csv_load.load_bsuite(experiments)
         BSUITE_SCORE = summary_analysis.bsuite_score(DF, SWEEP_VARS)
-
         # Plots specialized to the experiment
         for env in ENVS:
             result = summary_analysis.plot_single_experiment(
@@ -144,7 +145,12 @@ def bsuite_graphing(root_dir, save_dir):
                 os.makedirs(save)
             result.save(f"{save}/{env}_results")
 
-            if env in ["memory_len", "memory_size"]:
+            if env in [
+                "memory_len",
+                "memory_size",
+                "umbrella_length",
+                "umbrella_distract",
+            ]:
                 env_df = DF[DF.bsuite_env == env].copy()
                 if env == "memory_len":
                     learning_analysis = memory_len_analysis.plot_learning(
@@ -158,10 +164,27 @@ def bsuite_graphing(root_dir, save_dir):
                     )
                     scale_analysis = memory_size_analysis.plot_scale(env_df, SWEEP_VARS)
                     seeds_analysis = memory_size_analysis.plot_seeds(env_df, SWEEP_VARS)
-                else:
+                elif env == "umbrella_length":
                     learning_analysis = umbrella_length_analysis.plot_learning(
                         env_df, SWEEP_VARS
                     )
+                    scale_analysis = umbrella_length_analysis.plot_scale(
+                        env_df, SWEEP_VARS
+                    )
+                    seeds_analysis = umbrella_length_analysis.plot_seeds(
+                        env_df, SWEEP_VARS
+                    )
+                elif env == "umbrella_distract":
+                    learning_analysis = umbrella_distract_analysis.plot_learning(
+                        env_df, SWEEP_VARS
+                    )
+                    scale_analysis = umbrella_distract_analysis.plot_scale(
+                        env_df, SWEEP_VARS
+                    )
+                    seeds_analysis = umbrella_distract_analysis.plot_seeds(
+                        env_df, SWEEP_VARS
+                    )
+
                 learning_analysis.save(save_dir + f"/{window_size}/{env}_learning")
                 scale_analysis.save(save_dir + f"/{window_size}/{env}_scale")
                 seeds_analysis.save(save_dir + f"/{window_size}/{env}_seed")
