@@ -6,15 +6,17 @@ from utils.utils import (
     set_device,
     create_environment,
     get_sweep_from_bsuite_id,
+    get_save_path,
 )
 from agents.a2c import A2C
 
 import argparse
 from experiments.agent_trainer import train_agent
 from configs.experiment_config import experiment_config
+import torch
 
 
-def run_experiment(args):
+def run(args):
     rl_agent = get_agent(args.agent)
     set_device()
     set_random_seed(args.seed)
@@ -46,31 +48,23 @@ def run_experiment(args):
             env.bsuite_num_episodes if args.num_eps is None else args.num_eps
         )
         train_agent(agent, env, total_episodes, logger)
+        save_path = get_save_path(args.window, args.agent, args.memory)
+        file_name = env_id.replace("/", "_") + "_saved_model.pt"
+        torch.save(agent, save_path + file_name)
 
 
-from environment.environment_wrapper import SlidingWindowEnv
-from bsuite.utils import gym_wrapper
-import random
-
-
-def test_custom_env(total_episodes):
-    env = CustomMemoryChain(memory_length=5, num_bits=3)
-    env = gym_wrapper.GymFromDMEnv(env)
-    env = SlidingWindowEnv(env, window_size=1)
-
-    for episode in range(total_episodes):
-        state = env.reset()
-        t = 0
-        print(f"Timestep = {t} \n\tState: {state}")
-        while True:
-            action = random.randint(0, env.action_space.n - 1)
-            state, reward, done, _ = env.step(action)
-            t += 1
-            print(
-                f"Timestep = {t} \n\tState: {state} \n\tReward: {reward} \n\tAction: {action}"
-            )
-            if done:
-                break
+def test_agent(args):
+    agent = torch.load("results/agent.pt")
+    env = create_environment(
+        agent=args.agent,
+        seed=args.seed,
+        memory=args.memory,
+        env=args.env,
+        window_size=args.window,
+    )
+    state = env.reset()
+    action = agent.act(state.unsqueeze(0))
+    print(f"Action: {action}")
 
 
 def main():
@@ -88,8 +82,8 @@ def main():
     args = parser.parse_args()
 
     update_configs(args)
-    run_experiment(args)
-    # test_custom_env(1)
+    run(args)
+    # test_agent(args)
 
 
 if __name__ == "__main__":

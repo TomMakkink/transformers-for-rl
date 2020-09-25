@@ -60,8 +60,11 @@ class TransformerModel(nn.Module):
             Transformer output, of shape: [seq_len, batch_size, output_dim]
         """
         x = self.pos_encoder(x * math.sqrt(self.d_model))
+        attn_output_weights = []
         for layer in self.sudmodules:
-            x, attn_output_weights = layer(x)
+            x, attn_output_weight = layer(x)
+            attn_output_weights.append(attn_output_weight)
+        attn_output_weights = torch.stack(attn_output_weights)
         return self.out_layer(x), attn_output_weights
 
 

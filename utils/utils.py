@@ -102,9 +102,13 @@ def get_sweep_from_bsuite_id(bsuite_id: str):
     }.get(bsuite_id, [bsuite_id])
 
 
+def get_save_path(window_size, agent, memory):
+    return "results/" + f"{window_size}/{agent}/{memory}/"
+
+
 def create_environment(agent, seed, memory, env, window_size):
     # build folder path to save data
-    save_path = "results/" + f"{window_size}/{agent}/{memory}/"
+    save_path = get_save_path(window_size, agent, memory)
 
     if env.startswith("memory_custom"):
         print(f"Running environment {env}")
