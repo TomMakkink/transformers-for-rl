@@ -3,7 +3,7 @@ import torch.nn as nn
 from configs.transformer_config import transformer_config
 from configs.lstm_config import lstm_config
 from configs.experiment_config import experiment_config
-
+from models.custom_lstm import CustomLSTM
 from transformers.transformer_models import TransformerModel, MemoryTransformerModel
 from transformers.transformer_submodules import get_transformer_submodule
 
@@ -21,58 +21,43 @@ class Memory(nn.Module):
         if memory_type is not None:
             self.memory_type = memory_type.lower()
             print(f"Using {self.memory_type}...")
+
+            self.visualisation_data = None
+
             if self.memory_type == "lstm":
-                self.memory = nn.LSTM(
-                    input_size=input_dim,
-                    hidden_size=lstm_config["hidden_dim"],
-                    num_layers=lstm_config["num_layers"],
-                    batch_first=True,
-                )
-                self.hidden = (
-                    torch.zeros(1, 1, lstm_config["hidden_dim"]).to(
-                        experiment_config["device"]
-                    ),
-                    torch.zeros(1, 1, lstm_config["hidden_dim"]).to(
-                        experiment_config["device"]
-                    ),
-                )
+                self.memory = CustomLSTM(input_size=input_dim,
+                                         hidden_size=lstm_config["hidden_dim"])
+                self.hidden = None
+                
             elif self.memory_type in ["vanilla", "rezero", "linformer", "mha", "lmha"]:
                 submodule = get_transformer_submodule(self.memory_type)
                 self.memory = TransformerModel(input_dim, output_dim, submodule)
-                self.attn_output_weights = None
+                
             elif self.memory_type in ["gtrxl", "xl", "rmha", "gmha"]:
                 submodule = get_transformer_submodule(self.memory_type)
                 self.mem = None
                 self.memory = MemoryTransformerModel(input_dim, output_dim, submodule)
-                self.attn_output_weights = None
+
 
     def forward(self, x):
         """
         x: shape [batch_size, seq_len, feature_dim]
         """
-        if type(self.memory) is nn.LSTM:
-            x, self.hidden = self.memory(x, self.hidden)
-            return x
-
+        if (type(self.memory) is nn.LSTM) or (type(self.memory) is CustomLSTM):
+            x, self.hidden, self.visualisation_data = self.memory(x, self.hidden)
+            
         # Transformers expect input of shape: [seq_len, batch_size, feature_dim]
         x = x.transpose(0, 1)
         if type(self.memory) == MemoryTransformerModel:
-            x, self.attn_output_weights, self.mem = self.memory(x, self.mem)
+            x, self.visualisation_data, self.mem = self.memory(x, self.mem)
         elif type(self.memory) == TransformerModel:
-            x, self.attn_output_weights = self.memory(x)
+            x, self.visualisation_data = self.memory(x)
         x = x.transpose(0, 1)
         return x
 
     def reset(self):
         if self.memory_type == "lstm":
-            self.hidden = (
-                torch.zeros(1, 1, lstm_config["hidden_dim"]).to(
-                    experiment_config["device"]
-                ),
-                torch.zeros(1, 1, lstm_config["hidden_dim"]).to(
-                    experiment_config["device"]
-                ),
-            )
+            self.hidden = self.hidden = None
         elif type(self.memory) == MemoryTransformerModel:
             self.mem = None
             self.memory.reset()
