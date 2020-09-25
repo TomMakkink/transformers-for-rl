@@ -7,5 +7,5 @@ experiment_config = {
     "total_episode": 1,
     "max_steps_per_episode": 2048,
     "log_interval": 100,
-    "device": "cpu",
+    "device": "cuda",
 }
