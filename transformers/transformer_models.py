@@ -1,7 +1,6 @@
 import math
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.nn.init import xavier_uniform_
 from transformers import PositionalEncoding, TransformerBlockBase
 
@@ -157,14 +156,16 @@ class MemoryTransformerModel(nn.Module):
         core_out = self.drop(inputs)
         pos_emb = self.drop(pos_emb)
 
+        attn_output_weights = []
         for i, layer in enumerate(self.submodules):
             hids.append(core_out)
             mem_i = None if mem is None else mem[i]
-            core_out, attn_output_weights = layer(
+            core_out, attn_output_weight = layer(
                 core_out, pos_emb, self.u, self.v, attn_mask=None, mem=mem_i,
             )
             hids.append(core_out)
-
+            attn_output_weights.append(attn_output_weight)
+        attn_output_weights = torch.stack(attn_output_weights)
         core_out = self.drop(core_out)
         core_out = self.output_layer(core_out)
         new_mem = self._update_mem(hids, mem, mlen, qlen)

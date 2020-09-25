@@ -8,12 +8,10 @@ from utils.utils import (
     get_sweep_from_bsuite_id,
     get_save_path,
 )
-from utils.visualisation import viz_forget_activation
-from agents.a2c import A2C
+from utils.visualisation import viz_forget_activation, viz_attention
 
 import argparse
 from experiments.agent_trainer import train_agent
-from configs.experiment_config import experiment_config
 import torch
 
 
@@ -54,7 +52,7 @@ def run(args):
         torch.save(agent, save_path + file_name)
 
 
-def test_agent(args):
+def plot_viz(args):
     save_path = get_save_path(args.window, args.agent, args.memory)
     # assumes single env not
     env_id = args.env.replace("/", "_")
@@ -68,7 +66,7 @@ def test_agent(args):
         if args.memory == 'lstm':
             viz_forget_activation(viz_data, env_id, args.agent, args.window)
         else:
-            print("Visual Transformer models")
+            viz_attention(viz_data, env_id, args.agent, args.window, args.memory)
 
 
 def main():
@@ -82,12 +80,16 @@ def main():
     parser.add_argument("--env", type=str)
     parser.add_argument("--window", type=int, default=1)
     parser.add_argument("--comet", action="store_true")
+    parser.add_argument("--viz", action="store_true")
     parser.add_argument("--tags", nargs="*", help="Additional comet experiment tags.")
     args = parser.parse_args()
 
     update_configs(args)
     run(args)
-    # test_agent(args)
+
+    if args.viz:
+        print("Plotting viz")
+        plot_viz(args)
 
 
 if __name__ == "__main__":
