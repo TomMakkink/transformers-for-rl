@@ -1,8 +1,7 @@
 from itertools import zip_longest
 import numpy as np
 import os
-from os import listdir, walk
-from os.path import isfile, join, splitext
+from os import listdir
 import argparse
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -31,15 +30,14 @@ MEMORY = [
     # "gtrxl_64_8_1",
     # "linformer",
     "lstm",
-    "None",
-    "rezero",
-    "vanilla",
-    "xl",
+    # "None",
+    # "rezero",
+    # "vanilla",
+    # "xl",
 ]
 
-ENVS = ["umbrella_distract", "umbrella_length"]
-ENVS_NUM = list(map(str, range(17)))
-SEEDS = ["28", "61", "39"]  # , "78", "72", "46", "61", "71", "93", "44"]
+ENVS = ["memory_custom"]
+ENV_NUMS = list(map(str, range(13)))
 COLOURS = ["blue", "green", "red", "purple", "black", "orange"]
 WINDOW_SIZES = ["4"]
 
@@ -49,81 +47,42 @@ WINDOW_SIZES = ["4"]
 #               - memory
 
 
-def process_data(root, save):
-    colour_index = 0
-
-    for env in ENVS:
-        for env_num in ENVS_NUM:
-            fig, ax = plt.subplots()
-            ax.set_title(f"{env}/{env_num}")
-            ax.set_xlabel("Episodes")
-            ax.set_ylabel("Episode Return")
-            for algo in ALGORITHMS:
-                colour_index = 0
-                for model in MEMORY:
-                    returns = []
-                    episodes = []
-                    for seed in SEEDS:
-                        results_dir = "/".join(
-                            [root, env, env_num, algo, model, seed, WINDOW[0]]
-                        )
-                        if not os.path.isdir(results_dir):
-                            os.makedirs(results_dir)
-                        # if os.path.exists(results_dir):
-                        results_csv = listdir(results_dir)
-                        if len(results_csv) == 1:
-                            results_path = "/".join([results_dir, results_csv[0]])
-                            data = np.genfromtxt(
-                                results_path, dtype=float, delimiter=",", names=True
-                            )
-                            # print(
-                            #     f"Shape of episode_return: {data['episode_return'].shape}")
-                            returns.append(data["episode_return"])
-                            episodes.append(data["episode"])
-
-                    # Assume episodes are all the same
-                    x = np.array(episodes[0])
-                    y = calculate_mean(returns)
-                    std = calculate_std(returns)
-                    if len(x) == len(y):
-                        ax.plot(
-                            x, y, "-", color=COLOURS[colour_index], label=f"{model}"
-                        )
-                        # ax.fill_between(
-                        #     x, y - std, y + std, color=COLOURS[colour_index], alpha=0.2
-                        # )
-                        colour_index = colour_index + 1
-                        ax.set_xscale("log")
-                    else:
-                        print(
-                            f"Skippping file due to mismatch sizes between x: {len(x)} and y: {len(y)}"
-                        )
-                ax.legend()
-                if not os.path.isdir(save):
-                    os.makedirs(save)
-                fig.savefig(f"{save}/{algo}_{env}_{env_num}.pdf", format="pdf")
-
-
-def calculate_mean(data):
-    return np.nanmean(np.array(list(zip_longest(*data)), dtype=float), axis=1)
-
-
-def calculate_std(data):
-    return np.nanstd(np.array(list(zip_longest(*data)), dtype=float), axis=1)
-
-
 import pandas as pd
-from bsuite import sweep
-import glob
-import os
-from bsuite.logging import csv_logging
-from bsuite.logging import logging_utils
-import copy
+from environment.custom_memory import score
+LEARNING_THRESH = 0.75
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--root_dir", type=str)
-parser.add_argument("--save_dir", type=str)
-args = parser.parse_args()
+def graph_custom_env(root, save):
+    colour_index = 0
+    experiments = {}
+    for window_size in WINDOW_SIZES:
+        for model in MEMORY:
+            for agent in AGENTS:
+                experiments[model] = f"{root_dir}/{window_size}/{agent}/{model}/"
+
+        fig, ax = plt.subplots()
+        ax.set_title(f"Custom Memory Environment")
+        ax.set_xlabel("Environments")
+        ax.set_ylabel("Average Regret at 10000 episodes")
+        x = np.arange(len(ENV_NUMS))
+        ax.set_xticks(x)
+
+        for i, (name, file_dir) in enumerate(experiments.items()):
+            regret = []
+            for env_num in ENV_NUMS:
+                file = f"{file_dir}bsuite_id_-_memory_custom-{env_num}.csv"
+                env_df = pd.read_csv(file)
+                env_regret = score(env_df)
+                regret.append(env_regret)
+
+            ax.scatter(x, regret, s=100, label=name)
+
+
+        # y = np.repeat(LEARNING_THRESH, len(ENV_NUMS))
+        # ax.plot(x, y, '--')
+        ax.legend()
+        plt.savefig(f"{save}/custom_memory_plots.png")
+        plt.close()
+
 
 
 def bsuite_graphing(root_dir, save_dir):
@@ -135,6 +94,7 @@ def bsuite_graphing(root_dir, save_dir):
 
         DF, SWEEP_VARS = csv_load.load_bsuite(experiments)
         BSUITE_SCORE = summary_analysis.bsuite_score(DF, SWEEP_VARS)
+
         # Plots specialized to the experiment
         for env in ENVS:
             result = summary_analysis.plot_single_experiment(
@@ -190,11 +150,16 @@ def bsuite_graphing(root_dir, save_dir):
                 seeds_analysis.save(save_dir + f"/{window_size}/{env}_seed")
 
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--root_dir", type=str)
+parser.add_argument("--save_dir", type=str)
+args = parser.parse_args()
+
 if __name__ == "__main__":
     root_dir = args.root_dir if args.root_dir else DEFAULT_DATA_FOLDER
     save_dir = args.save_dir if args.save_dir else DEFAULT_SAVE_DIR
     if os.path.exists(root_dir):
-        # process_data(root_dir, save_dir)
-        bsuite_graphing(root_dir, save_dir)
+        # bsuite_graphing(root_dir, save_dir)
+        graph_custom_env(root_dir, save_dir)
     else:
-        raise OSError(f"Folder {root} does not exist.")
+        raise OSError(f"Folder {root_dir} does not exist.")

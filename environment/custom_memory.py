@@ -1,15 +1,15 @@
 from bsuite.environments.memory_chain import MemoryChain
 import dm_env
-from dm_env import specs
 import numpy as np
 import random
+import pandas as pd
 
 
 class CustomMemoryChain(MemoryChain):
     def __init__(self, memory_length: int, num_bits: int, seed: int = 0):
         super().__init__(memory_length, num_bits, seed)
         assert (
-            memory_length >= num_bits
+                memory_length >= num_bits
         ), "Memory length must be greater than number of bits for custom Memory Chain."
         assert num_bits % 2 != 0, "Num bits must be an odd number"
 
@@ -87,6 +87,63 @@ class CustomMemoryChain(MemoryChain):
         self._timestep += 1
 
         return dm_env.restart(observation)
+
+
+def memory_preprocess(df_in: pd.DataFrame) -> pd.DataFrame:
+    """Preprocess data for memory environments = regret relative to random."""
+    df = df_in.copy()
+    df['perfection_regret'] = df.episode - df.total_perfect
+    # a random agent always has 50% chance on each episode
+    # independently from memory length and number of bits.
+    df['base_rate'] = 0.5
+    df['regret_ratio'] = df.perfection_regret / df.base_rate
+    return df
+
+# LEARNING_THRESH = 0.75
+# def score(df: pd.DataFrame, group_col: str = 'memory_length') -> float:
+#   """Output a single score for memory_len."""
+#   df = memory_preprocess(df_in=df)
+#   regret_list = []  # Loop to handle partially-finished runs.
+#   for _, sub_df in df.groupby(group_col):
+#     max_eps = np.minimum(sub_df.episode.max(), 10000)
+#     ave_perfection = (
+#         sub_df.loc[sub_df.episode == max_eps, 'regret_ratio'].mean() / max_eps)
+#     regret_list.append(ave_perfection)
+#   return np.mean(np.array(regret_list) < LEARNING_THRESH)
+
+
+def score(df: pd.DataFrame, group_col: str = 'custom_memory') -> float:
+    """Output a single score for custom_memory."""
+    df = memory_preprocess(df_in=df)
+    max_eps = 10000
+    ave_perfection = df.loc[df.episode == max_eps, 'regret_ratio'].mean() / max_eps
+    return ave_perfection
+
+
+    # regret_list = []  # Loop to handle partially-finished runs.
+    # for _, sub_df in df.groupby(group_col):
+    #   max_eps = np.minimum(sub_df.episode.max(), sweep.NUM_EPISODES)
+    #   ave_perfection = (
+    #       sub_df.loc[sub_df.episode == max_eps, 'regret_ratio'].mean() / max_eps)
+    #   regret_list.append(ave_perfection)
+    # return np.mean(np.array(regret_list) < LEARNING_THRESH)
+
+
+# def plot_scale(df: pd.DataFrame,
+#                sweep_vars: Sequence[str] = None,
+#                group_col: str = 'memory_length') -> gg.ggplot:
+#   """Plots the regret_ratio through time by memory_length."""
+#   df = memory_preprocess(df_in=df)
+#   p = plotting.plot_regret_ave_scaling(
+#       df_in=df,
+#       group_col=group_col,
+#       episode=sweep.NUM_EPISODES,
+#       regret_thresh=LEARNING_THRESH,
+#       sweep_vars=sweep_vars,
+#       regret_col='regret_ratio'
+#   )
+#   return p + gg.ylab('% correct episodes after\n{} episodes compared to random'
+#                      .format(sweep.NUM_EPISODES))
 
 
 # Length: 3
