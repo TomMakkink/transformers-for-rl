@@ -62,4 +62,5 @@ class Memory(nn.Module):
         elif type(self.memory) == MemoryTransformerModel:
             self.mem = None
             self.memory.reset()
-        self.visualisation_data.append([])
+        if self.memory_type is not None:
+            self.visualisation_data.append([])
