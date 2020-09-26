@@ -54,19 +54,23 @@ def run(args):
 
 def plot_viz(args):
     save_path = get_save_path(args.window, args.agent, args.memory)
-    # assumes single env not
-    env_id = args.env.replace("/", "_")
-    file_name = env_id + "_saved_model.pt"
 
-    agent = torch.load(save_path + file_name)
+    env_ids = get_sweep_from_bsuite_id(args.env)
 
-    viz_data = agent.net.memory_network.visualisation_data[:-1]
+    for id in env_ids:
+        env_id = id.replace("/", "_")
 
-    if args.memory is not None:
-        if args.memory == 'lstm':
-            viz_forget_activation(viz_data, env_id, args.agent, args.window)
-        else:
-            viz_attention(viz_data, env_id, args.agent, args.window, args.memory)
+        file_name = env_id + "_saved_model.pt"
+
+        agent = torch.load(save_path + file_name)
+
+        viz_data = agent.net.memory_network.visualisation_data[:-1]
+
+        if args.memory is not None:
+            if args.memory == 'lstm':
+                viz_forget_activation(viz_data, env_id, args.agent, args.window)
+            else:
+                viz_attention(viz_data, env_id, args.agent, args.window, args.memory)
 
 
 def main():
@@ -85,7 +89,7 @@ def main():
     args = parser.parse_args()
 
     update_configs(args)
-    run(args)
+    # run(args)
 
     if args.viz:
         print("Plotting viz")
