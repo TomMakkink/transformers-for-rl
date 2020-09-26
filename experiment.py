@@ -8,7 +8,7 @@ from utils.utils import (
     get_sweep_from_bsuite_id,
     get_save_path,
 )
-from utils.visualisation import viz_forget_activation, viz_attention
+from utils.visualisation import viz_forget_activation, viz_attention, plot_lstm_gates
 
 import argparse
 from experiments.agent_trainer import train_agent
@@ -68,7 +68,8 @@ def plot_viz(args):
 
         if args.memory is not None:
             if args.memory == 'lstm':
-                viz_forget_activation(viz_data, env_id, args.agent, args.window)
+                # viz_forget_activation(viz_data, env_id, args.agent, args.window)
+                plot_lstm_gates(viz_data, env_id, args.agent, args.window)
             else:
                 viz_attention(viz_data, env_id, args.agent, args.window, args.memory)
 

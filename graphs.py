@@ -59,13 +59,8 @@ def graph_custom_env(root, save):
             for agent in AGENTS:
                 experiments[model] = f"{root_dir}/{window_size}/{agent}/{model}/"
 
-        fig, ax = plt.subplots()
-        ax.set_title(f"Custom Memory Environment")
-        ax.set_xlabel("Environments")
-        ax.set_ylabel("Average Regret at 10000 episodes")
+        fig, axs = plt.subplots(1, len(MEMORY), sharey=True)
         x = np.arange(len(ENV_NUMS))
-        ax.set_xticks(x)
-
         for i, (name, file_dir) in enumerate(experiments.items()):
             regret = []
             for env_num in ENV_NUMS:
@@ -74,12 +69,16 @@ def graph_custom_env(root, save):
                 env_regret = score(env_df)
                 regret.append(env_regret)
 
-            ax.scatter(x, regret, s=100, label=name)
-
+            colors = ["blue" if x < LEARNING_THRESH else "red" for x in regret]
+            axs[i].scatter(x, regret, s=200, c=colors)
+            axs[i].set_title(f"{name}")
+            axs[i].set_xlabel("Environments")
+            axs[i].set_ylabel("Average Regret at 10000 episodes")
+            axs[i].set_xticks(x)
 
         # y = np.repeat(LEARNING_THRESH, len(ENV_NUMS))
         # ax.plot(x, y, '--')
-        ax.legend()
+        # axs.legend()
         plt.savefig(f"{save}/custom_memory_plots.png")
         plt.close()
 

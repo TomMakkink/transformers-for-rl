@@ -31,6 +31,8 @@ class CustomLSTM(nn.Module):
         HS = self.hidden_size
 
         f_t_activations = []
+        i_t_activations = []
+        o_t_activations = []
         for t in range(seq_sz):
             x_t = x[:, t, :]
             # batch the computations into a single matrix multiplication
@@ -50,7 +52,24 @@ class CustomLSTM(nn.Module):
                 f_t_activations.append(torch.mean(f_t).item())
                 f_t_activations.append(torch.std(f_t).item())
 
+                i_t_activations.append(torch.min(i_t).item())
+                i_t_activations.append(torch.max(i_t).item())
+                i_t_activations.append(torch.mean(i_t).item())
+                i_t_activations.append(torch.std(i_t).item())
+
+                o_t_activations.append(torch.min(o_t).item())
+                o_t_activations.append(torch.max(o_t).item())
+                o_t_activations.append(torch.mean(o_t).item())
+                o_t_activations.append(torch.std(o_t).item())
+
+
+
         hidden_seq = torch.cat(hidden_seq, dim=0)
         # reshape from shape (sequence, batch, feature) to (batch, sequence, feature)
         hidden_seq = hidden_seq.transpose(0, 1).contiguous()
-        return hidden_seq, (h_t, c_t), f_t_activations
+        gate_activations = {
+            "forget_gate": f_t_activations,
+            "input_gate": i_t_activations,
+            "output_gate": o_t_activations,
+        }
+        return hidden_seq, (h_t, c_t), gate_activations
