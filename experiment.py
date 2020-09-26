@@ -89,7 +89,7 @@ def main():
     args = parser.parse_args()
 
     update_configs(args)
-    # run(args)
+    run(args)
 
     if args.viz:
         print("Plotting viz")

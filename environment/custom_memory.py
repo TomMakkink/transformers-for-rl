@@ -34,9 +34,9 @@ class CustomMemoryChain(MemoryChain):
             obs[0, 1] = self._query
 
         # Show part of the context, on varied steps
-        if self._timestep == 0:
-            obs_copy = obs.copy()
-            obs_copy[0, 2:] = 2 * self._context - 1
+        # if self._timestep == 0:
+        #     obs_copy = obs.copy()
+        #     obs_copy[0, 2:] = 2 * self._context - 1
             # print(f"Raw Context: {self._context}")
             # print(f"Context Observed: {obs_copy}")
 
@@ -71,10 +71,6 @@ class CustomMemoryChain(MemoryChain):
         return dm_env.termination(reward=reward, observation=observation)
 
     def _reset(self):
-        self._context_timesteps = random.sample(
-            range(self._memory_length), self._num_bits
-        )
-        self._context_timesteps.sort()
         self._context_index = 0
 
         self._timestep = 0
@@ -99,51 +95,12 @@ def memory_preprocess(df_in: pd.DataFrame) -> pd.DataFrame:
     df['regret_ratio'] = df.perfection_regret / df.base_rate
     return df
 
-# LEARNING_THRESH = 0.75
-# def score(df: pd.DataFrame, group_col: str = 'memory_length') -> float:
-#   """Output a single score for memory_len."""
-#   df = memory_preprocess(df_in=df)
-#   regret_list = []  # Loop to handle partially-finished runs.
-#   for _, sub_df in df.groupby(group_col):
-#     max_eps = np.minimum(sub_df.episode.max(), 10000)
-#     ave_perfection = (
-#         sub_df.loc[sub_df.episode == max_eps, 'regret_ratio'].mean() / max_eps)
-#     regret_list.append(ave_perfection)
-#   return np.mean(np.array(regret_list) < LEARNING_THRESH)
-
-
 def score(df: pd.DataFrame, group_col: str = 'custom_memory') -> float:
     """Output a single score for custom_memory."""
     df = memory_preprocess(df_in=df)
     max_eps = 10000
     ave_perfection = df.loc[df.episode == max_eps, 'regret_ratio'].mean() / max_eps
     return ave_perfection
-
-
-    # regret_list = []  # Loop to handle partially-finished runs.
-    # for _, sub_df in df.groupby(group_col):
-    #   max_eps = np.minimum(sub_df.episode.max(), sweep.NUM_EPISODES)
-    #   ave_perfection = (
-    #       sub_df.loc[sub_df.episode == max_eps, 'regret_ratio'].mean() / max_eps)
-    #   regret_list.append(ave_perfection)
-    # return np.mean(np.array(regret_list) < LEARNING_THRESH)
-
-
-# def plot_scale(df: pd.DataFrame,
-#                sweep_vars: Sequence[str] = None,
-#                group_col: str = 'memory_length') -> gg.ggplot:
-#   """Plots the regret_ratio through time by memory_length."""
-#   df = memory_preprocess(df_in=df)
-#   p = plotting.plot_regret_ave_scaling(
-#       df_in=df,
-#       group_col=group_col,
-#       episode=sweep.NUM_EPISODES,
-#       regret_thresh=LEARNING_THRESH,
-#       sweep_vars=sweep_vars,
-#       regret_col='regret_ratio'
-#   )
-#   return p + gg.ylab('% correct episodes after\n{} episodes compared to random'
-#                      .format(sweep.NUM_EPISODES))
 
 
 # Length: 3

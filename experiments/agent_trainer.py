@@ -1,9 +1,7 @@
 from configs.experiment_config import experiment_config
 from utils.logging import log_to_screen, log_to_comet_ml
 from collections import deque
-import torch
 import numpy as np
-import gym
 
 
 def train_agent(agent, env, total_episodes=10000, logger=None):
@@ -22,7 +20,7 @@ def train_agent(agent, env, total_episodes=10000, logger=None):
             action = agent.act(state.unsqueeze(0))
             next_state, reward, done, _ = env.step(action)
             rewards.append(reward)
-
+            #
             # print(
             #     f"Timestep = {t} \n\tState: {state} \n\tReward: {reward} \n\tAction: {action}"
             # )
