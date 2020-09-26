@@ -78,7 +78,7 @@ def viz_attention(weights, env_id, agent_name, window_size, memory):
 
         last_timestep = weight[-1]  # For not plot last timestep only
         w = last_timestep[0, 0, -1, :] # Last layer only
-        w = w.detach().numpy()
+        w = w.detach().cpu().numpy()
         x = np.arange(w.shape[0])
 
         fig, ax1 = plt.subplots()
