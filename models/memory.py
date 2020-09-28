@@ -44,6 +44,8 @@ class Memory(nn.Module):
         """
         if (type(self.memory) is nn.LSTM) or (type(self.memory) is CustomLSTM):
             x, self.hidden, viz_data = self.memory(x, self.hidden)
+            # x, self.hidden = self.memory(x, self.hidden)
+            # viz_data = self.hidden
 
         # Transformers expect input of shape: [seq_len, batch_size, feature_dim]
         x = x.transpose(0, 1)
@@ -58,7 +60,8 @@ class Memory(nn.Module):
 
     def reset(self):
         if self.memory_type == "lstm":
-            self.hidden = self.hidden = None
+            self.hidden = None
+
         elif type(self.memory) == MemoryTransformerModel:
             self.mem = None
             self.memory.reset()
