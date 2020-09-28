@@ -26,9 +26,10 @@ class A2C(Agent):
             R = self.rewards[step] + a2c_config["gamma"] * R
             returns.insert(0, R)
         returns = np.array(returns)
-        returns -= returns.mean()
-        if returns.std() > 0.0:
-            returns /= returns.std()
+        if a2c_config["use_norm"]:
+            returns -= returns.mean()
+            if returns.std() > 0.0:
+                returns /= returns.std()
         return returns
 
     def optimize_network(self):

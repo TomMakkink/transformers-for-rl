@@ -15,6 +15,7 @@ from agents.dqn import DQN
 from bsuite.utils import gym_wrapper, wrappers
 from bsuite.logging.csv_logging import Logger
 from bsuite import sweep
+from configs.a2c_config import a2c_config
 from configs.env_config import env_config
 from configs.experiment_config import experiment_config
 from configs.transformer_config import transformer_config
@@ -33,7 +34,18 @@ def update_configs(args):
         }
     )
     env_config.update({"env": args.env})
-    transformer_config.update({"max_seq_len": args.window})
+    transformer_config.update(
+        {
+            "max_seq_len": args.window,
+            "num_heads": args.num_heads,
+            "num_layers": args.num_layers
+        }
+    )
+    a2c_config.update(
+        {
+            'use_norm': not args.no_norm
+        }
+    )
 
 
 def get_agent(agent_name: str):
