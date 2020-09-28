@@ -38,7 +38,8 @@ def update_configs(args):
         {
             "max_seq_len": args.window,
             "num_heads": args.num_heads,
-            "num_layers": args.num_layers
+            "num_layers": args.num_layers,
+            "dim_mlp": args.dim_mlp
         }
     )
     a2c_config.update(
