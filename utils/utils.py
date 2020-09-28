@@ -116,7 +116,15 @@ def get_sweep_from_bsuite_id(bsuite_id: str):
 
 
 def get_save_path(window_size, agent, memory):
-    return "results/" + f"{window_size}/{agent}/{memory}/"
+    mem_str = memory
+    if memory not in ['lstm', None]:
+        if (transformer_config["num_heads"] > 1) or (
+                transformer_config["num_layers"] > 1):
+            mem_str = f"{mem_str}_h{transformer_config['num_heads']}_l{transformer_config['num_layers']}"
+        if transformer_config["dim_mlp"] != 32:
+            mem_str = f"{mem_str}_d{transformer_config['dim_mlp']}"
+
+    return "results/" + f"{window_size}/{agent}/{mem_str}/"
 
 
 def create_environment(agent, seed, memory, env, window_size):

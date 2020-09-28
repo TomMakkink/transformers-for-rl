@@ -89,6 +89,7 @@ def main():
     parser.add_argument("--tags", nargs="*", help="Additional comet experiment tags.")
     parser.add_argument("--no_norm", action="store_true")
     parser.add_argument("--num_heads", type=int, default=1)
+    parser.add_argument("--num_layers", type=int, default=1)
     parser.add_argument("--dim_mlp", type=int, default=32)
 
     args = parser.parse_args()
