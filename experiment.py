@@ -8,10 +8,11 @@ from utils.utils import (
     get_sweep_from_bsuite_id,
     get_save_path,
 )
-from utils.visualisation import viz_forget_activation, viz_attention, plot_lstm_gates
+from utils.visualisation import (viz_forget_activation, viz_attention, plot_lstm_gates,
+                                 plot_lstm_forget_activation_heat_map)
 
 import argparse
-from experiments.agent_trainer import train_agent
+from experiments.agent_trainer import train_agent, eval_agent
 import torch
 
 
@@ -52,6 +53,32 @@ def run(args):
         torch.save(agent, save_path + file_name)
 
 
+def eval(args):
+    print("Starting Eval run ...")
+    save_path = get_save_path(args.window, args.agent, args.memory)
+
+    env_ids = get_sweep_from_bsuite_id(args.env)
+
+    for env_id in env_ids:
+        env = create_environment(
+            agent=args.agent,
+            seed=args.seed,
+            memory=args.memory,
+            env=env_id,
+            window_size=args.window,
+            eval_run=args.eval
+        )
+        env_id = env_id.replace("/", "_")
+
+        file_name = env_id + "_saved_model.pt"
+
+        agent = torch.load(save_path + file_name)
+        total_episodes = (
+            env.bsuite_num_episodes if args.num_eps is None else args.num_eps
+        )
+        eval_agent(agent, env, total_episodes)
+
+
 def plot_viz(args):
     save_path = get_save_path(args.window, args.agent, args.memory)
 
@@ -70,7 +97,10 @@ def plot_viz(args):
             if args.memory == 'lstm':
                 # viz_forget_activation(viz_data, env_id, args.agent, args.window)
                 plot_lstm_gates(viz_data, env_id, args.agent, args.window)
+                plot_lstm_forget_activation_heat_map(viz_data, env_id, args.agent,
+                                                     args.window)
             else:
+
                 viz_attention(viz_data, env_id, args.agent, args.window, args.memory)
 
 
@@ -91,15 +121,21 @@ def main():
     parser.add_argument("--num_heads", type=int, default=1)
     parser.add_argument("--num_layers", type=int, default=1)
     parser.add_argument("--dim_mlp", type=int, default=32)
+    parser.add_argument("--eval", action="store_true")
 
     args = parser.parse_args()
 
     update_configs(args)
-    run(args)
 
-    if args.viz:
-        print("Plotting viz")
-        plot_viz(args)
+    if args.eval:
+        eval(args)
+
+    else:
+        run(args)
+
+        if args.viz:
+            print("Plotting viz")
+            plot_viz(args)
 
 
 if __name__ == "__main__":

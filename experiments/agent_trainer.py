@@ -50,3 +50,39 @@ def train_agent(agent, env, total_episodes=10000, logger=None):
             metrics.update({"Episode": episode})
             log_to_screen(metrics)
 
+
+def eval_agent(agent, env, total_episodes=10000, logger=None):
+    scores = []
+    scores_deque = deque(maxlen=experiment_config["log_interval"])
+
+    if logger is not None:
+        logger.log_parameters(experiment_config)
+
+    for episode in range(1, total_episodes + 1):
+        rewards = []
+        state = env.reset()
+
+        for t in range(experiment_config["max_steps_per_episode"]):
+            action = agent.act(state.unsqueeze(0))
+            next_state, reward, done, _ = env.step(action)
+            rewards.append(reward)
+
+            state = next_state
+
+            if done:
+                break
+
+        agent.reset()
+
+        episode_length = len(rewards)
+        scores.append(sum(rewards))
+        scores_deque.append(sum(rewards))
+
+        if episode % experiment_config["log_interval"] == 0:
+            metrics = {
+                "(Eval) Average Score": np.mean(scores_deque),
+            }
+            if logger:
+                log_to_comet_ml(logger, metrics, step=episode)
+            metrics.update({"Episode": episode})
+            log_to_screen(metrics)
