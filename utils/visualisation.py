@@ -139,7 +139,9 @@ def plot_rewards(env_id, save_dir, rolling_window=100):
     df = pd.DataFrame(data=rewards, columns=["Rewards"])
     df['Rewards'] = df['Rewards'].rolling(rolling_window).mean()
 
-    ax = sns.lineplot(x=df.index, y="Rewards", data=df)
+    fig, ax = plt.subplots()
+    sns.lineplot(x=df.index, y="Rewards", data=df, ax=ax)
     ax.set_title(f"Total Rewards for Episodes (Rolling mean window = {rolling_window})")
     figure = ax.get_figure()
     figure.savefig(f"{plot_save_dir}{env_id}_rewards.png")
+    plt.close()
