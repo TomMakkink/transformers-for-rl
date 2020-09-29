@@ -1,4 +1,4 @@
-from utils.logging import set_up_comet_ml, log_to_screen
+from utils.logging import set_up_comet_ml, log_episode_returns
 from utils.utils import (
     update_configs,
     get_agent,
@@ -8,9 +8,11 @@ from utils.utils import (
     get_sweep_from_bsuite_id,
     get_save_path,
 )
-from utils.visualisation import (viz_forget_activation, viz_attention, plot_lstm_gates,
+from utils.visualisation import (viz_forget_activation, 
+                                 viz_attention, plot_lstm_gates,
+                                 plot_rewards,
                                  plot_lstm_forget_activation_heat_map)
-
+from configs.experiment_config import experiment_config
 import argparse
 from experiments.agent_trainer import train_agent, eval_agent
 import torch
@@ -47,9 +49,10 @@ def run(args):
         total_episodes = (
             env.bsuite_num_episodes if args.num_eps is None else args.num_eps
         )
-        train_agent(agent, env, total_episodes, logger)
+        episode_returns = train_agent(agent, env, total_episodes, logger)
         save_path = get_save_path(args.window, args.agent, args.memory)
         file_name = env_id.replace("/", "_") + "_saved_model.pt"
+        log_episode_returns(save_path, env_id.replace("/", "_"), episode_returns)
         torch.save(agent, save_path + file_name)
 
 
@@ -72,7 +75,8 @@ def eval(args):
 
         file_name = env_id + "_saved_model.pt"
 
-        agent = torch.load(save_path + file_name)
+        agent = torch.load(save_path + file_name,
+                           map_location=torch.device(experiment_config["device"]))
         total_episodes = (
             env.bsuite_num_episodes if args.num_eps is None else args.num_eps
         )
@@ -89,7 +93,8 @@ def plot_viz(args):
 
         file_name = env_id + "_saved_model.pt"
 
-        agent = torch.load(save_path + file_name)
+        agent = torch.load(save_path + file_name,
+                           map_location=torch.device(experiment_config["device"]))
 
         viz_data = agent.net.memory_network.visualisation_data[:-1]
 
@@ -100,8 +105,8 @@ def plot_viz(args):
                 plot_lstm_forget_activation_heat_map(viz_data, env_id, args.agent,
                                                      args.window)
             else:
-
                 viz_attention(viz_data, env_id, args.agent, args.window, args.memory)
+        plot_rewards(env_id, save_path)
 
 
 def main():

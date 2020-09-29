@@ -1,5 +1,7 @@
 import comet_ml
 from configs.experiment_config import experiment_config
+import pickle
+from utils.utils import get_save_path
 
 
 def set_up_comet_ml(tags: list):
@@ -32,3 +34,10 @@ def log_to_screen(metrics):
     for name, value in metrics.items():
         print(f"{name}: {value}")
     print("------------------------------")
+
+
+def log_episode_returns(folder, env_id, data):
+    filename = folder + f"{env_id}_rewards.pt"
+    fileObject = open(filename, 'wb')
+    pickle.dump(data, fileObject)
+    fileObject.close()

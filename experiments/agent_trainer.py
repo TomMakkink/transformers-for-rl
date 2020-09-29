@@ -5,7 +5,7 @@ import numpy as np
 
 
 def train_agent(agent, env, total_episodes=10000, logger=None):
-    scores = []
+    all_rewards = np.zeros(total_episodes)
     scores_deque = deque(maxlen=experiment_config["log_interval"])
     loss_deque = deque(maxlen=experiment_config["log_interval"])
 
@@ -36,7 +36,7 @@ def train_agent(agent, env, total_episodes=10000, logger=None):
         agent.reset()
 
         episode_length = len(rewards)
-        scores.append(sum(rewards))
+        all_rewards[episode - 1] = sum(rewards)
         scores_deque.append(sum(rewards))
         loss_deque.append(loss)
 
@@ -50,9 +50,10 @@ def train_agent(agent, env, total_episodes=10000, logger=None):
             metrics.update({"Episode": episode})
             log_to_screen(metrics)
 
+    return all_rewards
+
 
 def eval_agent(agent, env, total_episodes=10000, logger=None):
-    scores = []
     scores_deque = deque(maxlen=experiment_config["log_interval"])
 
     if logger is not None:
@@ -74,8 +75,6 @@ def eval_agent(agent, env, total_episodes=10000, logger=None):
 
         agent.reset()
 
-        episode_length = len(rewards)
-        scores.append(sum(rewards))
         scores_deque.append(sum(rewards))
 
         if episode % experiment_config["log_interval"] == 0:

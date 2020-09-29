@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 from utils.utils import get_save_path
+import pickle
+import pandas as pd
 
 sns.set_style("dark")
 
@@ -122,3 +124,22 @@ def viz_attention(weights, env_id, agent_name, window_size, memory):
         ax1.set_title(f"Episode {eps_num}")
         plt.savefig(plot_save_dir + env_id + "_Eps_{:06d}.png".format(eps_num + 1))
         plt.close()
+
+
+def plot_rewards(env_id, save_dir, rolling_window=100):
+    reward_data_file = save_dir + f"{env_id}_rewards.pt"
+    fileObject = open(reward_data_file, 'rb')
+    rewards = pickle.load(fileObject)
+    fileObject.close()
+
+    plot_save_dir = save_dir + "plots/"
+    if not os.path.isdir(plot_save_dir):
+        os.makedirs(plot_save_dir)
+
+    df = pd.DataFrame(data=rewards, columns=["Rewards"])
+    df['Rewards'] = df['Rewards'].rolling(rolling_window).mean()
+
+    ax = sns.lineplot(x=df.index, y="Rewards", data=df)
+    ax.set_title(f"Total Rewards for Episodes (Rolling mean window = {rolling_window})")
+    figure = ax.get_figure()
+    figure.savefig(f"{plot_save_dir}{env_id}_rewards.png")
