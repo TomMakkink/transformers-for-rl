@@ -20,25 +20,35 @@ DEFAULT_DATA_FOLDER = "results"
 AGENTS = ["a2c"]
 MEMORY = [
     # "mha",
-    # "rmha",
-    # "gmha",
+    "rmha",
+    "gmha",
     "gtrxl",
-    # "gtrxl_32_1_1",
-    # "gtrxl_64_1_1",
-    # "gtrxl_64_2_1",
-    # "gtrxl_64_4_1",
-    # "gtrxl_64_8_1",
+    # "gtrxl_1_2",
+    # "gtrxl_1_4",
+    # "gtrxl_1_8",
+    # "gtrxl_2_1",
+    # "gtrxl_2_2",
+    # "gtrxl_2_4",
+    # "gtrxl_2_8",
+    # "gtrxl_4_1",
+    # "gtrxl_4_2",
+    # "gtrxl_4_4",
+    # "gtrxl_4_8",
+    # "gtrxl_8_1",
+    # "gtrxl_8_2",
+    # "gtrxl_8_4",
+    # "gtrxl_8_8",
     # "linformer",
     "lstm",
-    # "None",
+    "None",
     # "rezero",
-    # "vanilla",
-    # "xl",
+    "vanilla",
+    "xl",
 ]
 
-ENVS = ["memory_custom"]
+ENVS = ["memory_len", "memory_size"]
 ENV_NUMS = list(map(str, range(13)))
-COLOURS = ["blue", "green", "red", "purple", "black", "orange"]
+COLOURS = ["blue", "green", "red", "purple", "black", "orange", "pink"]
 WINDOW_SIZES = ["4"]
 
 #   - results
@@ -51,6 +61,20 @@ import pandas as pd
 from environment.custom_memory import score
 LEARNING_THRESH = 0.75
 
+def plot_custom_env_score(save, names, regret_list):
+    fig, ax = plt.subplots()
+    scores = []
+    for i, regret in enumerate(regret_list):
+        score = np.mean(np.array(regret) < LEARNING_THRESH)
+        scores.append(score)
+
+    ax.bar(names, scores)
+    ax.title()
+    ax.set_xlabels()
+    plt.savefig(f"{save}/custom_memory_results.png")
+    plt.close()
+
+
 def graph_custom_env(root, save):
     colour_index = 0
     experiments = {}
@@ -59,8 +83,10 @@ def graph_custom_env(root, save):
             for agent in AGENTS:
                 experiments[model] = f"{root_dir}/{window_size}/{agent}/{model}/"
 
-        fig, axs = plt.subplots(1, len(MEMORY), sharey=True)
+        fig, axs = plt.subplots(3, 3, sharey=True, figsize=(16, 16))
         x = np.arange(len(ENV_NUMS))
+        row_index = 0
+        regret_list = []
         for i, (name, file_dir) in enumerate(experiments.items()):
             regret = []
             for env_num in ENV_NUMS:
@@ -70,17 +96,30 @@ def graph_custom_env(root, save):
                 regret.append(env_regret)
 
             colors = ["blue" if x < LEARNING_THRESH else "red" for x in regret]
-            axs[i].scatter(x, regret, s=200, c=colors)
-            axs[i].set_title(f"{name}")
-            axs[i].set_xlabel("Environments")
-            axs[i].set_ylabel("Average Regret at 10000 episodes")
-            axs[i].set_xticks(x)
+            axs[row_index // 3, i % 3].scatter(x, regret, s=200, c=colors)
+            axs[row_index // 3, i % 3].set_title(f"{name}")
+            # axs[row_index // 3, i % 3].set_xlabel("Environments")
+            # axs[row_index // 3, i % 3].set_ylabel("Average Regret at 10000 episodes")
+            # axs[row_index // 3, i % 3].set_xticks(x)
 
+            regret_list.append(regret)
+            row_index += 1
+
+        fig.delaxes(axs[2,1])
+        fig.delaxes(axs[2,2])
+
+        # Set common labels
+        fig.text(0.5, 0.04, 'Environments', ha='center', va='center')
+        fig.text(0.06, 0.5, 'Average Regret at 10000 episodes', ha='center', va='center', rotation='vertical')
+
+        fig.suptitle('Custom Memory Environment', fontsize=16)
         # y = np.repeat(LEARNING_THRESH, len(ENV_NUMS))
         # ax.plot(x, y, '--')
         # axs.legend()
-        plt.savefig(f"{save}/custom_memory_plots.png")
+        plt.savefig(f"{save}/custom_memory_scale.png")
         plt.close()
+
+        plot_custom_env_score(save, experiments.keys(), regret_list)
 
 
 

@@ -352,7 +352,7 @@ class MultiheadLinearAttention(nn.Module):
 
 
 class PositionWiseMLP(nn.Module):
-    def __init__(self, d_model: Tensor, dim_mlp: int, dropout: float = 0.1):
+    def __init__(self, d_model: int, dim_mlp: int, dropout: float = 0.1):
         super(PositionWiseMLP, self).__init__()
         self.pos_wise_mlp = nn.Sequential(
             nn.Linear(d_model, dim_mlp),

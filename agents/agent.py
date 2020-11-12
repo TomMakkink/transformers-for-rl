@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 
 class Agent(ABC):
-    def __init__(self, state_size, action_size, hidden_size, memory):
+    def __init__(self, state_size, action_size, hidden_size, memory, **kwargs):
         super(Agent, self).__init__()
 
     @abstractmethod
@@ -15,10 +15,6 @@ class Agent(ABC):
 
     @abstractmethod
     def collect_experience(self, state, action, reward, next_state, done):
-        pass
-
-    @abstractmethod
-    def get_parameters(self):
         pass
 
     @abstractmethod

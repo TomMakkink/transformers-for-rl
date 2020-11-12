@@ -9,3 +9,9 @@ plots/
 .pytype
 .DS_Store
 .idea
+
+# Hydra 
+hydra.yaml 
+config.yaml
+experiment.log 
+overrides.yaml

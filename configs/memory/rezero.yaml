@@ -1,0 +1,8 @@
+# @package _group_
+_target_: models.memory.ReZero
+name: ReZero
+num_heads: 1
+num_layers: 1
+dim_mlp: 32
+dropout: 0.0
+max_sequence_length: ${env.window}

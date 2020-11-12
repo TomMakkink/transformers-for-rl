@@ -1,0 +1,6 @@
+# @package _group_
+_target_: agents.a2c.A2C
+name: a2c
+hidden_size: [64, 64]
+lr: 0.001
+gamma: 0.99

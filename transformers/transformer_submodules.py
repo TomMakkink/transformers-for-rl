@@ -2,34 +2,20 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from transformers import (
-    MultiHeadAttention,
     MultiheadLinearAttention,
     RelativeMultiHeadAttention,
     PositionWiseMLP,
 )
-from configs.transformer_config import transformer_config
-from configs.experiment_config import experiment_config
-
 
 Tensor = torch.Tensor
 
 
-class TransformerBlockBase(nn.Module):
-    def __init__(self, d_model: int, dim_mlp: int, dropout: int):
-        super(TransformerBlockBase, self).__init__()
-
-    def forward(self, x):
-        pass
-
-
-class TransformerBlock(TransformerBlockBase):
-    def __init__(self, d_model: int, dim_mlp: int, dropout: int):
-        super(TransformerBlock, self).__init__(d_model, dim_mlp, dropout)
+class TransformerBlock(nn.Module):
+    def __init__(self, d_model: int, num_heads: int, dim_mlp: int, dropout: int):
+        super(TransformerBlock, self).__init__()
         self.layer_norm_1 = nn.LayerNorm(d_model)
         self.layer_norm_2 = nn.LayerNorm(d_model)
-        self.attention = nn.MultiheadAttention(
-            d_model, transformer_config["num_heads"], dropout
-        )
+        self.attention = nn.MultiheadAttention(d_model, num_heads, dropout)
         self.pos_wise_mlp = PositionWiseMLP(d_model, dim_mlp, dropout)
 
     def forward(self, inputs):
@@ -45,12 +31,10 @@ class TransformerBlock(TransformerBlockBase):
         return output, attn_output_weights
 
 
-class ReZeroBlock(TransformerBlockBase):
-    def __init__(self, d_model: int, dim_mlp: int, dropout: int):
-        super(ReZeroBlock, self).__init__(d_model, dim_mlp, dropout)
-        self.self_attn = nn.MultiheadAttention(
-            d_model, transformer_config["num_heads"], dropout=dropout
-        )
+class ReZeroBlock(nn.Module):
+    def __init__(self, d_model: int, num_heads: int, dim_mlp: int, dropout: int):
+        super(ReZeroBlock, self).__init__()
+        self.self_attn = nn.MultiheadAttention(d_model, num_heads, dropout=dropout)
         self.linear1 = nn.Linear(d_model, dim_mlp)
         self.dropout = nn.Dropout(dropout)
         self.linear2 = nn.Linear(dim_mlp, d_model)
@@ -77,17 +61,25 @@ class ReZeroBlock(TransformerBlockBase):
         return src, attn_output_weights
 
 
-class LinformerBlock(TransformerBlockBase):
-    def __init__(self, d_model: int, dim_mlp: int, dropout: int):
-        super(LinformerBlock, self).__init__(d_model, dim_mlp, dropout)
+class LinformerBlock(nn.Module):
+    def __init__(
+        self,
+        d_model: int,
+        num_heads: int,
+        dim_mlp: int,
+        max_seq_len: int,
+        k: int,
+        dropout: int,
+    ):
+        super(LinformerBlock, self).__init__()
         self.layer_norm_1 = nn.LayerNorm(d_model)
         self.layer_norm_2 = nn.LayerNorm(d_model)
         self.attention = MultiheadLinearAttention(
             d_model,
-            transformer_config["num_heads"],
+            num_heads,
             dropout,
-            transformer_config["max_seq_len"],
-            transformer_config["k"],
+            max_seq_len,
+            k,
         )
         self.pos_wise_mlp = PositionWiseMLP(d_model, dim_mlp, dropout=dropout)
 
@@ -104,16 +96,18 @@ class LinformerBlock(TransformerBlockBase):
         return output, attn_output_weights
 
 
-class TransformerXLBlock(TransformerBlockBase):
-    def __init__(self, d_model: int, dim_mlp: int, dropout: int):
-        super(TransformerXLBlock, self).__init__(d_model, dim_mlp, dropout)
+class TransformerXLBlock(nn.Module):
+    def __init__(
+        self, d_model: int, dim_mlp: int, num_heads: int, mem_len: int, dropout: int
+    ):
+        super(TransformerXLBlock, self).__init__()
         self.layer_norm_1 = nn.LayerNorm(d_model)
         self.layer_norm_2 = nn.LayerNorm(d_model)
         self.attention = RelativeMultiHeadAttention(
-            transformer_config["num_heads"],
+            num_heads,
             d_model,
             dropout,
-            mem_len=transformer_config["mem_len"],
+            mem_len=mem_len,
         )
         self.pos_wise_mlp = PositionWiseMLP(d_model, dim_mlp, dropout)
 
@@ -142,26 +136,35 @@ class TransformerXLBlock(TransformerBlockBase):
         pass
 
 
-class GTrXLBlock(TransformerBlockBase):
-    def __init__(self, d_model: int, dim_mlp: int, dropout: int):
-        super(GTrXLBlock, self).__init__(d_model, dim_mlp, dropout)
+class GTrXLBlock(nn.Module):
+    def __init__(
+        self,
+        d_model: int,
+        dim_mlp: int,
+        num_heads: int,
+        mem_len: int,
+        dropout: int,
+        device,
+    ):
+        super(GTrXLBlock, self).__init__()
         self.layer_norm_1 = nn.LayerNorm(d_model)
         self.layer_norm_2 = nn.LayerNorm(d_model)
 
         self.attention = RelativeMultiHeadAttention(
-            transformer_config["num_heads"],
+            num_heads,
             d_model,
             dropout,
-            mem_len=transformer_config["mem_len"],
+            mem_len=mem_len,
         )
 
-        self.hidden_1 = torch.zeros(1, 1, d_model).to(experiment_config["device"])
-        self.hidden_2 = torch.zeros(1, 1, d_model).to(experiment_config["device"])
+        self.hidden_1 = torch.zeros(1, 1, d_model).to(device)
+        self.hidden_2 = torch.zeros(1, 1, d_model).to(device)
         self.gated_layer_1 = nn.GRU(d_model, d_model, num_layers=1)
         self.gated_layer_2 = nn.GRU(d_model, d_model, num_layers=1)
 
         self.pos_wise_mlp = PositionWiseMLP(d_model, dim_mlp, dropout)
         self.d_model = d_model
+        self.device = device
 
     def forward(
         self,
@@ -187,45 +190,45 @@ class GTrXLBlock(TransformerBlockBase):
         return output, attn_output_weights
 
     def reset(self):
-        self.hidden_1 = torch.zeros(1, 1, self.d_model).to(experiment_config["device"])
-        self.hidden_2 = torch.zeros(1, 1, self.d_model).to(experiment_config["device"])
+        self.hidden_1 = torch.zeros(1, 1, self.d_model).to(self.device)
+        self.hidden_2 = torch.zeros(1, 1, self.d_model).to(self.device)
 
 
-class MHA(TransformerBlockBase):
-    def __init__(self, d_model: int, dim_mlp: int, dropout: int):
-        super(MHA, self).__init__(d_model, dim_mlp, dropout)
-        self.attention = nn.MultiheadAttention(
-            d_model, transformer_config["num_heads"], dropout
-        )
+class MHA(nn.Module):
+    def __init__(self, d_model: int, num_heads: int, dropout: int):
+        super(MHA, self).__init__()
+        self.attention = nn.MultiheadAttention(d_model, num_heads, dropout)
 
     def forward(self, inputs):
         y, attn_output_weights = self.attention(inputs, inputs, inputs, attn_mask=None)
         return y, attn_output_weights
 
 
-class LMHA(TransformerBlockBase):
-    def __init__(self, d_model: int, dim_mlp: int, dropout: int):
-        super(LMHA, self).__init__(d_model, dim_mlp, dropout)
+class LMHA(nn.Module):
+    def __init__(
+        self, d_model: int, num_heads: int, max_seq_len: int, k: int, dropout: int
+    ):
+        super(LMHA, self).__init__()
         self.attention = MultiheadLinearAttention(
             d_model,
-            transformer_config["num_heads"],
+            num_heads,
             dropout,
-            transformer_config["max_seq_len"],
-            transformer_config["k"],
+            max_seq_len,
+            k,
         )
 
     def forward(self, inputs):
         return self.attention(inputs)
 
 
-class RMHA(TransformerBlockBase):
-    def __init__(self, d_model: int, dim_mlp: int, dropout: int):
-        super(RMHA, self).__init__(d_model, dim_mlp, dropout)
+class RMHA(nn.Module):
+    def __init__(self, d_model: int, num_heads: int, mem_len: int, dropout: int):
+        super(RMHA, self).__init__()
         self.attention = RelativeMultiHeadAttention(
-            transformer_config["num_heads"],
+            num_heads,
             d_model,
             dropout,
-            mem_len=transformer_config["mem_len"],
+            mem_len=mem_len,
         )
 
     def forward(
@@ -243,18 +246,21 @@ class RMHA(TransformerBlockBase):
         pass
 
 
-class GMHA(TransformerBlockBase):
-    def __init__(self, d_model: int, dim_mlp: int, dropout: int):
-        super(GMHA, self).__init__(d_model, dim_mlp, dropout)
+class GMHA(nn.Module):
+    def __init__(
+        self, d_model: int, num_heads: int, mem_len: int, dropout: int, device
+    ):
+        super(GMHA, self).__init__()
         self.attention = RelativeMultiHeadAttention(
-            transformer_config["num_heads"],
+            num_heads,
             d_model,
             dropout,
-            mem_len=transformer_config["mem_len"],
+            mem_len=mem_len,
         )
-        self.gru_hidden = torch.zeros(1, 1, d_model).to(experiment_config["device"])
+        self.gru_hidden = torch.zeros(1, 1, d_model).to(device)
         self.gated_layer = nn.GRU(d_model, d_model, num_layers=1)
         self.d_model = d_model
+        self.device = device
 
     def forward(
         self,
@@ -270,20 +276,26 @@ class GMHA(TransformerBlockBase):
         return y, attn_output_weights
 
     def reset(self):
-        self.gru_hidden = torch.zeros(1, 1, self.d_model).to(
-            experiment_config["device"]
-        )
+        self.gru_hidden = torch.zeros(1, 1, self.d_model).to(self.device)
 
 
-def get_transformer_submodule(transformer: str):
-    return {
-        "vanilla": TransformerBlock,
-        "rezero": ReZeroBlock,
-        "linformer": LinformerBlock,
-        "xl": TransformerXLBlock,
-        "gtrxl": GTrXLBlock,
-        "mha": MHA,
-        "lmha": LMHA,
-        "rmha": RMHA,
-        "gmha": GMHA,
-    }.get(transformer, TransformerBlock)
+class UniversalTransformerBlock(nn.Module):
+    def __init__(self, d_model: int, num_heads: int, dim_mlp: int, dropout: int):
+        super(UniversalTransformerBlock, self).__init__()
+        self.attention = nn.MultiheadAttention(d_model, num_heads, dropout)
+        self.layer_norm_1 = nn.LayerNorm(d_model)
+        self.layer_norm_2 = nn.LayerNorm(d_model)
+        self.dropout = nn.Dropout(dropout)
+        self.pos_wise_mlp = PositionWiseMLP(d_model, dim_mlp, dropout)
+
+    def forward(self, inputs: Tensor):
+        # Attention
+        x = inputs
+        y, attn_output_weights = self.attention(inputs, inputs, inputs, attn_mask=None)
+        y = self.layer_norm_1(x + y)
+
+        # Position-wise MLP
+        x = y
+        y = self.pos_wise_mlp(y)
+        output = self.layer_norm_2(x + y)
+        return output, attn_output_weights

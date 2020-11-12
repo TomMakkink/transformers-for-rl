@@ -2,44 +2,41 @@ import math
 import torch
 import torch.nn as nn
 from torch.nn.init import xavier_uniform_
-from transformers import PositionalEncoding, TransformerBlockBase
-
-from configs.transformer_config import transformer_config
+from transformers import PositionalEncoding
 
 Tensor = torch.Tensor
 
 
 class TransformerModel(nn.Module):
     """
-    Transformer baseclass. 
+    Transformer baseclass.
     """
 
-    def __init__(self, d_model: int, output_dim: int, submodule):
+    def __init__(
+        self,
+        d_model: int,
+        output_dim: int,
+        max_sequence_length: int,
+        submodule,
+        num_layers: int,
+        dropout: float,
+    ) -> None:
         """
-        Args: 
-            d_model: number of expected features in the input. 
-            output_dim: output dimension of the model. 
-            dropout: dropout. Default: 0.0. 
+        Args:
+            d_model: number of expected features in the input.
+            output_dim: output dimension of the model.
+            dropout: dropout. Default: 0.0.
         """
         super(TransformerModel, self).__init__()
-        assert issubclass(
-            submodule, TransformerBlockBase
-        ), "Invalid Transformer submodule. "
-        dropout = transformer_config["dropout"]
-        self.pos_encoder = PositionalEncoding(encoding_type="absolute", d_model=d_model)
+        assert isinstance(submodule, nn.Module), "Invalid Transformer submodule. "
+        self.dropout = dropout
+        self.pos_encoder = PositionalEncoding(
+            encoding_type="absolute", d_model=d_model, max_len=max_sequence_length
+        )
         self.dropout = nn.Dropout(dropout)
         self.d_model = d_model
 
-        self.sudmodules = nn.ModuleList(
-            [
-                submodule(
-                    d_model=d_model,
-                    dim_mlp=transformer_config["dim_mlp"],
-                    dropout=dropout,
-                )
-                for k in range(transformer_config["num_layers"])
-            ]
-        )
+        self.submodules = nn.ModuleList([submodule for k in range(num_layers)])
 
         self.out_layer = nn.Linear(d_model, output_dim)
         self._init_network()
@@ -60,7 +57,7 @@ class TransformerModel(nn.Module):
         """
         x = self.pos_encoder(x * math.sqrt(self.d_model))
         attn_output_weights = []
-        for layer in self.sudmodules:
+        for layer in self.submodules:
             x, attn_output_weight = layer(x)
             attn_output_weights.append(attn_output_weight)
         attn_output_weights = torch.stack(attn_output_weights)
@@ -69,38 +66,39 @@ class TransformerModel(nn.Module):
 
 class MemoryTransformerModel(nn.Module):
     """
-    Transformer base model that uses memory. 
+    Transformer base model that uses memory.
     """
 
-    def __init__(self, d_model: int, output_dim: int, submodule):
+    def __init__(
+        self,
+        d_model: int,
+        output_dim: int,
+        submodule,
+        num_layers: int,
+        num_heads: int,
+        mem_len: int,
+        dropout: float,
+    ):
         """
-        Args: 
-            d_model: number of expected features in the input.  
-            output_dim = output dimension of the model.  
+        Args:
+            d_model: number of expected features in the input.
+            output_dim = output dimension of the model.
         """
         super(MemoryTransformerModel, self).__init__()
-        num_heads = transformer_config["num_heads"]
+        assert isinstance(submodule, nn.Module), "Invalid Transformer submodule. "
+        num_heads = num_heads
         dim_head = d_model // num_heads
-        dropout = transformer_config["dropout"]
+        dropout = dropout
         self.drop = nn.Dropout(dropout)
-        self.mem_len = transformer_config["mem_len"]
-        self.num_layers = transformer_config["num_layers"]
+        self.mem_len = mem_len
+        self.num_layers = num_layers
         self.positional_encoding_layer = PositionalEncoding(
             encoding_type="relative", d_model=d_model
         )
         self.u = nn.Parameter(torch.zeros(num_heads, dim_head))
         self.v = nn.Parameter(torch.zeros(num_heads, dim_head))
 
-        self.submodules = nn.ModuleList(
-            [
-                submodule(
-                    d_model=d_model,
-                    dim_mlp=transformer_config["dim_mlp"],
-                    dropout=dropout,
-                )
-                for k in range(self.num_layers)
-            ]
-        )
+        self.submodules = nn.ModuleList([submodule for k in range(self.num_layers)])
 
         self.output_layer = nn.Linear(d_model, output_dim, bias=False)
 
@@ -131,11 +129,11 @@ class MemoryTransformerModel(nn.Module):
 
     def forward(self, inputs: Tensor, mem: Tensor = None):
         """
-        Args: 
-            inputs: input tensor, of shape: [source_seq_len, batch_size, features] 
-            mem: memory from previous sequence. 
+        Args:
+            inputs: input tensor, of shape: [source_seq_len, batch_size, features]
+            mem: memory from previous sequence.
 
-        Returns: 
+        Returns:
             Transformer output, of shape: [target_seq_len, batch_size, output_dim]
         """
         if not mem:
@@ -161,7 +159,12 @@ class MemoryTransformerModel(nn.Module):
         for i, layer in enumerate(self.submodules):
             mem_i = None if mem is None else mem[i]
             core_out, attn_output_weight = layer(
-                core_out, pos_emb, self.u, self.v, attn_mask=None, mem=mem_i,
+                core_out,
+                pos_emb,
+                self.u,
+                self.v,
+                attn_mask=None,
+                mem=mem_i,
             )
             hids.append(core_out)
             attn_output_weights.append(attn_output_weight)

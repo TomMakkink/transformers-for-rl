@@ -1,20 +1,19 @@
 from agents.agent import Agent
 from models.actor_critic_mlp import ActorCriticMLP
-from configs.a2c_config import a2c_config
-from configs.experiment_config import experiment_config
 import numpy as np
 import torch
 import torch.optim as optim
 
 
 class A2C(Agent):
-    def __init__(self, state_size, action_size, hidden_size=[64, 64], memory=None):
+    def __init__(self, state_size, action_size, hidden_size, memory, lr, gamma, device, **kwargs):
         super(A2C, self).__init__(state_size, action_size, hidden_size, memory)
-        self.device = experiment_config["device"]
+        self.device = device
         self.net = ActorCriticMLP(state_size, action_size, hidden_size, memory).to(
             self.device
         )
-        self.optimiser = optim.Adam(self.net.parameters(), lr=a2c_config["lr"])
+        self.optimiser = optim.Adam(self.net.parameters(), lr=lr)
+        self.gamma = gamma
         self.log_probs = []
         self.values = []
         self.rewards = []
@@ -23,7 +22,7 @@ class A2C(Agent):
         R = 0
         returns = []
         for step in reversed(range(len(self.rewards))):
-            R = self.rewards[step] + a2c_config["gamma"] * R
+            R = self.rewards[step] + self.gamma * R
             returns.insert(0, R)
         returns = np.array(returns)
         returns -= returns.mean()
@@ -67,6 +66,3 @@ class A2C(Agent):
 
     def collect_experience(self, state, action, reward, next_state, done):
         self.rewards.append(reward)
-
-    def get_parameters(self):
-        return a2c_config

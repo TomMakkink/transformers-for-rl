@@ -1,100 +1,112 @@
-from utils.logging import set_up_comet_ml, log_to_screen
+from utils.logging import set_up_comet_ml
 from utils.utils import (
-    update_configs,
-    get_agent,
     set_random_seed,
-    set_device,
     create_environment,
     get_sweep_from_bsuite_id,
     get_save_path,
 )
 from utils.visualisation import viz_forget_activation, viz_attention, plot_lstm_gates
+from omegaconf import DictConfig, OmegaConf
+import hydra
 
 import argparse
-from experiments.agent_trainer import train_agent
 import torch
 
+# @hydra.main(config_path='configs/', config_name='experiment')
+# def run(cfg: DictConfig) -> None:
+#     set_random_seed(cfg.seed)
+#
+#     env_id_list = get_sweep_from_bsuite_id(cfg.env)
+#     for env_id in env_id_list:
+#         if cfg.comet:
+#             tags = [
+#                 cfg.agent.name,
+#                 cfg.memory.name,
+#                 f"seed={cfg.seed}",
+#                 env_id,
+#                 f"window={cfg.window}",
+#             ]
+#             logger = set_up_comet_ml(cfg.project_name, cfg.experiment_name, tags=[*tags])
+#         else:
+#             logger = None
+#
+#         env = create_environment(
+#             agent=cfg.agent.name,
+#             seed=cfg.seed,
+#             memory=cfg.memory.name,
+#             env=cfg.env,
+#             window_size=cfg.window,
+#             device=cfg.device,
+#         )
+#
+#         if cfg.memory._target_ is not None:
+#             memory = hydra.utils.instantiate(cfg.memory, input_dim=cfg.agent.hidden_size[-1], output_dim=cfg.agent.hidden_size[-1])
+#         else:
+#             memory = None
+#
+#         action_size = env.action_space.n
+#         state_size = env.observation_space.shape[1]
+#         agent = hydra.utils.instantiate(cfg.agent, state_size=state_size, action_size=action_size, memory=memory, device=cfg.device)
+#         total_episodes = (
+#             env.bsuite_num_episodes if cfg.num_eps is None else cfg.num_eps
+#         )
+#
+#         train_agent(agent, env, total_episodes, cfg.max_steps_per_episode, logger=None)
 
-def run(args):
-    rl_agent = get_agent(args.agent)
-    set_device()
-    set_random_seed(args.seed)
-
-    env_id_list = get_sweep_from_bsuite_id(args.env)
-    for env_id in env_id_list:
-        if args.comet:
-            tags = [
-                args.agent,
-                args.memory,
-                f"seed={args.seed}",
-                env_id,
-                f"window={args.window}",
-            ]
-            logger = set_up_comet_ml(tags=[*tags])
-        else:
-            logger = None
-        env = create_environment(
-            agent=args.agent,
-            seed=args.seed,
-            memory=args.memory,
-            env=env_id,
-            window_size=args.window,
-        )
-        action_size = env.action_space.n
-        state_size = env.observation_space.shape[1]
-        agent = rl_agent(state_size, action_size, memory=args.memory)
-        total_episodes = (
-            env.bsuite_num_episodes if args.num_eps is None else args.num_eps
-        )
-        train_agent(agent, env, total_episodes, logger)
-        save_path = get_save_path(args.window, args.agent, args.memory)
-        file_name = env_id.replace("/", "_") + "_saved_model.pt"
-        torch.save(agent, save_path + file_name)
-
-
-def plot_viz(args):
-    save_path = get_save_path(args.window, args.agent, args.memory)
-
-    env_ids = get_sweep_from_bsuite_id(args.env)
-
-    for id in env_ids:
-        env_id = id.replace("/", "_")
-
-        file_name = env_id + "_saved_model.pt"
-
-        agent = torch.load(save_path + file_name)
-
-        viz_data = agent.net.memory_network.visualisation_data[:-1]
-
-        if args.memory is not None:
-            if args.memory == 'lstm':
-                # viz_forget_activation(viz_data, env_id, args.agent, args.window)
-                plot_lstm_gates(viz_data, env_id, args.agent, args.window)
-            else:
-                viz_attention(viz_data, env_id, args.agent, args.window, args.memory)
+#     save_path = get_save_path(args.window, args.agent, args.memory)
+#     file_name = env_id.replace("/", "_") + "_saved_model.pt"
+#     torch.save(agent, save_path + file_name)
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--project", type=str, default="transformers-for-rl")
-    parser.add_argument("--name", type=str, default="Test")
-    parser.add_argument("--agent", type=str)
-    parser.add_argument("--memory", type=str, default=None)
-    parser.add_argument("--num_eps", type=int, default=None)
-    parser.add_argument("--seed", type=int, default=1)
-    parser.add_argument("--env", type=str)
-    parser.add_argument("--window", type=int, default=1)
-    parser.add_argument("--comet", action="store_true")
-    parser.add_argument("--viz", action="store_true")
-    parser.add_argument("--tags", nargs="*", help="Additional comet experiment tags.")
-    args = parser.parse_args()
+#
+#
+# def plot_viz(args):
+#     save_path = get_save_path(args.window, args.agent, args.memory)
+#
+#     env_ids = get_sweep_from_bsuite_id(args.env)
+#
+#     for id in env_ids:
+#         env_id = id.replace("/", "_")
+#
+#         file_name = env_id + "_saved_model.pt"
+#
+#         agent = torch.load(save_path + file_name)
+#
+#         viz_data = agent.net.memory_network.visualisation_data[:-1]
+#
+#         if args.memory is not None:
+#             if args.memory == 'lstm':
+#                 # viz_forget_activation(viz_data, env_id, args.agent, args.window)
+#                 plot_lstm_gates(viz_data, env_id, args.agent, args.window)
+#             else:
+#                 viz_attention(viz_data, env_id, args.agent, args.window, args.memory)
 
-    update_configs(args)
-    run(args)
 
-    if args.viz:
-        print("Plotting viz")
-        plot_viz(args)
+from trainers.agent_trainer import run
+
+
+@hydra.main(config_path="configs/", config_name="experiment")
+def main(cfg: DictConfig) -> None:
+    run(cfg.experiment_info, cfg.env, cfg.agent, cfg.memory)
+
+    # set_up_experiment(cfg.experiment_info)
+    # env_id_list = get_sweep_from_bsuite_id(cfg.env.name)
+    #
+    # env = build_env(env_cfg=cfg.env)
+    #
+    # agent = build_agent(
+    #     state_size=env.observation_space.shape[1],
+    #     action_size=env.action_space.n,
+    #     agent_cfg=cfg.agent,
+    #     memory_cfg=cfg.memory,
+    # )
+    # # agent.train()
+
+    # run()
+
+    # if args.viz:
+    #     print("Plotting viz")
+    #     plot_viz(args)
 
 
 if __name__ == "__main__":

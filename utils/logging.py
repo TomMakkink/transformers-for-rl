@@ -1,16 +1,15 @@
 import comet_ml
-from configs.experiment_config import experiment_config
 
 
-def set_up_comet_ml(tags: list):
+def set_up_comet_ml(project_name, experiment_name, tags: list):
     logger = comet_ml.Experiment(
-        project_name=experiment_config["project_name"],
+        project_name=project_name,
         log_code=False,
         log_git_metadata=False,
         log_git_patch=False,
         log_env_host=False,
     )
-    logger.set_name(experiment_config["experiment_name"])
+    logger.set_name(experiment_name)
     for tag in tags:
         logger.add_tag(tag)
 

@@ -1,0 +1,21 @@
+# @package _global_
+experiment_info:
+  project_name: "transformers-for-rl"
+  experiment_name: ${memory.name}_${env.name}
+  device: "cpu"
+  seed: 10
+  total_episodes: 1000
+  use_comet: False
+  log_interval: 100
+
+# Environment Info
+env:
+  name: "memory_len/0"
+  max_steps_per_episode: 1000
+  window: 4
+  save_path: results/${env.window}/${agent.name}/${memory.name}/
+  device: ${experiment_info.device}
+
+defaults:
+  - agent: a2c
+  - memory: canonical
