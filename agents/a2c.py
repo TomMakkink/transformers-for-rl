@@ -6,7 +6,9 @@ import torch.optim as optim
 
 
 class A2C(Agent):
-    def __init__(self, state_size, action_size, hidden_size, memory, lr, gamma, device, **kwargs):
+    def __init__(
+        self, state_size, action_size, hidden_size, memory, lr, gamma, device, **kwargs
+    ):
         super(A2C, self).__init__(state_size, action_size, hidden_size, memory)
         self.device = device
         self.net = ActorCriticMLP(state_size, action_size, hidden_size, memory).to(
@@ -25,9 +27,10 @@ class A2C(Agent):
             R = self.rewards[step] + self.gamma * R
             returns.insert(0, R)
         returns = np.array(returns)
-        returns -= returns.mean()
-        if returns.std() > 0.0:
-            returns /= returns.std()
+        if a2c_config["use_norm"]:
+            returns -= returns.mean()
+            if returns.std() > 0.0:
+                returns /= returns.std()
         return returns
 
     def optimize_network(self):

@@ -76,13 +76,25 @@ def get_sweep_from_bsuite_id(bsuite_id: str):
     }.get(bsuite_id, [bsuite_id])
 
 
-def get_save_path(window_size, agent, memory):
-    return "results/" + f"{window_size}/{agent}/{memory}/"
+def get_save_path(window_size, agent, memory, eval_run=False):
+    mem_str = memory
+    if memory not in ["lstm", None]:
+        if (transformer_config["num_heads"] > 1) or (
+            transformer_config["num_layers"] > 1
+        ):
+            mem_str = f"{mem_str}_h{transformer_config['num_heads']}_l{transformer_config['num_layers']}"
+        if transformer_config["dim_mlp"] != 32:
+            mem_str = f"{mem_str}_d{transformer_config['dim_mlp']}"
+
+    folder_path = f"{window_size}/{agent}/{mem_str}/"
+    if eval_run:
+        return "results/eval/" + folder_path
+    return "results/" + folder_path
 
 
 def create_environment(agent, memory, env, window_size, device):
     # build folder path to save data
-    save_path = get_save_path(window_size, agent, memory)
+    save_path = get_save_path(window_size, agent, memory, eval_run)
 
     if env.startswith("memory_custom"):
         print(f"Running environment {env}")
