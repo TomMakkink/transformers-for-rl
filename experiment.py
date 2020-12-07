@@ -1,16 +1,6 @@
-from utils.logging import set_up_comet_ml
-from utils.utils import (
-    set_random_seed,
-    create_environment,
-    get_sweep_from_bsuite_id,
-    get_save_path,
-)
-from utils.visualisation import viz_forget_activation, viz_attention, plot_lstm_gates
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig
 import hydra
-
-import argparse
-import torch
+from trainers.agent_trainer import run
 
 # @hydra.main(config_path='configs/', config_name='experiment')
 # def run(cfg: DictConfig) -> None:
@@ -82,31 +72,9 @@ import torch
 #                 viz_attention(viz_data, env_id, args.agent, args.window, args.memory)
 
 
-from trainers.agent_trainer import run
-
-
 @hydra.main(config_path="configs/", config_name="experiment")
 def main(cfg: DictConfig) -> None:
     run(cfg.experiment_info, cfg.env, cfg.agent, cfg.memory)
-
-    # set_up_experiment(cfg.experiment_info)
-    # env_id_list = get_sweep_from_bsuite_id(cfg.env.name)
-    #
-    # env = build_env(env_cfg=cfg.env)
-    #
-    # agent = build_agent(
-    #     state_size=env.observation_space.shape[1],
-    #     action_size=env.action_space.n,
-    #     agent_cfg=cfg.agent,
-    #     memory_cfg=cfg.memory,
-    # )
-    # # agent.train()
-
-    # run()
-
-    # if args.viz:
-    #     print("Plotting viz")
-    #     plot_viz(args)
 
 
 if __name__ == "__main__":

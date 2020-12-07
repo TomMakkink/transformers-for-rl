@@ -10,7 +10,7 @@ experiment_info:
 
 # Environment Info
 env:
-  name: "memory_len/0"
+  name: "memory_len/2"
   max_steps_per_episode: 1000
   window: 4
   save_path: results/${env.window}/${agent.name}/${memory.name}/

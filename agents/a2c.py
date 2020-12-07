@@ -7,7 +7,16 @@ import torch.optim as optim
 
 class A2C(Agent):
     def __init__(
-        self, state_size, action_size, hidden_size, memory, lr, gamma, device, **kwargs
+        self,
+        state_size,
+        action_size,
+        hidden_size,
+        memory,
+        lr,
+        gamma,
+        device,
+        use_norm,
+        **kwargs
     ):
         super(A2C, self).__init__(state_size, action_size, hidden_size, memory)
         self.device = device
@@ -19,6 +28,7 @@ class A2C(Agent):
         self.log_probs = []
         self.values = []
         self.rewards = []
+        self.use_norm = use_norm
 
     def _compute_returns(self):
         R = 0
@@ -27,7 +37,7 @@ class A2C(Agent):
             R = self.rewards[step] + self.gamma * R
             returns.insert(0, R)
         returns = np.array(returns)
-        if a2c_config["use_norm"]:
+        if self.use_norm:
             returns -= returns.mean()
             if returns.std() > 0.0:
                 returns /= returns.std()

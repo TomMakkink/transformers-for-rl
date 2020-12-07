@@ -179,3 +179,117 @@ class MemoryTransformerModel(nn.Module):
         self.init_mem()
         for layer in self.submodules:
             layer.reset()
+
+
+class AdaptiveComputationalTime(nn.Module):
+    """
+    Adaptive Computational Time: https://arxiv.org/abs/1603.08983.
+    """
+
+    def __init__(
+        self,
+        d_model: int,
+        output_dim: int,
+        submodule,
+        num_layers: int,
+        num_heads: int,
+        hidden_size: int,
+        max_sequence_length: int,
+        max_act_timesteps: int,
+        halting_threshold: float,
+        dropout: float,
+    ):
+        """
+        Args:
+        """
+        super(AdaptiveComputationalTime, self).__init__()
+        assert isinstance(submodule, nn.Module), "Invalid Transformer submodule. "
+        self.pos_encoder = PositionalEncoding(
+            encoding_type="coordinate",
+            d_model=d_model,
+            max_len=max_sequence_length,
+            max_time=max_act_timesteps,
+        )
+        self.halting_threshold = halting_threshold
+        self.max_act_timesteps = max_act_timesteps
+        self.transition = nn.Linear(d_model, 1)
+        self.sigma = nn.Sigmoid()
+
+        self.submodule = submodule
+        self.out_layer = nn.Linear(d_model, output_dim)
+
+    def forward(self, inputs: Tensor):
+        """
+        Args:
+            inputs shape: (sequence_length, batch_size, feature_dim)
+        """
+        halting_probability = torch.zeros(
+            size=(inputs.shape[0], inputs.shape[1]), device=inputs.device
+        )
+        remainders = torch.zeros(
+            size=(inputs.shape[0], inputs.shape[1]), device=inputs.device
+        )
+        n_updates = torch.zeros(
+            size=(inputs.shape[0], inputs.shape[1]), device=inputs.device
+        )
+        previous_state = torch.zeros_like(inputs, device=inputs.device)
+        step = 0
+        state = inputs
+
+        while (
+            (
+                (halting_probability < self.halting_threshold)
+                & (n_updates < self.max_act_timesteps)
+            )
+            .byte()
+            .any()
+        ):
+            # Add coordinate embeddings to the state
+            state = self.pos_encoder(state)
+
+            # Calculate probabilites based on the state
+            p = self.sigma(self.transition(state)).squeeze(-1)
+
+            # Mask for inputs which have not halted yet
+            still_running = (halting_probability < 1.0).float()
+
+            # Mask of inputs which halted at this step
+            new_halted = (
+                halting_probability + p * still_running > self.halting_threshold
+            ).float() * still_running
+
+            # Mask of inputs which haven't halted, and didn't halt this step
+            still_running = (
+                halting_probability + p * still_running <= self.halting_threshold
+            ).float() * still_running
+
+            # Add the halting probability for this step to the halting
+            # probabilities for those input which haven't halted yet
+            halting_probability = halting_probability + p * still_running
+
+            # Compute remainders for the inputs which halted at this step
+            remainders = remainders + new_halted * (1 - halting_probability)
+
+            # Add the remainders to those inputs which halted at this step
+            halting_probability = halting_probability + new_halted * remainders
+
+            # Increment n_updates for all inputs which are still running
+            n_updates = n_updates + still_running + new_halted
+
+            # Compute the weight to be applied to the new state and output
+            # 0 when the input has already halted
+            # p when the input hasn't halted yet
+            # the remainders when it halted this step
+            update_weights = p * still_running + new_halted * remainders
+
+            state, attn_output_weights = self.submodule(state)
+
+            # update running part in the weighted state and keep the rest
+            previous_state = (state * update_weights.unsqueeze(-1)) + (
+                previous_state * (1 - update_weights.unsqueeze(-1))
+            )
+
+            step += 1
+
+        meta_info = {"remainders": remainders, "n_updates": n_updates, "step": step}
+        return previous_state, attn_output_weights, meta_info

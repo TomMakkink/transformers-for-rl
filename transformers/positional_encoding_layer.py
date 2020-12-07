@@ -16,7 +16,8 @@ class PositionalEncoding(nn.Module):
         self,
         encoding_type: str,
         d_model: int,
-        max_len: int = 5000,
+        max_len: int,
+        max_time: int = None,
     ):
         """
         Args:
@@ -29,6 +30,8 @@ class PositionalEncoding(nn.Module):
             self.encoder = AbsolutePositionalEncoding(d_model, max_len)
         elif encoding_type.lower() == "relative":
             self.encoder = RelativePositionalEncoding(d_model)
+        elif encoding_type.lower() == "coordinate":
+            self.encoder = CoordinateEncoding(d_model, max_len, max_time)
         else:
             raise ValueError("Possible encodings are: 'relative' and 'absolute'")
 
@@ -42,7 +45,7 @@ class AbsolutePositionalEncoding(nn.Module):
     paper: https://arxiv.org/abs/1706.03762.
     """
 
-    def __init__(self, d_model: int, max_len: int = 5000):
+    def __init__(self, d_model: int, max_len: int):
         super(AbsolutePositionalEncoding, self).__init__()
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
@@ -74,3 +77,28 @@ class RelativePositionalEncoding(nn.Module):
             return pos_emb[:, None, :].expand(-1, bsz, -1)
         else:
             return pos_emb[:, None, :]
+
+
+class CoordinateEncoding(nn.Module):
+    """
+    Adapted from: https://github.com/tensorflow/tensor2tensor/blob/21dba2c1bdcc7ab582a2bfd8c0885c217963bb4f/tensor2tensor/layers/common_attention.py#L460
+    """
+
+    def __init__(self, d_model: int, max_len: int, max_time: int):
+        super(CoordinateEncoding, self).__init__()
+        ce = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        time_steps = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+
+        div_term = torch.exp(
+            torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model)
+        )
+
+        ce[:, 0::2] = torch.sin(position * div_term) + torch.sin(time_steps * div_term)
+        ce[:, 1::2] = torch.cos(position * div_term) + torch.cos(time_steps * div_term)
+        ce = ce.unsqueeze(0)
+        self.register_buffer("ce", ce)
+
+    def forward(self, x: Tensor):
+        x = x + self.ce[:, : x.size(1)]
+        return x
