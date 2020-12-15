@@ -93,7 +93,9 @@ class MemoryTransformerModel(nn.Module):
         self.mem_len = mem_len
         self.num_layers = num_layers
         self.positional_encoding_layer = PositionalEncoding(
-            encoding_type="relative", d_model=d_model
+            encoding_type="relative",
+            d_model=d_model,
+            max_len=None,
         )
         self.u = nn.Parameter(torch.zeros(num_heads, dim_head))
         self.v = nn.Parameter(torch.zeros(num_heads, dim_head))
@@ -235,6 +237,7 @@ class AdaptiveComputationalTime(nn.Module):
         previous_state = torch.zeros_like(inputs, device=inputs.device)
         step = 0
         state = inputs
+        attn_output_weights = []
 
         while (
             (
@@ -282,7 +285,8 @@ class AdaptiveComputationalTime(nn.Module):
             # the remainders when it halted this step
             update_weights = p * still_running + new_halted * remainders
 
-            state, attn_output_weights = self.submodule(state)
+            state, attn_output_weight = self.submodule(state)
+            attn_output_weights.append(attn_output_weight)
 
             # update running part in the weighted state and keep the rest
             previous_state = (state * update_weights.unsqueeze(-1)) + (
@@ -291,5 +295,6 @@ class AdaptiveComputationalTime(nn.Module):
 
             step += 1
 
+        attn_output_weights = torch.stack(attn_output_weights)
         meta_info = {"remainders": remainders, "n_updates": n_updates, "step": step}
         return previous_state, attn_output_weights, meta_info

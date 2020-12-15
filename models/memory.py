@@ -61,7 +61,8 @@ class Canonical(nn.Module):
             num_layers=num_layers,
             dropout=dropout,
         )
-        self.attn_output_weights = []
+        self.viz_data = []
+        self.attn_output_weight = None
 
     def forward(self, x):
         """
@@ -69,13 +70,12 @@ class Canonical(nn.Module):
         """
         # Transformers expect input of shape: [seq_len, batch_size, feature_dim]
         x = x.transpose(0, 1)
-        x, attn_output_weight = self.memory(x)
+        x, self.attn_output_weight = self.memory(x)
         x = x.transpose(0, 1)
-        self.attn_output_weights.append(attn_output_weight)
         return x
 
     def reset(self):
-        pass
+        self.viz_data.append(self.attn_output_weight)
 
     def get_name(self):
         return self.name
@@ -110,6 +110,8 @@ class ReZero(nn.Module):
             num_layers=num_layers,
             dropout=dropout,
         )
+        self.viz_data = []
+        self.attn_output_weight = None
 
     def forward(self, x):
         """
@@ -117,12 +119,12 @@ class ReZero(nn.Module):
         """
         # Transformers expect input of shape: [seq_len, batch_size, feature_dim]
         x = x.transpose(0, 1)
-        x, viz_data = self.memory(x)
+        x, self.attn_output_weight = self.memory(x)
         x = x.transpose(0, 1)
         return x
 
     def reset(self):
-        pass
+        self.viz_data.append(self.attn_output_weight)
 
     def get_name(self):
         return self.name
@@ -164,6 +166,8 @@ class Linformer(nn.Module):
             num_layers=num_layers,
             dropout=dropout,
         )
+        self.viz_data = []
+        self.attn_output_weight = None
 
     def forward(self, x):
         """
@@ -171,12 +175,12 @@ class Linformer(nn.Module):
         """
         # Transformers expect input of shape: [seq_len, batch_size, feature_dim]
         x = x.transpose(0, 1)
-        x, viz_data = self.memory(x)
+        x, self.attn_output_weight = self.memory(x)
         x = x.transpose(0, 1)
         return x
 
     def reset(self):
-        pass
+        self.viz_data.append(self.attn_output_weight)
 
     def get_name(self):
         return self.name
@@ -218,6 +222,8 @@ class TransformerXL(nn.Module):
             mem_len=mem_len,
             dropout=dropout,
         )
+        self.viz_data = []
+        self.attn_output_weight = None
 
     def forward(self, x):
         """
@@ -225,11 +231,12 @@ class TransformerXL(nn.Module):
         """
         # Transformers expect input of shape: [seq_len, batch_size, feature_dim]
         x = x.transpose(0, 1)
-        x, viz_data, self.mem = self.memory(x, self.mem)
+        x, self.attn_output_weight, self.mem = self.memory(x, self.mem)
         x = x.transpose(0, 1)
         return x
 
     def reset(self):
+        self.viz_data.append(self.attn_output_weight)
         self.mem = None
         self.memory.reset()
 
@@ -274,6 +281,8 @@ class GTrXL(nn.Module):
             mem_len=mem_len,
             dropout=dropout,
         )
+        self.viz_data = []
+        self.attn_output_weight = None
 
     def forward(self, x):
         """
@@ -281,11 +290,12 @@ class GTrXL(nn.Module):
         """
         # Transformers expect input of shape: [seq_len, batch_size, feature_dim]
         x = x.transpose(0, 1)
-        x, viz_data, self.mem = self.memory(x, self.mem)
+        x, self.attn_output_weight, self.mem = self.memory(x, self.mem)
         x = x.transpose(0, 1)
         return x
 
     def reset(self):
+        self.viz_data.append(self.attn_output_weight)
         self.mem = None
         self.memory.reset()
 
@@ -329,6 +339,8 @@ class UniversalTransformer(nn.Module):
             halting_threshold=halting_threshold,
             dropout=dropout,
         )
+        self.viz_data = []
+        self.attn_output_weight = None
 
     def forward(self, x):
         """
@@ -336,9 +348,9 @@ class UniversalTransformer(nn.Module):
         """
         # Transformers expect input of shape: [seq_len, batch_size, feature_dim]
         x = x.transpose(0, 1)
-        x, viz_data, meta_info = self.memory(x)
+        x, self.attn_output_weight, meta_info = self.memory(x)
         x = x.transpose(0, 1)
-        return x, viz_data
+        return x
 
     def reset(self):
-        pass
+        self.viz_data.append(self.attn_output_weight)

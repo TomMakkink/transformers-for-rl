@@ -34,14 +34,14 @@ def build_agent(
     return agent
 
 
-def build_env(env, window, device, save_path):
+def build_env(env, window, device, save_dir):
     if env.startswith("memory_custom"):
         print(f"Running environment {env}")
         raw_env = load_custom_memory_env(env)
-        logger = Logger(env, save_path, overwrite=True)
+        logger = Logger(env, save_dir, overwrite=True)
         raw_env = wrappers.Logging(raw_env, logger)
     else:
-        raw_env = bsuite.load_and_record(env, save_path, overwrite=True)
+        raw_env = bsuite.load_and_record(env, save_dir, overwrite=True)
 
     env = gym_wrapper.GymFromDMEnv(raw_env)
     env = SlidingWindowEnv(env, window_size=window, device=device)

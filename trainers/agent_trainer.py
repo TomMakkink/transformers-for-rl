@@ -1,10 +1,16 @@
-from utils.logging import log_to_screen, log_to_comet_ml, set_up_comet_ml
-from utils.utils import set_random_seed, get_sweep_from_bsuite_id
 from collections import deque
 import numpy as np
 from omegaconf import DictConfig
-
-from utils.build import build_agent, build_env
+from utils import (
+    log_to_screen,
+    log_to_comet_ml,
+    set_up_comet_ml,
+    set_random_seed,
+    get_sweep_from_bsuite_id,
+    build_agent,
+    build_env,
+    plot_viz,
+)
 
 
 def run(
@@ -40,7 +46,7 @@ def run(
             env=env_id,
             window=env_cfg.window,
             device=experiment_info.device,
-            save_path=env_cfg.save_path,
+            save_dir="data/",
         )
 
         agent = build_agent(
@@ -60,6 +66,15 @@ def run(
             logger=logger,
             log_interval=experiment_info.log_interval,
         )
+
+        if experiment_info.plot_viz:
+            plot_viz(
+                save_dir="plots/",
+                memory_name=memory_cfg.name,
+                env=env_id,
+                agent=agent,
+                plot_frequency=experiment_info.plot_frequency,
+            )
 
 
 def train_agent(
@@ -82,13 +97,7 @@ def train_agent(
             action = agent.act(state.unsqueeze(0))
             next_state, reward, done, _ = env.step(action)
             rewards.append(reward)
-            #
-            # print(
-            #     f"Timestep = {t} \n\tState: {state} \n\tReward: {reward} \n\tAction: {action}"
-            # )
-
             agent.collect_experience(state, action, reward, next_state, done)
-
             state = next_state
 
             if done:
@@ -97,7 +106,6 @@ def train_agent(
         loss = agent.optimize_network()
         agent.reset()
 
-        episode_length = len(rewards)
         scores.append(sum(rewards))
         scores_deque.append(sum(rewards))
         loss_deque.append(loss)

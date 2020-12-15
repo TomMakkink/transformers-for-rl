@@ -4,18 +4,25 @@ experiment_info:
   experiment_name: ${memory.name}_${env.name}
   device: "cpu"
   seed: 10
-  total_episodes: 1000
+  total_episodes: 500
   use_comet: False
   log_interval: 100
+  plot_viz: True
+  plot_frequency: 100
 
 # Environment Info
 env:
-  name: "memory_len/2"
+  name: "memory_len/3"
   max_steps_per_episode: 1000
   window: 4
-  save_path: results/${env.window}/${agent.name}/${memory.name}/
   device: ${experiment_info.device}
+
+# Save directory for logs, data, and graphs
+hydra:
+  run:
+    dir: results/${env.window}/${memory.name}/
+
 
 defaults:
   - agent: a2c
-  - memory: canonical
+  - memory: universal

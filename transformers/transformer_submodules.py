@@ -34,31 +34,25 @@ class TransformerBlock(nn.Module):
 class ReZeroBlock(nn.Module):
     def __init__(self, d_model: int, num_heads: int, dim_mlp: int, dropout: int):
         super(ReZeroBlock, self).__init__()
-        self.self_attn = nn.MultiheadAttention(d_model, num_heads, dropout=dropout)
-        self.linear1 = nn.Linear(d_model, dim_mlp)
-        self.dropout = nn.Dropout(dropout)
-        self.linear2 = nn.Linear(dim_mlp, d_model)
+        self.attention = nn.MultiheadAttention(d_model, num_heads, dropout=dropout)
+        self.pos_wise_mlp = PositionWiseMLP(d_model, dim_mlp, dropout)
         self.dropout1 = nn.Dropout(dropout)
         self.dropout2 = nn.Dropout(dropout)
         self.resweight = nn.Parameter(torch.Tensor([0]))
-        self.activation = F.relu
 
-    def forward(self, src, src_mask=None, src_key_padding_mask=None):
+    def forward(self, inputs):
         # Self attention layer
-        src2 = src
-        src2, attn_output_weights = self.self_attn(
-            src2, src2, src2, attn_mask=src_mask, key_padding_mask=src_key_padding_mask
-        )
-        src2 = src2
-        src2 = src2 * self.resweight
-        src = src + self.dropout1(src2)
+        x = inputs
+        y, attn_output_weights = self.attention(inputs, inputs, inputs, attn_mask=None)
+        y = y * self.resweight
+        y = x + self.dropout1(y)
 
         # Pointiwse FF Layer
-        src2 = src
-        src2 = self.linear2(self.dropout(self.activation(self.linear1(src2))))
-        src2 = src2 * self.resweight
-        src = src + self.dropout2(src2)
-        return src, attn_output_weights
+        x = y
+        y = self.pos_wise_mlp(y)
+        y = y * self.resweight
+        y = x + self.dropout2(y)
+        return y, attn_output_weights
 
 
 class LinformerBlock(nn.Module):
