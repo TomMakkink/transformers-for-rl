@@ -1,0 +1,13 @@
+# @package _global_
+memory_models: ["TransformerXL"]
+envs: ["memory_len"]
+window: 1
+plot_bsuite: True
+plot_training: True
+plot_evaluation: False
+dir: "training"
+
+# Default directory
+hydra:
+  run:
+    dir: results/

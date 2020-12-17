@@ -4,17 +4,22 @@ experiment_info:
   experiment_name: ${memory.name}_${env.name}
   device: "cpu"
   seed: 10
-  total_episodes: 500
+  total_episodes: 100
+  eval_agent: True
+  eval_episodes: 100
+
+# Logging and Graphing
+logging:
   use_comet: False
   log_interval: 100
-  plot_viz: True
+  plot_viz: False
   plot_frequency: 100
 
 # Environment Info
 env:
-  name: "memory_len/3"
+  name: "memory_custom"
   max_steps_per_episode: 1000
-  window: 4
+  window: 1
   device: ${experiment_info.device}
 
 # Save directory for logs, data, and graphs
@@ -22,7 +27,6 @@ hydra:
   run:
     dir: results/${env.window}/${memory.name}/
 
-
 defaults:
   - agent: a2c
-  - memory: universal
+  - memory: xl

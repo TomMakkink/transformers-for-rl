@@ -5,7 +5,7 @@ from trainers.agent_trainer import run
 
 @hydra.main(config_path="configs/", config_name="experiment")
 def main(cfg: DictConfig) -> None:
-    run(cfg.experiment_info, cfg.env, cfg.agent, cfg.memory)
+    run(cfg.experiment_info, cfg.env, cfg.agent, cfg.memory, cfg.logging)
 
 
 if __name__ == "__main__":

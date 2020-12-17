@@ -69,7 +69,7 @@ def get_sweep_from_bsuite_id(bsuite_id: str):
     return {
         "umbrella_length": sweep.UMBRELLA_LENGTH,
         "umbrella_distract": sweep.UMBRELLA_DISTRACT,
-        "memory_length": sweep.MEMORY_LEN,
+        "memory_len": sweep.MEMORY_LEN,
         "memory_size": sweep.MEMORY_SIZE,
         "cartpole": sweep.CARTPOLE,
         "memory_custom": custom_memory_sweep,
