@@ -12,6 +12,8 @@ from transformers.transformer_submodules import (
     TransformerXLBlock,
     GTrXLBlock,
     UniversalTransformerBlock,
+    ReZeroXLBlock,
+    ReZeroGTrXLBlock,
 )
 
 
@@ -312,10 +314,8 @@ class UniversalTransformer(nn.Module):
         self,
         input_dim,
         output_dim,
-        num_layers,
         num_heads,
         dim_mlp,
-        hidden_size,
         max_sequence_length,
         max_act_timesteps,
         halting_threshold,
@@ -331,13 +331,9 @@ class UniversalTransformer(nn.Module):
             d_model=input_dim,
             output_dim=output_dim,
             submodule=ut_submodule,
-            num_layers=num_layers,
-            num_heads=num_heads,
-            hidden_size=hidden_size,
             max_sequence_length=max_sequence_length,
             max_act_timesteps=max_act_timesteps,
             halting_threshold=halting_threshold,
-            dropout=dropout,
         )
         self.viz_data = []
         self.attn_output_weight = None
@@ -354,3 +350,120 @@ class UniversalTransformer(nn.Module):
 
     def reset(self):
         self.viz_data.append(self.attn_output_weight)
+
+
+class ReZeroXL(nn.Module):
+    """
+    Transformer-XL model with residual weighting from the ReZero paper.
+    """
+
+    def __init__(
+        self,
+        input_dim,
+        output_dim,
+        num_layers,
+        num_heads,
+        dim_mlp,
+        mem_len,
+        dropout,
+        name,
+    ):
+        super(ReZeroXL, self).__init__()
+        self.name = name
+        rezero_xl_submodule = ReZeroXLBlock(
+            d_model=input_dim,
+            dim_mlp=dim_mlp,
+            num_heads=num_heads,
+            mem_len=mem_len,
+            dropout=dropout,
+        )
+        self.mem = None
+
+        self.memory = MemoryTransformerModel(
+            d_model=input_dim,
+            output_dim=output_dim,
+            submodule=rezero_xl_submodule,
+            num_layers=num_layers,
+            num_heads=num_heads,
+            mem_len=mem_len,
+            dropout=dropout,
+        )
+        self.viz_data = []
+        self.attn_output_weight = None
+
+    def forward(self, x):
+        """
+        x: shape [batch_size, seq_len, feature_dim]
+        """
+        # Transformers expect input of shape: [seq_len, batch_size, feature_dim]
+        x = x.transpose(0, 1)
+        x, self.attn_output_weight, self.mem = self.memory(x, self.mem)
+        x = x.transpose(0, 1)
+        return x
+
+    def reset(self):
+        self.viz_data.append(self.attn_output_weight)
+        self.mem = None
+        self.memory.reset()
+
+    def get_name(self):
+        return self.name
+
+
+class ReZeroGTrXL(nn.Module):
+    """
+    GTrXL model with rezero submodule.
+    """
+
+    def __init__(
+        self,
+        input_dim,
+        output_dim,
+        num_layers,
+        num_heads,
+        dim_mlp,
+        mem_len,
+        dropout,
+        device,
+        name,
+    ):
+        super(ReZeroGTrXL, self).__init__()
+        self.name = name
+        rezero_gtrxl_submodule = ReZeroGTrXLBlock(
+            d_model=input_dim,
+            dim_mlp=dim_mlp,
+            num_heads=num_heads,
+            mem_len=mem_len,
+            dropout=dropout,
+            device=device,
+        )
+        self.mem = None
+        self.memory = MemoryTransformerModel(
+            d_model=input_dim,
+            output_dim=output_dim,
+            submodule=rezero_gtrxl_submodule,
+            num_layers=num_layers,
+            num_heads=num_heads,
+            mem_len=mem_len,
+            dropout=dropout,
+        )
+        self.viz_data = []
+        self.attn_output_weight = None
+
+    def forward(self, x):
+        """
+        x: shape [batch_size, seq_len, feature_dim]
+        """
+        # Transformers expect input of shape: [seq_len, batch_size, feature_dim]
+        x = x.transpose(0, 1)
+        x, self.attn_output_weight, self.mem = self.memory(x, self.mem)
+        x = x.transpose(0, 1)
+        return x
+
+    def reset(self):
+        self.viz_data.append(self.attn_output_weight)
+        self.mem = None
+        self.memory.reset()
+
+    def get_name(self):
+        return self.name

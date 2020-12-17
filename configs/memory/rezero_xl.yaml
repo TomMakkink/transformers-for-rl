@@ -1,0 +1,8 @@
+# @package _group_
+_target_: models.memory.ReZeroXL
+name: ReZeroXL
+num_heads: 1
+num_layers: 1
+dim_mlp: 32
+dropout: 0.0
+mem_len: 100

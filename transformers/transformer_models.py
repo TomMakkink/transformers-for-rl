@@ -125,7 +125,6 @@ class MemoryTransformerModel(nn.Module):
             beg_idx = max(0, end_idx - self.mem_len)
             for i in range(len(hids)):
                 cat = torch.cat([mem[i], hids[i]], dim=0)
-                # cat = torch.cat([mem[i], hids[i][-1]], dim=0)
                 new_mem.append(cat[beg_idx:end_idx].detach())
         return new_mem
 
@@ -144,8 +143,6 @@ class MemoryTransformerModel(nn.Module):
 
         mlen = mem[0].size(0) if mem is not None else 0
         klen = mlen + qlen
-
-        attn_mask = None
 
         hids = []
         pos_seq = torch.arange(
@@ -193,13 +190,9 @@ class AdaptiveComputationalTime(nn.Module):
         d_model: int,
         output_dim: int,
         submodule,
-        num_layers: int,
-        num_heads: int,
-        hidden_size: int,
         max_sequence_length: int,
         max_act_timesteps: int,
         halting_threshold: float,
-        dropout: float,
     ):
         """
         Args:

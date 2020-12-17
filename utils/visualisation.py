@@ -154,9 +154,7 @@ def plot_rewards(env_id, save_dir, rolling_window=100):
 
 
 def plot_viz(save_dir, memory_name, env, agent, plot_frequency):
-    viz_data = agent.net.memory_network.viz_data[:-1]
-    # UT Shape: [1,4,4]
-    # Other: [1,1,4,4]
+
     if memory_name in [
         "Canonical",
         "ReZero",
@@ -165,6 +163,7 @@ def plot_viz(save_dir, memory_name, env, agent, plot_frequency):
         "UniversalTransformer",
         "Linformer",
     ]:
+        viz_data = agent.net.memory_network.viz_data[:-1]
         viz_attention(
             save_dir=save_dir,
             weights=viz_data,
