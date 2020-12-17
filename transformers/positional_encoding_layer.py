@@ -1,6 +1,7 @@
 import math
 import torch
 import torch.nn as nn
+import numpy as np
 
 Tensor = torch.Tensor
 
@@ -31,7 +32,7 @@ class PositionalEncoding(nn.Module):
         elif encoding_type.lower() == "relative":
             self.encoder = RelativePositionalEncoding(d_model)
         elif encoding_type.lower() == "coordinate":
-            self.encoder = CoordinateEncoding(d_model, max_len, max_time)
+            self.encoder = CoordinateEncoding(d_model, max_len)
         else:
             raise ValueError("Possible encodings are: 'relative' and 'absolute'")
 
@@ -84,21 +85,52 @@ class CoordinateEncoding(nn.Module):
     Adapted from: https://github.com/tensorflow/tensor2tensor/blob/21dba2c1bdcc7ab582a2bfd8c0885c217963bb4f/tensor2tensor/layers/common_attention.py#L460
     """
 
-    def __init__(self, d_model: int, max_len: int, max_time: int):
+    def __init__(self, d_model: int, max_len: int):
         super(CoordinateEncoding, self).__init__()
-        ce = torch.zeros(max_len, d_model)
-        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        time_steps = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-
-        div_term = torch.exp(
-            torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model)
-        )
-
-        ce[:, 0::2] = torch.sin(position * div_term) + torch.sin(time_steps * div_term)
-        ce[:, 1::2] = torch.cos(position * div_term) + torch.cos(time_steps * div_term)
-        ce = ce.unsqueeze(0)
-        self.register_buffer("ce", ce)
+        self.pos_encoder = AbsolutePositionalEncoding(d_model, max_len)
 
     def forward(self, x: Tensor):
-        x = x + self.ce[:, : x.size(1)]
+        x = self.pos_encoder(x)
+        x = add_timing_signal(x)
         return x
+
+
+def _gen_timing_signal(length, channels, min_timescale=1.0, max_timescale=1.0e4):
+    """
+    Generates a [1, length, channels] timing signal consisting of sinusoids
+    Adapted from:
+    https://github.com/tensorflow/tensor2tensor/blob/master/tensor2tensor/layers/common_attention.py
+    """
+    position = np.arange(length)
+    num_timescales = channels // 2
+    log_timescale_increment = math.log(float(max_timescale) / float(min_timescale)) / (
+        float(num_timescales) - 1
+    )
+    inv_timescales = min_timescale * np.exp(
+        np.arange(num_timescales).astype(np.float) * -log_timescale_increment
+    )
+    scaled_time = np.expand_dims(position, 1) * np.expand_dims(inv_timescales, 0)
+
+    signal = np.concatenate([np.sin(scaled_time), np.cos(scaled_time)], axis=1)
+    signal = np.pad(
+        signal, [[0, 0], [0, channels % 2]], "constant", constant_values=[0.0, 0.0]
+    )
+    signal = signal.reshape([1, length, channels])
+
+    return torch.from_numpy(signal).float()
+
+
+def add_timing_signal(x, min_timescale=1.0, max_timescale=1.0e4):
+    """
+    Add timing signals as outlined in
+    https://github.com/tensorflow/tensor2tensor/blob/master/tensor2tensor/layers/common_attention.py
+
+    Args:
+        x: a Tensor with shape [batch, length, channels]
+        min_timescale: a float
+        max_timescale: a float
+    """
+    length = x.shape[1]
+    channels = x.shape[2]
+    signal = _gen_timing_signal(length, channels, min_timescale, max_timescale)
+    return x + signal
