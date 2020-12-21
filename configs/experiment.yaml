@@ -6,7 +6,7 @@ experiment_info:
   seed: 10
   total_episodes: 10000
   eval_agent: True
-  eval_episodes: 10000
+  eval_episodes: 100
 
 # Logging and Graphing
 logging:
