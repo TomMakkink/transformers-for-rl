@@ -3,6 +3,7 @@ from models.actor_critic_mlp import ActorCriticMLP
 import numpy as np
 import torch
 import torch.optim as optim
+from utils import plot_grad_flow
 
 
 class A2C(Agent):
@@ -57,6 +58,7 @@ class A2C(Agent):
 
         self.optimiser.zero_grad()
         loss.backward()
+        # plot_grad_flow(self.net.named_parameters())
         self.optimiser.step()
 
         return loss.item()

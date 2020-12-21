@@ -155,22 +155,23 @@ def plot_rewards(env_id, save_dir, rolling_window=100):
 
 def plot_viz(save_dir, memory_name, env, agent, plot_frequency):
 
-    if memory_name in [
-        "Canonical",
-        "ReZero",
-        "GTrXL",
-        "TransformerXL",
-        "UniversalTransformer",
-        "Linformer",
-    ]:
-        viz_data = agent.net.memory_network.viz_data[:-1]
-        viz_attention(
-            save_dir=save_dir,
-            weights=viz_data,
-            env=env,
-            plot_frequency=plot_frequency,
-            name=memory_name,
-        )
+    # if memory_name in [
+    #     "Canonical",
+    #     "ReZero",
+    #     "GTrXL",
+    #     "TransformerXL",
+    #     "UniversalTransformer",
+    #     "Linformer",
+    #     "ACTXL",
+    # ]:
+    viz_data = agent.net.memory_network.viz_data[:-1]
+    viz_attention(
+        save_dir=save_dir,
+        weights=viz_data,
+        env=env,
+        plot_frequency=plot_frequency,
+        name=memory_name,
+    )
     # elif memory_name == "lstm":
     #     plot_lstm_gates(viz_data, env_id, agent_name, window)
     #     plot_lstm_forget_activation_heat_map(viz_data, env_id, agent_name, window)

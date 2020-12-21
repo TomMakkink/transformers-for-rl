@@ -18,7 +18,6 @@ class PositionalEncoding(nn.Module):
         encoding_type: str,
         d_model: int,
         max_len: int,
-        max_time: int = None,
     ):
         """
         Args:
@@ -33,6 +32,8 @@ class PositionalEncoding(nn.Module):
             self.encoder = RelativePositionalEncoding(d_model)
         elif encoding_type.lower() == "coordinate":
             self.encoder = CoordinateEncoding(d_model, max_len)
+        elif encoding_type.lower() == "relative_coordinate":
+            self.encoder = RelativeCoordinateEncoding(d_model)
         else:
             raise ValueError("Possible encodings are: 'relative' and 'absolute'")
 
@@ -93,6 +94,20 @@ class CoordinateEncoding(nn.Module):
         x = self.pos_encoder(x)
         x = add_timing_signal(x)
         return x
+
+
+class RelativeCoordinateEncoding(nn.Module):
+    def __init__(self, d_model: int):
+        super(RelativeCoordinateEncoding, self).__init__()
+        self.pos_encoder = RelativePositionalEncoding(d_model)
+
+    def forward(self, x, pos_seq, min_timescale=1.0, max_timescale=1.0e4, bsz=None):
+        pos_emb = self.pos_encoder(pos_seq, bsz)
+
+        length = x.shape[1]
+        channels = x.shape[2]
+        time_emb = _gen_timing_signal(length, channels, min_timescale, max_timescale)
+        return pos_emb, time_emb
 
 
 def _gen_timing_signal(length, channels, min_timescale=1.0, max_timescale=1.0e4):

@@ -10,11 +10,11 @@ class MultiHeadAttention(nn.Module):
     """
     Multi-Head Attention layer as described in "Attention is All You Need": https://arxiv.org/abs/1706.03762.
 
-    The Multi-Head Attention (MHA) submodule computes H soft-attention layers for every 
-    element in parallel. MHA operates by computing learned, linear projections of queries Q, 
+    The Multi-Head Attention (MHA) submodule computes H soft-attention layers for every
+    element in parallel. MHA operates by computing learned, linear projections of queries Q,
     keys K, and values V, which are combined and use to compute soft attention.
 
-    This implementation is strongly influenced by the official pytorch implementation.  
+    This implementation is strongly influenced by the official pytorch implementation.
     """
 
     def __init__(
@@ -27,10 +27,10 @@ class MultiHeadAttention(nn.Module):
     ):
         """
         Args:
-            d_model: number of expected features in the input. 
-            num_heads: number of attention heads. 
-            dropout: dropout layer on attention output weigths. Default: 0.0. 
-            bias: add bias as module parameter. Default: False. 
+            d_model: number of expected features in the input.
+            num_heads: number of attention heads.
+            dropout: dropout layer on attention output weigths. Default: 0.0.
+            bias: add bias as module parameter. Default: False.
         """
         super(MultiHeadAttention, self).__init__()
         self.d_model = d_model
@@ -61,13 +61,13 @@ class MultiHeadAttention(nn.Module):
 
     def forward(self, query: Tensor, key: Tensor, value: Tensor):
         """
-        Args: 
-            query, key, value: Map a query and a set of key-value pairs to an output, 
-                with shapes: 
-                    query: [target_seq_len, batch_size, dim], 
+        Args:
+            query, key, value: Map a query and a set of key-value pairs to an output,
+                with shapes:
+                    query: [target_seq_len, batch_size, dim],
                     key:   [source_seq_len, batch_size, dim],
                     value: [source_seq_len, batch_size, dim]
-        Returns: 
+        Returns:
             Attention output with shape [target_seq_len, batch_size, dim]
         """
         tgt_len, bsz, d_model = query.size()
@@ -119,9 +119,9 @@ class MultiHeadAttention(nn.Module):
 
 class RelativeMultiHeadAttention(nn.Module):
     """
-    Multi-head attention with relative positional encoding as described in the 
-    "Transformer-XL: Attentive Language Models Beyond a Fixed-Length Context": 
-    https://arxiv.org/pdf/1901.02860.pdf.  
+    Multi-head attention with relative positional encoding as described in the
+    "Transformer-XL: Attentive Language Models Beyond a Fixed-Length Context":
+    https://arxiv.org/pdf/1901.02860.pdf.
 
     This variation of MHA includes a form of ‘memory’ to solve the context fragmentation
     problem, whereby the current input is fixed and cached during training so that it can be
@@ -140,11 +140,11 @@ class RelativeMultiHeadAttention(nn.Module):
     ):
         """
         Args:
-            d_model: number of expected features in the input.  
-            num_heads: number of attention heads. 
-            dropout: dropout layer on attention output weigths. Default: 0.0. 
-            bias: add bias as module parameter. Default: False. 
-            mem_len: length of memory. 
+            d_model: number of expected features in the input.
+            num_heads: number of attention heads.
+            dropout: dropout layer on attention output weigths. Default: 0.0.
+            bias: add bias as module parameter. Default: False.
+            mem_len: length of memory.
         """
         super(RelativeMultiHeadAttention, self).__init__()
         self.d_model = d_model
@@ -188,14 +188,14 @@ class RelativeMultiHeadAttention(nn.Module):
         mem: Tensor = None,
     ):
         """
-        Args: 
+        Args:
             x: Input tensor, shape [target_seq_len, batch_size, dim]
             r: relative distance between two elements.
-            u, v: learnable parameters of model common between layers 
+            u, v: learnable parameters of model common between layers
             attn_mask: prevent model from looking forward using attention mask
             mem: fixed cache of previous hidden states, of shape: [target_seq_len, batch_size, dim]
 
-        Returns: 
+        Returns:
             Attention output with shape [target_seq_len, batch_size, dim]
         """
         qlen, rlen, bsz = x.size(0), r.size(0), x.size(1)
@@ -217,7 +217,6 @@ class RelativeMultiHeadAttention(nn.Module):
         rk = rk.view(rlen, self.num_heads, self.head_dim)
 
         # Compute attention score
-        # print(f"U: {u.grad}")
         wqu = wq + u
         wqv = wq + v
         AC = torch.einsum("ibnd,jbnd->ijbn", (wqu, wk))
@@ -370,4 +369,3 @@ def _generate_square_subsequent_mask(sz):
     mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
     mask = mask.masked_fill(mask == 0, float("-inf")).masked_fill(mask == 1, float(0.0))
     return mask
-
