@@ -59,6 +59,7 @@ def run(
             device=experiment_info.device,
         )
 
+        training_metric_save_path = f"data/training/{env_id.replace('/', '-')}_log.csv"
         agent = train_agent(
             agent=agent,
             env=env,
@@ -66,6 +67,7 @@ def run(
             max_steps_per_episode=env_cfg.max_steps_per_episode,
             logger=logger,
             log_interval=logging_cfg.log_interval,
+            save_path=training_metric_save_path,
         )
 
         if logging_cfg.plot_viz:
@@ -85,10 +87,12 @@ def run(
                 save_dir="data/eval/",
             )
 
+            eval_metric_save_path = f"data/eval/{env_id.replace('/', '-')}_log.csv"
             evaluate_agent(
                 agent=agent,
                 env=env,
                 total_episodes=experiment_info.eval_episodes,
+                save_path=eval_metric_save_path,
             )
 
             if logging_cfg.plot_viz:
@@ -104,12 +108,14 @@ def run(
 def train_agent(
     agent,
     env,
+    save_path,
     total_episodes=10000,
     max_steps_per_episode=1000,
     logger=None,
     log_interval=10,
 ):
     scores = []
+    save_metrics = []
     scores_deque = deque(maxlen=log_interval)
     loss_deque = deque(maxlen=log_interval)
 
@@ -135,14 +141,27 @@ def train_agent(
         loss_deque.append(loss)
 
         if episode % log_interval == 0:
+            ave_score = np.mean(scores_deque)
+            ave_loss = np.mean(loss_deque)
             metrics = {
-                "Average Score": np.mean(scores_deque),
-                "Loss": np.mean(loss_deque),
+                "Average Score": ave_score,
+                "Loss": ave_loss,
             }
-            if logger:
-                log_to_comet_ml(logger, metrics, step=episode)
+            # if logger:
+            #     log_to_comet_ml(logger, metrics, step=episode)
             metrics.update({"Episode": episode})
             log_to_screen(metrics)
+            save_metrics.append(np.array([episode, ave_score, ave_loss]))
+
+    save_metrics = np.array(save_metrics)
+    np.savetxt(
+        save_path,
+        save_metrics,
+        delimiter=",",
+        header="Episode, Average Score, Loss",
+        comments="",
+        fmt="%f",
+    )
 
     return agent
 
@@ -150,6 +169,7 @@ def train_agent(
 def evaluate_agent(
     agent,
     env,
+    save_path,
     total_episodes=100,
     max_steps_per_episode=1000,
     logger=None,
@@ -158,6 +178,7 @@ def evaluate_agent(
     print("Evaluating agent...")
     scores = []
     scores_deque = deque(maxlen=log_interval)
+    save_metrics = []
 
     for episode in range(1, total_episodes + 1):
         rewards = []
@@ -179,10 +200,22 @@ def evaluate_agent(
         scores_deque.append(sum(rewards))
 
         if episode % log_interval == 0:
+            ave_score = np.mean(scores_deque)
             metrics = {
-                "Average Score": np.mean(scores_deque),
+                "Average Score": ave_score,
             }
             if logger:
                 log_to_comet_ml(logger, metrics, step=episode)
             metrics.update({"Episode": episode})
             log_to_screen(metrics)
+            save_metrics.append(np.array([episode, ave_score]))
+
+    save_metrics = np.array(save_metrics)
+    np.savetxt(
+        save_path,
+        save_metrics,
+        delimiter=",",
+        header="Episode, Average Score",
+        comments="",
+        fmt="%f",
+    )
