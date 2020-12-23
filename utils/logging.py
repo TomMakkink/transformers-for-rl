@@ -1,4 +1,25 @@
 import comet_ml
+import torch
+import gc
+import sys
+import psutil
+import os
+
+
+def memReport():
+    for obj in gc.get_objects():
+        if torch.is_tensor(obj):
+            print(type(obj), obj.size())
+
+
+def cpuStats():
+    print(sys.version)
+    print(psutil.cpu_percent())
+    print(psutil.virtual_memory())  # physical memory usage
+    pid = os.getpid()
+    py = psutil.Process(pid)
+    memoryUse = py.memory_info()[0] / 2.0 ** 30  # memory use in GB...I think
+    print("memory GB:", memoryUse)
 
 
 def set_up_comet_ml(project_name, experiment_name, tags: list):

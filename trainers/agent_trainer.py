@@ -5,6 +5,7 @@ from utils import (
     log_to_screen,
     log_to_comet_ml,
     set_up_comet_ml,
+    cpuStats,
     set_random_seed,
     get_sweep_from_bsuite_id,
     build_agent,
@@ -138,6 +139,7 @@ def train_agent(
 
         scores.append(sum(rewards))
         scores_deque.append(sum(rewards))
+
         loss_deque.append(loss)
 
         if episode % log_interval == 0:
@@ -147,8 +149,8 @@ def train_agent(
                 "Average Score": ave_score,
                 "Loss": ave_loss,
             }
-            # if logger:
-            #     log_to_comet_ml(logger, metrics, step=episode)
+            if logger:
+                log_to_comet_ml(logger, metrics, step=episode)
             metrics.update({"Episode": episode})
             log_to_screen(metrics)
             save_metrics.append(np.array([episode, ave_score, ave_loss]))

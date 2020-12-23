@@ -61,7 +61,7 @@ class A2C(Agent):
         # plot_grad_flow(self.net.named_parameters())
         self.optimiser.step()
 
-        return loss.item()
+        return loss.detach().item()
 
     def reset(self):
         self.values = []
@@ -77,7 +77,7 @@ class A2C(Agent):
         self.log_probs.append(log_prob)
         self.values.append(value)
 
-        return action.item()
+        return action.detach().item()
 
     def collect_experience(self, state, action, reward, next_state, done):
         self.rewards.append(reward)

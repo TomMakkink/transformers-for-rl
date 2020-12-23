@@ -28,7 +28,7 @@ class TransformerBlock(nn.Module):
         x = y
         y = self.pos_wise_mlp(y)
         output = self.layer_norm_2(x + y)
-        return output, attn_output_weights
+        return output, attn_output_weights.detach()
 
 
 class ReZeroBlock(nn.Module):
@@ -52,7 +52,7 @@ class ReZeroBlock(nn.Module):
         y = self.pos_wise_mlp(y)
         y = y * self.resweight
         y = x + self.dropout2(y)
-        return y, attn_output_weights
+        return y, attn_output_weights.detach()
 
 
 class LinformerBlock(nn.Module):
@@ -87,7 +87,7 @@ class LinformerBlock(nn.Module):
         x = y
         y = self.pos_wise_mlp(y)
         output = self.layer_norm_2(x + y)
-        return output, attn_output_weights
+        return output, attn_output_weights.detach()
 
 
 class TransformerXLBlock(nn.Module):
@@ -124,7 +124,7 @@ class TransformerXLBlock(nn.Module):
         x = y
         y = self.pos_wise_mlp(y)
         output = self.layer_norm_2(x + y)
-        return output, attn_output_weights
+        return output, attn_output_weights.detach()
 
     def reset(self):
         pass
@@ -151,8 +151,8 @@ class GTrXLBlock(nn.Module):
             mem_len=mem_len,
         )
 
-        self.hidden_1 = torch.zeros(1, 1, d_model).to(device)
-        self.hidden_2 = torch.zeros(1, 1, d_model).to(device)
+        self.hidden_1 = torch.zeros(1, 1, d_model, device=device)
+        self.hidden_2 = torch.zeros(1, 1, d_model, device=device)
         self.gated_layer_1 = nn.GRU(d_model, d_model, num_layers=1)
         self.gated_layer_2 = nn.GRU(d_model, d_model, num_layers=1)
 
@@ -173,19 +173,18 @@ class GTrXLBlock(nn.Module):
         x = inputs
         y, attn_output_weights = self.attention(inputs, r, u, v, attn_mask, mem)
         y = self.layer_norm_1(y)
-        y, self.hidden_1 = self.gated_layer_1(x + y, self.hidden_2)
-        # y = self.gated_layer_1([x, y])
+        y, self.hidden_1 = self.gated_layer_1(x + y, self.hidden_1)
 
         # Position-wise MLP
         x = y
         y = self.layer_norm_2(y)
         y = self.pos_wise_mlp(y)
-        output, self.hidden_2 = self.gated_layer_2(x + y, self.hidden_2)
-        return output, attn_output_weights
+        y, self.hidden_2 = self.gated_layer_2(x + y, self.hidden_2)
+        return y, attn_output_weights.detach()
 
     def reset(self):
-        self.hidden_1 = torch.zeros(1, 1, self.d_model).to(self.device)
-        self.hidden_2 = torch.zeros(1, 1, self.d_model).to(self.device)
+        self.hidden_1 = torch.zeros(1, 1, self.d_model, device=self.device)
+        self.hidden_2 = torch.zeros(1, 1, self.d_model, device=self.device)
 
 
 class UniversalTransformerBlock(nn.Module):
@@ -207,7 +206,7 @@ class UniversalTransformerBlock(nn.Module):
         x = y
         y = self.pos_wise_mlp(y)
         output = self.layer_norm_2(x + y)
-        return output, attn_output_weights
+        return output, attn_output_weights.detach()
 
 
 class ReZeroXLBlock(nn.Module):
@@ -247,7 +246,7 @@ class ReZeroXLBlock(nn.Module):
         y = self.pos_wise_mlp(y)
         y = y * self.resweight
         y = x + self.dropout2(y)
-        return y, attn_output_weights
+        return y, attn_output_weights.detach()
 
     def reset(self):
         pass
@@ -301,7 +300,7 @@ class ReZeroGTrXLBlock(nn.Module):
         y = self.pos_wise_mlp(y)
         y = y * self.resweight
         output, self.hidden_2 = self.gated_layer_2(x + y, self.hidden_2)
-        return output, attn_output_weights
+        return output, attn_output_weights.detach()
 
     def reset(self):
         self.hidden_1 = torch.zeros(1, 1, self.d_model).to(self.device)
@@ -315,7 +314,7 @@ class MHA(nn.Module):
 
     def forward(self, inputs):
         y, attn_output_weights = self.attention(inputs, inputs, inputs, attn_mask=None)
-        return y, attn_output_weights
+        return y, attn_output_weights.detach()
 
 
 class LMHA(nn.Module):

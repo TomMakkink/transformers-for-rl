@@ -471,5 +471,4 @@ class ACTMemory(nn.Module):
         return core_out, attn_output_weights, new_mem
 
     def reset(self):
-        self.init_mem()
         self.submodule.reset()
