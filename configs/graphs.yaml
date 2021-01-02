@@ -1,11 +1,10 @@
 # @package _global_
-memory_models: ["TransformerXL"]
-envs: ["memory_len"]
+memory_models: ["GTrXL", "ACT_GTrXL", "ACT_ReZero_GTrXL"]
+envs: ["memory_size"]
 window: 1
 plot_bsuite: True
 plot_training: True
-plot_evaluation: False
-dir: "training"
+plot_eval: True
 
 # Default directory
 hydra:
