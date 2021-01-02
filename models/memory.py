@@ -580,3 +580,60 @@ class ACTGTrXL(nn.Module):
 
     def get_name(self):
         return self.name
+
+
+class ACT_ReZero_GTrXL(nn.Module):
+    def __init__(
+        self,
+        input_dim,
+        output_dim,
+        num_heads,
+        dim_mlp,
+        mem_len,
+        max_act_timesteps,
+        halting_threshold,
+        dropout,
+        device,
+        name,
+    ):
+        super(ACT_ReZero_GTrXL, self).__init__()
+        self.name = name
+        rezero_gtrxl_submodule = ReZeroGTrXLBlock(
+            d_model=input_dim,
+            dim_mlp=dim_mlp,
+            num_heads=num_heads,
+            mem_len=mem_len,
+            dropout=dropout,
+            device=device,
+        )
+        self.mem = None
+        self.memory = ACTMemory(
+            d_model=input_dim,
+            output_dim=output_dim,
+            num_heads=num_heads,
+            submodule=rezero_gtrxl_submodule,
+            max_act_timesteps=max_act_timesteps,
+            halting_threshold=halting_threshold,
+            mem_len=mem_len,
+            dropout=dropout,
+        )
+        self.viz_data = []
+        self.attn_output_weight = None
+
+    def forward(self, x):
+        """
+        x: shape [batch_size, seq_len, feature_dim]
+        """
+        # Transformers expect input of shape: [seq_len, batch_size, feature_dim]
+        x = x.transpose(0, 1)
+        x, self.attn_output_weight, self.mem = self.memory(x, self.mem)
+        x = x.transpose(0, 1)
+        return x
+
+    def reset(self):
+        self.viz_data.append(self.attn_output_weight)
+        self.mem = None
+        self.memory.reset()
+
+    def get_name(self):
+        return self.name
