@@ -9,7 +9,7 @@ class CustomMemoryChain(MemoryChain):
     def __init__(self, memory_length: int, num_bits: int, seed: int = 0):
         super().__init__(memory_length, num_bits, seed)
         assert (
-                memory_length >= num_bits
+            memory_length >= num_bits
         ), "Memory length must be greater than number of bits for custom Memory Chain."
         assert num_bits % 2 != 0, "Num bits must be an odd number"
 
@@ -32,13 +32,6 @@ class CustomMemoryChain(MemoryChain):
         # Show the query, on the last step
         if self._timestep == self._memory_length - 1:
             obs[0, 1] = self._query
-
-        # Show part of the context, on varied steps
-        # if self._timestep == 0:
-        #     obs_copy = obs.copy()
-        #     obs_copy[0, 2:] = 2 * self._context - 1
-            # print(f"Raw Context: {self._context}")
-            # print(f"Context Observed: {obs_copy}")
 
         # Show part of the context, on varied steps
         if self._timestep in self._context_timesteps:
@@ -84,22 +77,26 @@ class CustomMemoryChain(MemoryChain):
 
         return dm_env.restart(observation)
 
+    def get_context(self):
+        return self._context[self._query]
+
 
 def memory_preprocess(df_in: pd.DataFrame) -> pd.DataFrame:
     """Preprocess data for memory environments = regret relative to random."""
     df = df_in.copy()
-    df['perfection_regret'] = df.episode - df.total_perfect
+    df["perfection_regret"] = df.episode - df.total_perfect
     # a random agent always has 50% chance on each episode
     # independently from memory length and number of bits.
-    df['base_rate'] = 0.5
-    df['regret_ratio'] = df.perfection_regret / df.base_rate
+    df["base_rate"] = 0.5
+    df["regret_ratio"] = df.perfection_regret / df.base_rate
     return df
 
-def score(df: pd.DataFrame, group_col: str = 'custom_memory') -> float:
+
+def score(df: pd.DataFrame, group_col: str = "custom_memory") -> float:
     """Output a single score for custom_memory."""
     df = memory_preprocess(df_in=df)
     max_eps = 10000
-    ave_perfection = df.loc[df.episode == max_eps, 'regret_ratio'].mean() / max_eps
+    ave_perfection = df.loc[df.episode == max_eps, "regret_ratio"].mean() / max_eps
     return ave_perfection
 
 

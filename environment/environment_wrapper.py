@@ -11,7 +11,7 @@ class SlidingWindowEnv(Wrapper):
 
     def reset(self, **kwargs):
         """
-        Returns: 
+        Returns:
             state of shape: (window_size, features)
         """
         self.pad_obs_window(self.obs_window)
@@ -24,7 +24,7 @@ class SlidingWindowEnv(Wrapper):
 
     def step(self, action):
         """
-        Returns: 
+        Returns:
             state of shape: (window_size, features)
         """
         state, reward, done, info = self.env.step(action)
@@ -37,4 +37,6 @@ class SlidingWindowEnv(Wrapper):
 
     def pad_obs_window(self, obs_window):
         for i in range(obs_window.maxlen - 1):
-            obs_window.append(torch.zeros(self.env.observation_space.shape[1], device=self.device))
+            obs_window.append(
+                torch.zeros(self.env.observation_space.shape[1], device=self.device)
+            )

@@ -12,6 +12,7 @@ from utils import (
     build_env,
     plot_viz,
 )
+from environment.custom_memory import CustomMemoryChain
 
 
 def run(
@@ -72,12 +73,17 @@ def run(
         )
 
         if logging_cfg.plot_viz:
+            if type(env) == CustomMemoryChain:
+                context = env.get_context()
+            else:
+                context = 0
             plot_viz(
-                save_dir="plots/training/",
+                save_dir="visualisation/training/",
                 memory_name=memory_cfg.name,
                 env=env_id,
                 agent=agent,
                 plot_frequency=logging_cfg.plot_frequency,
+                context=context,
             )
 
         if experiment_info.eval_agent:
@@ -97,12 +103,17 @@ def run(
             )
 
             if logging_cfg.plot_viz:
+                if type(env) == CustomMemoryChain:
+                    context = env.get_context()
+                else:
+                    context = 0
                 plot_viz(
-                    save_dir="plots/eval/",
+                    save_dir="visualisation/eval/",
                     memory_name=memory_cfg.name,
                     env=env_id,
                     agent=agent,
                     plot_frequency=logging_cfg.plot_frequency,
+                    context=context,
                 )
 
 
@@ -143,6 +154,7 @@ def train_agent(
         loss_deque.append(loss)
 
         if episode % log_interval == 0:
+            # cpuStats()
             ave_score = np.mean(scores_deque)
             ave_loss = np.mean(loss_deque)
             metrics = {
