@@ -1,10 +1,12 @@
 # @package _global_
-memory_models: ["GTrXL", "ACT_GTrXL", "ACT_ReZero_GTrXL"]
-envs: ["memory_size"]
-window: 1
-plot_bsuite: True
-plot_training: True
-plot_eval: True
+memory_models: ["GTrXL", "TransformerXL", "ReZeroXL"]
+envs: ["memory_len/0"]
+seed: 1
+plot_bsuite: False
+plot_training: False
+plot_eval: False
+plot_attn_weights: True
+plot_frequency: 100
 
 # Default directory
 hydra:

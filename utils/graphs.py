@@ -9,9 +9,19 @@ import numpy as np
 import pandas as pd
 from utils import get_sweep_from_bsuite_id
 from environment.custom_memory import score
+import torch
+import seaborn as sns
 
 
-def get_log_data(memory_models: ListConfig, envs: ListConfig, window: int, dir: str):
+def get_log_data(
+    memory_models: ListConfig,
+    envs: ListConfig,
+    window: int,
+    file_suffix: str = "_log",
+    file_type: str = "csv",
+    dir: str = "training",
+):
+    assert file_type in ["csv", "pt"], f"File type {file_type} invalid."
     experiments = {}
 
     for env in envs:
@@ -20,10 +30,15 @@ def get_log_data(memory_models: ListConfig, envs: ListConfig, window: int, dir: 
             env_id = env_id.replace("/", "-")
             experiments[env_id] = {}
             for memory in memory_models:
-                path_to_csv = f"{window}/{memory}/data/{dir}/{env_id}_log.csv"
-                data = np.genfromtxt(
-                    path_to_csv, dtype=float, delimiter=",", names=True
+                path_to_file = (
+                    f"{window}/{memory}/data/{dir}/{env_id}{file_suffix}.{file_type}"
                 )
+                if file_type == "csv":
+                    data = np.genfromtxt(
+                        path_to_file, dtype=float, delimiter=",", names=True
+                    )
+                else:
+                    data = torch.load(path_to_file)
                 experiments[env_id][memory] = data
 
     return experiments
@@ -73,7 +88,9 @@ def plot_result_bar(x, y, xlabel: str, ylabel: str, title: str, save_dir: str):
 
 
 def plot_training_results(memory_models: ListConfig, envs: ListConfig, window: int):
-    experiments = get_log_data(memory_models, envs, window, dir="training")
+    experiments = get_log_data(
+        memory_models, envs, window, file_suffix="_log", dir="training"
+    )
 
     for env_id, training_data in experiments.items():
         x = []
@@ -99,7 +116,9 @@ def plot_training_results(memory_models: ListConfig, envs: ListConfig, window: i
 
 
 def plot_evaluation_results(memory_models: ListConfig, envs: ListConfig, window: int):
-    experiments = get_log_data(memory_models, envs, window, dir="eval")
+    experiments = get_log_data(
+        memory_models, envs, window, file_suffix="_log", dir="eval"
+    )
 
     for env_id, eval_data in experiments.items():
         x = []
@@ -187,7 +206,7 @@ def plot_custom_env(
     # y = np.repeat(LEARNING_THRESH, len(ENV_NUMS))
     # ax.plot(x, y, '--')
     # axs.legend()
-    save_dir = f"{window}/bsuite_plots/"
+    save_dir = f"{window}/plots/bsuite"
     plt.savefig(f"{save_dir}/custom_memory_scale.png")
     plt.close()
 
@@ -240,3 +259,77 @@ def plot_bsuite_graph(
             learning_analysis.save(f"{save_dir}/{env}_learning")
             scale_analysis.save(f"{save_dir}/{env}_scale")
             seeds_analysis.save(f"{save_dir}/{env}_seed")
+
+
+def plot_attention_weights(
+    memory_models: ListConfig, envs: ListConfig, window: int, plot_frequency: int
+):
+    experiments = get_log_data(
+        memory_models,
+        envs,
+        window,
+        file_suffix="_attn_weights",
+        file_type="pt",
+        dir="training",
+    )
+
+    data = []
+    for env in experiments.keys():
+        save_dir = f"{window}/plots/attn_weights/{env}/"
+        if not os.path.isdir(save_dir):
+            os.makedirs(save_dir)
+
+        for memory in experiments[env].keys():
+            for eps in range(len(experiments[env][memory])):
+                if eps % plot_frequency != 0:
+                    continue
+                for t in range(len(experiments[env][memory][eps])):
+                    w = experiments[env][memory][eps][t]
+                    data.append([env, memory, eps, t, w])
+
+    df = pd.DataFrame(
+        data,
+        columns=["env", "memory", "episode", "timestep", "attn_weight"],
+    )
+
+    for eps, eps_data in df.groupby("episode"):
+        ax = sns.barplot(x="timestep", y="attn_weight", hue="memory", data=eps_data)
+        ax.set(ylim=(0, 1))
+        ax.set_title(eps)
+        ax.set_xlabel("Time steps")
+        ax.set_ylabel("Attention Weighting")
+        fig = ax.get_figure()
+        fig.savefig(f"{save_dir}eps_{eps}_attn_weights.png")
+        plt.close()
+
+
+# def viz_attention(save_dir, weights, env, plot_frequency, name, context: list):
+#     """
+#     Weights shape: List[(layer, batch_size, target_seq, source_seq)]
+#     """
+#     env = env.replace("/", "_")
+#     save_dir = f"{save_dir}{env}/"
+#     if not os.path.isdir(save_dir):
+#         os.makedirs(save_dir)
+#
+#     for eps_num, weight in enumerate(weights):
+#         if (eps_num + 1) % plot_frequency != 0:
+#             continue
+#         print(f"Plotting episode:{eps_num + 1}")
+#
+#         w = weight[0, 0, -1, :]  # Last layer only
+#         w = w.detach().cpu().numpy()
+#         x = np.arange(w.shape[0])
+#
+#         fig, ax = plt.subplots()
+#
+#         ax.bar(x, w, color="blue")
+#         ax.get_children()[context].set_color("red")
+#         ax.set_ylim(0, 1)
+#         ax.set_ylabel("Attention weights")
+#         ax.set_xlabel("Timesteps")
+#         ax.set_title(f"{name} {env}: Episode {eps_num}")
+#         ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+#
+#         plt.savefig(save_dir + "{}_Eps_{:06d}.png".format(env, eps_num + 1))
+#         plt.close()

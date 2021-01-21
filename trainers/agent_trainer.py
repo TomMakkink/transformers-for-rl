@@ -12,7 +12,7 @@ from utils import (
     build_env,
     plot_viz,
 )
-from environment.custom_memory import CustomMemoryChain
+import torch
 
 
 def run(
@@ -72,19 +72,23 @@ def run(
             save_path=training_metric_save_path,
         )
 
-        if logging_cfg.plot_viz:
-            if type(env) == CustomMemoryChain:
-                context = env.get_context()
+        if logging_cfg.save_attn_weights:
+            if memory_cfg.name not in ["lstm"]:
+                attn_weights = agent.net.memory_network.viz_data[:-1]
+                save_attn_weights = []
+                for weight in attn_weights:
+                    w = weight[0, 0, -1, :]  # Last layer only
+                    w = w.detach().cpu().numpy()
+                    save_attn_weights.append(w)
+                save_path = f"data/training/{env_id.replace('/', '-')}_attn_weights.pt"
+                torch.save(save_attn_weights, save_path)
             else:
-                context = 0
-            plot_viz(
-                save_dir="visualisation/training/",
-                memory_name=memory_cfg.name,
-                env=env_id,
-                agent=agent,
-                plot_frequency=logging_cfg.plot_frequency,
-                context=context,
-            )
+                print(f"Attention weights not configured for {memory_cfg.name}")
+
+            # if env_id.startswith("memory_custom"):
+            #     context = env.get_context()
+            # else:
+            #     context = 0
 
         if experiment_info.eval_agent:
             env = build_env(
@@ -93,7 +97,7 @@ def run(
                 device=experiment_info.device,
                 save_dir="data/eval/",
             )
-
+            agent.net.memory_network.viz_data = []
             eval_metric_save_path = f"data/eval/{env_id.replace('/', '-')}_log.csv"
             evaluate_agent(
                 agent=agent,
@@ -102,19 +106,18 @@ def run(
                 save_path=eval_metric_save_path,
             )
 
-            if logging_cfg.plot_viz:
-                if type(env) == CustomMemoryChain:
-                    context = env.get_context()
+            if logging_cfg.save_attn_weights:
+                if memory_cfg.name not in ["lstm"]:
+                    attn_weights = agent.net.memory_network.viz_data[:-1]
+                    save_attn_weights = []
+                    for weight in attn_weights:
+                        w = weight[0, 0, -1, :]  # Last layer only
+                        w = w.detach().cpu().numpy()
+                        save_attn_weights.append(w)
+                    save_path = f"data/eval/{env_id.replace('/', '-')}_attn_weights.pt"
+                    torch.save(save_attn_weights, save_path)
                 else:
-                    context = 0
-                plot_viz(
-                    save_dir="visualisation/eval/",
-                    memory_name=memory_cfg.name,
-                    env=env_id,
-                    agent=agent,
-                    plot_frequency=logging_cfg.plot_frequency,
-                    context=context,
-                )
+                    print(f"Attention weights not configured for {memory_cfg.name}")
 
 
 def train_agent(
@@ -164,7 +167,7 @@ def train_agent(
             if logger:
                 log_to_comet_ml(logger, metrics, step=episode)
             metrics.update({"Episode": episode})
-            log_to_screen(metrics)
+            # log_to_screen(metrics)
             save_metrics.append(np.array([episode, ave_score, ave_loss]))
 
     save_metrics = np.array(save_metrics)
