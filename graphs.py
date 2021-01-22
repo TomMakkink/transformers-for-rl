@@ -12,19 +12,19 @@ from utils import (
 def main(cfg: DictConfig):
     if cfg.plot_bsuite:
         print("Plotting bsuite...")
-        plot_bsuite_graph(cfg.memory_models, cfg.envs, cfg.window, "training")
+        plot_bsuite_graph(cfg.memory_models, cfg.envs, cfg.seed, "training")
     if cfg.plot_training:
         print("Plotting training...")
-        plot_training_results(cfg.memory_models, cfg.envs, window=cfg.window)
+        plot_training_results(cfg.memory_models, cfg.envs, seed=cfg.seed)
     if cfg.plot_eval:
         print("Plotting evaluation...")
-        plot_evaluation_results(cfg.memory_models, cfg.envs, window=cfg.window)
+        plot_evaluation_results(cfg.memory_models, cfg.envs, seed=cfg.seed)
     if cfg.plot_attn_weights:
         print("Plotting attention weights...")
         plot_attention_weights(
             cfg.memory_models,
             cfg.envs,
-            window=cfg.window,
+            seed=cfg.seed,
             plot_frequency=cfg.plot_frequency,
         )
 

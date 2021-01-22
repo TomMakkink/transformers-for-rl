@@ -16,7 +16,7 @@ import seaborn as sns
 def get_log_data(
     memory_models: ListConfig,
     envs: ListConfig,
-    window: int,
+    seed: int,
     file_suffix: str = "_log",
     file_type: str = "csv",
     dir: str = "training",
@@ -31,7 +31,7 @@ def get_log_data(
             experiments[env_id] = {}
             for memory in memory_models:
                 path_to_file = (
-                    f"{window}/{memory}/data/{dir}/{env_id}{file_suffix}.{file_type}"
+                    f"{seed}/{memory}/data/{dir}/{env_id}{file_suffix}.{file_type}"
                 )
                 if file_type == "csv":
                     data = np.genfromtxt(
@@ -87,9 +87,9 @@ def plot_result_bar(x, y, xlabel: str, ylabel: str, title: str, save_dir: str):
     plt.close()
 
 
-def plot_training_results(memory_models: ListConfig, envs: ListConfig, window: int):
+def plot_training_results(memory_models: ListConfig, envs: ListConfig, seed: int):
     experiments = get_log_data(
-        memory_models, envs, window, file_suffix="_log", dir="training"
+        memory_models, envs, seed, file_suffix="_log", dir="training"
     )
 
     for env_id, training_data in experiments.items():
@@ -103,7 +103,7 @@ def plot_training_results(memory_models: ListConfig, envs: ListConfig, window: i
             loss.append(results["Loss"])
             y_labels.append(memory_model)
 
-        save_dir = f"{window}/plots/training/"
+        save_dir = f"{seed}/plots/training/"
         plot_result_curve(
             x,
             y=ave_score,
@@ -115,9 +115,9 @@ def plot_training_results(memory_models: ListConfig, envs: ListConfig, window: i
         )
 
 
-def plot_evaluation_results(memory_models: ListConfig, envs: ListConfig, window: int):
+def plot_evaluation_results(memory_models: ListConfig, envs: ListConfig, seed: int):
     experiments = get_log_data(
-        memory_models, envs, window, file_suffix="_log", dir="eval"
+        memory_models, envs, seed, file_suffix="_log", dir="eval"
     )
 
     for env_id, eval_data in experiments.items():
@@ -129,7 +129,7 @@ def plot_evaluation_results(memory_models: ListConfig, envs: ListConfig, window:
             y.append(results["Average_Score"])
             y_labels.append(memory_model)
 
-        save_dir = f"{window}/plots/eval/"
+        save_dir = f"{seed}/plots/eval/"
 
         plot_result_bar(
             x,
@@ -157,14 +157,14 @@ def plot_custom_env_score(save, names, regret_list, learning_threshold):
 
 def plot_custom_env(
     memory_models: ListConfig,
-    window: int,
+    seed: int,
     dir: str,
 ):
     env_nums = list(map(str, range(13)))
     experiments = {}
     learning_threshold = 0.75
     for memory in memory_models:
-        experiments[memory] = f"{window}/{memory}/data/{dir}/"
+        experiments[memory] = f"{seed}/{memory}/data/{dir}/"
 
     fig, axs = plt.subplots(3, 3, sharey=True, figsize=(16, 16))
     x = np.arange(len(env_nums))
@@ -206,7 +206,7 @@ def plot_custom_env(
     # y = np.repeat(LEARNING_THRESH, len(ENV_NUMS))
     # ax.plot(x, y, '--')
     # axs.legend()
-    save_dir = f"{window}/plots/bsuite"
+    save_dir = f"{seed}/plots/bsuite"
     plt.savefig(f"{save_dir}/custom_memory_scale.png")
     plt.close()
 
@@ -216,16 +216,16 @@ def plot_custom_env(
 def plot_bsuite_graph(
     memory_models: ListConfig,
     envs: ListConfig,
-    window: int,
+    seed: int,
     dir: str,
 ):
     if "memory_custom" in envs:
-        plot_custom_env(memory_models, window, dir)
+        plot_custom_env(memory_models, seed, dir)
         envs.remove("memory_custom")
 
     experiment = {}
     for memory in memory_models:
-        experiment[memory] = f"{window}/{memory}/data/{dir}/"
+        experiment[memory] = f"{seed}/{memory}/data/{dir}/"
 
     DF, SWEEP_VARS = csv_load.load_bsuite(experiment)
     BSUITE_SCORE = summary_analysis.bsuite_score(DF, SWEEP_VARS)
@@ -234,7 +234,7 @@ def plot_bsuite_graph(
         # Plots specialized to the experiment
         result = summary_analysis.plot_single_experiment(BSUITE_SCORE, env, SWEEP_VARS)
 
-        save_dir = f"{window}/plots/bsuite"
+        save_dir = f"{seed}/plots/bsuite"
 
         if not os.path.isdir(save_dir):
             os.makedirs(save_dir)
@@ -262,12 +262,12 @@ def plot_bsuite_graph(
 
 
 def plot_attention_weights(
-    memory_models: ListConfig, envs: ListConfig, window: int, plot_frequency: int
+    memory_models: ListConfig, envs: ListConfig, seed: int, plot_frequency: int
 ):
     experiments = get_log_data(
         memory_models,
         envs,
-        window,
+        seed,
         file_suffix="_attn_weights",
         file_type="pt",
         dir="training",
@@ -275,7 +275,7 @@ def plot_attention_weights(
 
     data = []
     for env in experiments.keys():
-        save_dir = f"{window}/plots/attn_weights/{env}/"
+        save_dir = f"{seed}/plots/attn_weights/{env}/"
         if not os.path.isdir(save_dir):
             os.makedirs(save_dir)
 
@@ -301,35 +301,3 @@ def plot_attention_weights(
         fig = ax.get_figure()
         fig.savefig(f"{save_dir}eps_{eps}_attn_weights.png")
         plt.close()
-
-
-# def viz_attention(save_dir, weights, env, plot_frequency, name, context: list):
-#     """
-#     Weights shape: List[(layer, batch_size, target_seq, source_seq)]
-#     """
-#     env = env.replace("/", "_")
-#     save_dir = f"{save_dir}{env}/"
-#     if not os.path.isdir(save_dir):
-#         os.makedirs(save_dir)
-#
-#     for eps_num, weight in enumerate(weights):
-#         if (eps_num + 1) % plot_frequency != 0:
-#             continue
-#         print(f"Plotting episode:{eps_num + 1}")
-#
-#         w = weight[0, 0, -1, :]  # Last layer only
-#         w = w.detach().cpu().numpy()
-#         x = np.arange(w.shape[0])
-#
-#         fig, ax = plt.subplots()
-#
-#         ax.bar(x, w, color="blue")
-#         ax.get_children()[context].set_color("red")
-#         ax.set_ylim(0, 1)
-#         ax.set_ylabel("Attention weights")
-#         ax.set_xlabel("Timesteps")
-#         ax.set_title(f"{name} {env}: Episode {eps_num}")
-#         ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-#
-#         plt.savefig(save_dir + "{}_Eps_{:06d}.png".format(env, eps_num + 1))
-#         plt.close()

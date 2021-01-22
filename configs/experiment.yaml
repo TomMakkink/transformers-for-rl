@@ -3,7 +3,7 @@ experiment_info:
   project_name: "transformers-for-rl"
   experiment_name: ${memory.name}_${env.name}
   device: "cpu"
-  seed: 10
+  seed: 5
   total_episodes: 10000
   eval_agent: True
   eval_episodes: 100
@@ -12,12 +12,11 @@ experiment_info:
 logging:
   use_comet: False
   log_interval: 100
-  plot_viz: False
-  plot_frequency: 100
+  save_attn_weights: True
 
 # Environment Info
 env:
-  name: "memory_custom"
+  name: "memory_size/5"
   max_steps_per_episode: 1000
   window: 1
   device: ${experiment_info.device}
@@ -25,8 +24,8 @@ env:
 # Save directory for logs, data, and graphs
 hydra:
   run:
-    dir: results/${env.window}/${memory.name}/
+    dir: results/${experiment_info.seed}/${memory.name}/
 
 defaults:
   - agent: a2c
-  - memory: act_rezero_gtrxl
+  - memory: gtrxl
