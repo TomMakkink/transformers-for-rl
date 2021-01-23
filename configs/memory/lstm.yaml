@@ -1,5 +1,5 @@
 # @package _group_
 _target_: models.memory.LSTM
 name: lstm
-hidden_dim: 64
+hidden_dim: 32
 num_layers: 1

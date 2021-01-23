@@ -19,20 +19,27 @@ from transformers.transformer_submodules import (
 
 
 class LSTM(nn.Module):
-    def __init__(self, input_dim, hidden_dim, **kwargs):
+    def __init__(self, input_dim, output_dim, hidden_dim, num_layers, name, **kwargs):
         super(LSTM, self).__init__()
-        self.memory = CustomLSTM(input_size=input_dim, hidden_size=hidden_dim)
+        self.memory = nn.LSTM(
+            input_size=input_dim, hidden_size=hidden_dim, num_layers=num_layers
+        )
         self.hidden = None
+        self.out_layer = nn.Linear(hidden_dim, output_dim)
+        self.name = name
 
     def forward(self, x):
         """
         x: shape [batch_size, seq_len, feature_dim]
         """
-        x, self.hidden, viz_data = self.memory(x, self.hidden)
-        return x
+        x, self.hidden = self.memory(x, self.hidden)
+        return self.out_layer(x)
 
     def reset(self):
         self.hidden = None
+
+    def get_name(self):
+        return self.name
 
 
 class Canonical(nn.Module):
