@@ -1,4 +1,6 @@
 import os
+from typing import List, Optional
+
 from omegaconf import ListConfig
 from bsuite.logging import csv_load
 from bsuite.experiments import summary_analysis
@@ -44,101 +46,82 @@ def get_log_data(
     return experiments
 
 
-def plot_result_curve(
-    x: list,
-    y: list,
-    y_labels: list,
-    x_axis_label: str,
-    y_axis_label: str,
-    title: str,
-    save_dir: str,
+def get_experiments_df(
+    memory_models: ListConfig,
+    envs: ListConfig,
+    seeds: ListConfig,
+    dir: str,
+    column_names: Optional[List] = None,
 ):
-    fig, ax = plt.subplots()
+    df_data = []
+    for seed in seeds:
+        for memory in memory_models:
+            for env_id in envs:
+                env_id = env_id.replace("/", "-")
+                path_to_file = f"{seed}/{memory}/data/{dir}/{env_id}_log.csv"
+                data = pd.read_csv(
+                    path_to_file,
+                    names=column_names,
+                    index_col=None,
+                    header=0,
+                )
+                data["Memory"] = memory
+                data["Environment"] = env_id
+                df_data.append(data)
+    df = pd.concat(df_data, axis=0, ignore_index=True)
+    return df
 
-    for x_data, y_data, label in zip(x, y, y_labels):
-        ax.plot(x_data, y_data, label=label)
 
-    ax.set(xlabel=x_axis_label, ylabel=y_axis_label, title=title)
-    ax.grid()
-    ax.grid(b=True, which="major")
-    ax.legend()
+def plot_training_results(
+    memory_models: ListConfig, envs: ListConfig, seeds: List[int]
+):
+    experiments = get_experiments_df(
+        memory_models,
+        envs,
+        seeds,
+        dir="training",
+        column_names=["Episode", "Average_Score", "Loss"],
+    )
 
+    save_dir = f"plots/training/"
     if not os.path.isdir(save_dir):
         os.makedirs(save_dir)
 
-    save_path = f"{save_dir}{title.replace(' ', '_')}.png"
-    fig.savefig(save_path)
-    plt.close()
+    for env_id, env_data in experiments.groupby("Environment"):
+        ax = sns.lineplot(data=env_data, x="Episode", y="Average_Score", hue="Memory")
+        # ax.set(ylim=(-1, 1))
+        ax.set_title(env_id)
+        ax.set_xlabel("Episode")
+        ax.set_ylabel("Average Score")
+        fig = ax.get_figure()
+        fig.savefig(f"{save_dir}{env_id}_training.png")
+        plt.close()
 
 
-def plot_result_bar(x, y, xlabel: str, ylabel: str, title: str, save_dir: str):
-    fig, ax = plt.subplots()
-    ax.bar(x, y)
-    ax.set(xlabel=xlabel, ylabel=ylabel, title=title)
-    ax.grid()
-    ax.grid(b=True, which="major")
-    ax.set_ylim([0, 1])
+def plot_evaluation_results(
+    memory_models: ListConfig, envs: ListConfig, seeds: List[int]
+):
+    experiments = get_experiments_df(
+        memory_models,
+        envs,
+        seeds,
+        dir="eval",
+        column_names=["Episode", "Average_Score"],
+    )
 
+    save_dir = f"plots/eval/"
     if not os.path.isdir(save_dir):
         os.makedirs(save_dir)
 
-    save_path = f"{save_dir}{title.replace(' ', '_')}.png"
-    fig.savefig(save_path)
-    plt.close()
-
-
-def plot_training_results(memory_models: ListConfig, envs: ListConfig, seed: int):
-    experiments = get_log_data(
-        memory_models, envs, seed, file_suffix="_log", dir="training"
-    )
-
-    for env_id, training_data in experiments.items():
-        x = []
-        ave_score = []
-        loss = []
-        y_labels = []
-        for memory_model, results in training_data.items():
-            x.append(results["Episode"])
-            ave_score.append(results["Average_Score"])
-            loss.append(results["Loss"])
-            y_labels.append(memory_model)
-
-        save_dir = f"{seed}/plots/training/"
-        plot_result_curve(
-            x,
-            y=ave_score,
-            y_labels=y_labels,
-            x_axis_label="Episodes",
-            y_axis_label="Average Score",
-            title=f"{env_id} Training",
-            save_dir=save_dir,
-        )
-
-
-def plot_evaluation_results(memory_models: ListConfig, envs: ListConfig, seed: int):
-    experiments = get_log_data(
-        memory_models, envs, seed, file_suffix="_log", dir="eval"
-    )
-
-    for env_id, eval_data in experiments.items():
-        x = []
-        y = []
-        y_labels = []
-        for memory_model, results in eval_data.items():
-            x.append(memory_model)
-            y.append(results["Average_Score"])
-            y_labels.append(memory_model)
-
-        save_dir = f"{seed}/plots/eval/"
-
-        plot_result_bar(
-            x,
-            y,
-            "Memory Models",
-            "Average Score",
-            title=f"{env_id} Evaluation",
-            save_dir=save_dir,
-        )
+    for env_id, env_data in experiments.groupby("Environment"):
+        ax = sns.barplot(data=env_data, x="Episode", y="Average_Score", hue="Memory")
+        # ax.set(ylim=(-1, 1))
+        ax.set_title(env_id)
+        ax.set_xlabel("Episode")
+        ax.set_ylabel("Average Score")
+        fig = ax.get_figure()
+        fig.savefig(f"{save_dir}{env_id}_eval.png")
+        plt.close()
 
 
 def plot_custom_env_score(save, names, regret_list, learning_threshold):
@@ -262,42 +245,43 @@ def plot_bsuite_graph(
 
 
 def plot_attention_weights(
-    memory_models: ListConfig, envs: ListConfig, seed: int, plot_frequency: int
+    memory_models: ListConfig, envs: ListConfig, seeds: List[int], plot_frequency: int
 ):
-    experiments = get_log_data(
-        memory_models,
-        envs,
-        seed,
-        file_suffix="_attn_weights",
-        file_type="pt",
-        dir="training",
-    )
+    for seed in seeds:
+        experiments = get_log_data(
+            memory_models,
+            envs,
+            seed,
+            file_suffix="_attn_weights",
+            file_type="pt",
+            dir="training",
+        )
 
-    data = []
-    for env in experiments.keys():
-        save_dir = f"{seed}/plots/attn_weights/{env}/"
-        if not os.path.isdir(save_dir):
-            os.makedirs(save_dir)
+        data = []
+        for env in experiments.keys():
+            save_dir = f"{seed}/plots/attn_weights/{env}/"
+            if not os.path.isdir(save_dir):
+                os.makedirs(save_dir)
 
-        for memory in experiments[env].keys():
-            for eps in range(len(experiments[env][memory])):
-                if eps % plot_frequency != 0:
-                    continue
-                for t in range(len(experiments[env][memory][eps])):
-                    w = experiments[env][memory][eps][t]
-                    data.append([env, memory, eps, t, w])
+            for memory in experiments[env].keys():
+                for eps in range(len(experiments[env][memory])):
+                    if eps % plot_frequency != 0:
+                        continue
+                    for t in range(len(experiments[env][memory][eps])):
+                        w = experiments[env][memory][eps][t]
+                        data.append([env, memory, eps, t, w])
 
-    df = pd.DataFrame(
-        data,
-        columns=["env", "memory", "episode", "timestep", "attn_weight"],
-    )
+        df = pd.DataFrame(
+            data,
+            columns=["env", "memory", "episode", "timestep", "attn_weight"],
+        )
 
-    for eps, eps_data in df.groupby("episode"):
-        ax = sns.barplot(x="timestep", y="attn_weight", hue="memory", data=eps_data)
-        ax.set(ylim=(0, 1))
-        ax.set_title(eps)
-        ax.set_xlabel("Time steps")
-        ax.set_ylabel("Attention Weighting")
-        fig = ax.get_figure()
-        fig.savefig(f"{save_dir}eps_{eps}_attn_weights.png")
-        plt.close()
+        for eps, eps_data in df.groupby("episode"):
+            ax = sns.barplot(x="timestep", y="attn_weight", hue="memory", data=eps_data)
+            ax.set(ylim=(0, 1))
+            ax.set_title(eps)
+            ax.set_xlabel("Time steps")
+            ax.set_ylabel("Attention Weighting")
+            fig = ax.get_figure()
+            fig.savefig(f"{save_dir}eps_{eps}_attn_weights.png")
+            plt.close()
