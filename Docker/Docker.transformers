@@ -1,0 +1,10 @@
+FROM pytorch/pytorch
+
+RUN apt-get update
+RUN apt-get install -y --reinstall build-essential
+RUN apt-get install -y libopenmpi-dev swig
+
+RUN python -m pip install gym['Box2D']
+RUN python -m pip install bsuite
+RUN python -m pip install seaborn
+RUN python -m pip install hydra-core --upgrade
