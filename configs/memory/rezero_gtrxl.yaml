@@ -1,0 +1,9 @@
+# @package _group_
+_target_: models.memory.ReZeroGTrXL
+name: ReZero_GTrXL
+num_heads: 1
+num_layers: 8
+dim_mlp: 32
+dropout: 0.0
+mem_len: 100
+device: ${experiment_info.device}

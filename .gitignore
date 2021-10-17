@@ -1,0 +1,18 @@
+*.pyc
+runs/
+video/
+results/
+graphs/
+plots/
+.vscode/
+.comet.config
+.pytype
+.DS_Store
+.idea
+.ipynb_checkpoints
+
+# Hydra 
+hydra.yaml 
+config.yaml
+experiment.log 
+overrides.yaml

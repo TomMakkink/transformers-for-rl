@@ -1,0 +1,10 @@
+# @package _group_
+_target_: models.memory.UniversalTransformer
+name: UniversalTransformer
+num_heads: 1
+dim_mlp: 32
+dropout: 0.0
+max_sequence_length: ${env.window}
+max_act_timesteps: 6
+halting_threshold: 0.9
+

@@ -1,0 +1,10 @@
+# @package _group_
+_target_: models.memory.ACTGTrXL
+name: ACT_GTrXL
+num_heads: 1
+dim_mlp: 32
+dropout: 0.0
+max_act_timesteps: 6
+halting_threshold: 0.9
+mem_len: 100
+device: ${experiment_info.device}

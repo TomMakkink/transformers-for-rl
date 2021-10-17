@@ -1,0 +1,31 @@
+# @package _global_
+experiment_info:
+  project_name: "transformers-for-rl"
+  experiment_name: ${memory.name}_${env.name}
+  device: "cpu"
+  seed: 60
+  total_episodes: 10000
+  eval_agent: True
+  eval_episodes: 100
+
+# Logging and Graphing
+logging:
+  use_comet: False
+  log_interval: 100
+  save_attn_weights: False
+
+# Environment Info
+env:
+  name: "memory_size/4"
+  max_steps_per_episode: 1000
+  window: 1
+  device: ${experiment_info.device}
+
+# Save directory for logs, data, and graphs
+hydra:
+  run:
+    dir: results/${experiment_info.seed}/${memory.name}/
+
+defaults:
+  - agent: a2c
+  - memory: gtrxl
