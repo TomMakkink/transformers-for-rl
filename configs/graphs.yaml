@@ -1,14 +1,15 @@
 # @package _global_
-memory_models: ["GTrXL", "TransformerXL", "ReZeroXL"]
-envs: ["memory_len/0"]
-seed: 1
+memory_models: ["LSTM", "GTrXL", "Integrated Transformer", "Universal Transformer", "ReZero", "Transformer-XL"]
+envs: ["memory_custom"]
+seeds: [4, 5, 10] #, 92, 82, 35, 31, 79, 86, 24, 88, 55, 16, 90, 30, 60, 64, 42, 75, 83, 11, 52, 61, 57, 94, 39, 47, 49, 65, 81]
 plot_bsuite: False
 plot_training: False
-plot_eval: False
-plot_attn_weights: True
+plot_eval: True
+plot_attn_weights: False
 plot_frequency: 100
 
 # Default directory
 hydra:
   run:
     dir: results/
+

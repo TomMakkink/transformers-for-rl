@@ -11,6 +11,7 @@ from utils import (
     build_agent,
     build_env,
     plot_viz,
+    get_number_of_trainable_parameters,
 )
 import torch
 
@@ -61,6 +62,8 @@ def run(
             device=experiment_info.device,
         )
 
+        # params = get_number_of_trainable_parameters(agent.net)
+        # print(f"Number of trainable parameters: {params}")
         training_metric_save_path = f"data/training/{env_id.replace('/', '-')}_log.csv"
         agent = train_agent(
             agent=agent,
@@ -84,11 +87,6 @@ def run(
                 torch.save(save_attn_weights, save_path)
             else:
                 print(f"Attention weights not configured for {memory_cfg.name}")
-
-            # if env_id.startswith("memory_custom"):
-            #     context = env.get_context()
-            # else:
-            #     context = 0
 
         if experiment_info.eval_agent:
             env = build_env(

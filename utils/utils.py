@@ -15,6 +15,12 @@ from bsuite.logging.csv_logging import Logger
 from bsuite import sweep
 
 
+def get_number_of_trainable_parameters(model):
+    model_parameters = filter(lambda p: p.requires_grad, model.parameters())
+    params = sum([np.prod(p.size()) for p in model_parameters])
+    return params
+
+
 def plot_grad_flow(named_parameters):
     ave_grads = []
     layers = []

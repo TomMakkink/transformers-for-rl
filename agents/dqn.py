@@ -13,7 +13,16 @@
 #
 #
 # class DQN(Agent):
-#     def __init__(self, state_size, action_size, device, lr, buffer_size, hidden_size=[50, 50], memory=None):
+#     def __init__(
+#         self,
+#         state_size,
+#         action_size,
+#         device,
+#         lr,
+#         buffer_size,
+#         hidden_size=[50, 50],
+#         memory=None,
+#     ):
 #         super(DQN, self).__init__(state_size, action_size, hidden_size, memory)
 #         self.device = device
 #         self.policy_net = MLP(
@@ -59,10 +68,7 @@
 #         for param, target_param in zip(
 #             self.policy_net.parameters(), self.target_network.parameters()
 #         ):
-#             target_param.data.copy_(
-#                 tau * param.data
-#                 + (1 - tau) * target_param.data
-#             )
+#             target_param.data.copy_(tau * param.data + (1 - tau) * target_param.data)
 #
 #     def calculate_epsilon(self):
 #         # return dqn_config["epsilon"]["final"] + (

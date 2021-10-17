@@ -3,7 +3,7 @@ experiment_info:
   project_name: "transformers-for-rl"
   experiment_name: ${memory.name}_${env.name}
   device: "cpu"
-  seed: 5
+  seed: 60
   total_episodes: 10000
   eval_agent: True
   eval_episodes: 100
@@ -12,11 +12,11 @@ experiment_info:
 logging:
   use_comet: False
   log_interval: 100
-  save_attn_weights: True
+  save_attn_weights: False
 
 # Environment Info
 env:
-  name: "memory_size/5"
+  name: "memory_size/4"
   max_steps_per_episode: 1000
   window: 1
   device: ${experiment_info.device}

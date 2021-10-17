@@ -9,6 +9,7 @@ plots/
 .pytype
 .DS_Store
 .idea
+.ipynb_checkpoints
 
 # Hydra 
 hydra.yaml 
